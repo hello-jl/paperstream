@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" compressed="false">
+  <diagram id="paperstream_example" name="论文关系示例（虚构）">
+    <mxGraphModel grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1000" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="example_title" value="论文关系示例（虚构内容）&#xa;选中节点或连线，通过 Edit Data 编辑属性" style="text;html=0;align=center;verticalAlign=middle;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="180" y="30" width="600" height="60" as="geometry" />
+        </mxCell>
+        <UserObject id="paper_001" alias="基础方法" takeaway="提出这组工作的共同出发点。" label="%alias%&#xa;%takeaway%" placeholders="1">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=0;fillColor=#E9E7FA;strokeColor=#A39AC6;fontColor=#252332;fontSize=14;spacing=12;" vertex="1" parent="1">
+            <mxGeometry x="360" y="130" width="240" height="90" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject id="paper_002" alias="降低成本" takeaway="用较少资源完成原有任务。" label="%alias%&#xa;%takeaway%" placeholders="1">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=0;fillColor=#E9E7FA;strokeColor=#A39AC6;fontColor=#252332;fontSize=14;spacing=12;" vertex="1" parent="1">
+            <mxGeometry x="130" y="340" width="240" height="90" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject id="paper_003" alias="提高精度" takeaway="通过新增步骤改善结果。" label="%alias%&#xa;%takeaway%" placeholders="1">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=0;fillColor=#E9E7FA;strokeColor=#A39AC6;fontColor=#252332;fontSize=14;spacing=12;" vertex="1" parent="1">
+            <mxGeometry x="590" y="340" width="240" height="90" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject id="paper_004" alias="结合两种改进" takeaway="同时考虑资源消耗和结果精度。" label="%alias%&#xa;%takeaway%" placeholders="1">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=0;fillColor=#E9E7FA;strokeColor=#A39AC6;fontColor=#252332;fontSize=14;spacing=12;" vertex="1" parent="1">
+            <mxGeometry x="360" y="550" width="240" height="90" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject id="relation_001" relation="简化计算步骤" label="%relation%" placeholders="1">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#666666;fontColor=#365C38;fontSize=13;labelBackgroundColor=#F0FAED;" edge="1" parent="1" source="paper_001" target="paper_002">
+            <mxGeometry relative="1" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject id="relation_002" relation="增加改进步骤" label="%relation%" placeholders="1">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#666666;fontColor=#365C38;fontSize=13;labelBackgroundColor=#F0FAED;" edge="1" parent="1" source="paper_001" target="paper_003">
+            <mxGeometry relative="1" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject id="relation_003" relation="保留低成本设计" label="%relation%" placeholders="1">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#666666;fontColor=#365C38;fontSize=13;labelBackgroundColor=#F0FAED;" edge="1" parent="1" source="paper_002" target="paper_004">
+            <mxGeometry relative="1" as="geometry" />
+          </mxCell>
+        </UserObject>
+        <UserObject id="relation_004" relation="吸收精度改进" label="%relation%" placeholders="1">
+          <mxCell style="edgeStyle=none;rounded=0;html=0;endArrow=block;endFill=1;strokeColor=#666666;fontColor=#365C38;fontSize=13;labelBackgroundColor=#F0FAED;" edge="1" parent="1" source="paper_003" target="paper_004">
+            <mxGeometry relative="1" as="geometry" />
+          </mxCell>
+        </UserObject>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

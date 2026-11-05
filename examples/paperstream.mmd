@@ -1,0 +1,25 @@
+flowchart TD
+    %% 虚构示例，仅用于演示文档结构。
+    %% 节点标签：首行 alias，其余行 takeaway；边标签：relation。
+    %% paper_ 加固定编号标识节点；relation_ 加固定编号标识边。
+
+    %% paperstream: name paper_001 "A Foundational Method for the Example Task"
+    paper_001["`**基础方法**
+提出这组工作的共同出发点。`"]
+
+    %% paperstream: name paper_002 "A Lower-Cost Method for the Example Task"
+    paper_002["`**降低成本**
+用较少资源完成原有任务。`"]
+
+    %% paperstream: name paper_003 "An Accuracy Improvement for the Example Task"
+    paper_003["`**提高精度**
+通过新增步骤改善结果。`"]
+
+    %% paperstream: name paper_004 "Combining Cost and Accuracy Improvements for the Example Task"
+    paper_004["`**结合两种改进**
+同时考虑资源消耗和结果精度。`"]
+
+    paper_001 relation_001@-->|"简化计算步骤"| paper_002
+    paper_001 relation_002@-->|"增加改进步骤"| paper_003
+    paper_002 relation_003@-->|"保留低成本设计"| paper_004
+    paper_003 relation_004@-->|"吸收精度改进"| paper_004
