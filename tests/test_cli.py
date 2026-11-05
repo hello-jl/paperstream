@@ -72,6 +72,10 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(nodes["paper_001"]["takeaway"], "第一行\n第二行")
         self.assertIsNone(nodes["paper_001"]["name"])
         self.assertIsNone(nodes["paper_002"]["name"])
+        self.assertIsNone(nodes["paper_001"]["url"])
+        self.assertIsNone(nodes["paper_001"]["year"])
+        self.assertIsNone(nodes["paper_002"]["url"])
+        self.assertIsNone(nodes["paper_002"]["year"])
         self.assertEqual(shown["edges"][0]["relation"], "更明确的关系")
         self.assertTrue(self.success("validate", self.path)["valid"])
         self.assertEqual(self.path.read_bytes(), before)
@@ -163,7 +167,7 @@ class CommandLineTests(unittest.TestCase):
         )
         self.assertEqual(updated["node"], {
             "id": "paper_001", "alias": "简短名称", "takeaway": "第一行\n第二行",
-            "name": "Corrected Original Title",
+            "name": "Corrected Original Title", "url": None, "year": None,
         })
         self.success("update-node", self.path, "paper_001", "--alias", "另一个简称")
         reloaded = self.success("show", self.path)["nodes"][0]
@@ -186,6 +190,66 @@ class CommandLineTests(unittest.TestCase):
                     "update-node", self.path, "paper_001", "--name", invalid
                 )
                 self.assertEqual(error["error"], "ValidationError")
+                self.assertEqual(self.path.read_bytes(), before)
+
+    def test_url_and_year_can_be_updated_independently(self) -> None:
+        self.success("init", self.path)
+        added = self.success(
+            "add-node", self.path, "--id", "paper_001",
+            "--alias", "简称", "--takeaway", "要点", "--name", "Full Paper Title",
+            "--url", "https://example.org/paper?id=1&version=2", "--year", "2024",
+        )["node"]
+        self.assertEqual(added, {
+            "id": "paper_001", "alias": "简称", "takeaway": "要点", "name": "Full Paper Title",
+            "url": "https://example.org/paper?id=1&version=2", "year": 2024,
+        })
+        self.assertEqual(self.success("show", self.path)["nodes"][0], added)
+        changed_url = self.success(
+            "update-node", self.path, "paper_001", "--url", "http://example.org/new-paper"
+        )["node"]
+        self.assertEqual(changed_url, {**added, "url": "http://example.org/new-paper"})
+        changed_year = self.success(
+            "update-node", self.path, "paper_001", "--year", "2025"
+        )["node"]
+        self.assertEqual(changed_year, {**changed_url, "year": 2025})
+        self.assertEqual(self.success("show", self.path)["nodes"][0], changed_year)
+
+    def test_invalid_urls_and_year_ranges_never_change_file(self) -> None:
+        self.create_pair()
+        before = self.path.read_bytes()
+        invalid_values = [
+            ("--url", ""), ("--url", "relative/paper"), ("--url", "ftp://example.org/paper"),
+            ("--url", "https:///paper"), ("--url", "https://example.org/a b"),
+            ("--url", "https://example.org/a\nb"), ("--url", "https://example.org/a\\b"),
+            ("--year", "0"), ("--year", "-1"), ("--year", "10000"),
+        ]
+        for option, invalid in invalid_values:
+            with self.subTest(option=option, value=repr(invalid)):
+                error = self.failure(
+                    "add-node", self.path, "--alias", "不应创建", "--takeaway", "不应写入",
+                    option, invalid,
+                )
+                self.assertEqual(error["error"], "ValidationError")
+                self.assertEqual(self.path.read_bytes(), before)
+                error = self.failure("update-node", self.path, "paper_001", option, invalid)
+                self.assertEqual(error["error"], "ValidationError")
+                self.assertEqual(self.path.read_bytes(), before)
+
+    def test_noninteger_year_is_json_usage_error_and_does_not_write(self) -> None:
+        self.create_pair()
+        before = self.path.read_bytes()
+        for invalid in ("2024.5", "true", "unknown"):
+            with self.subTest(year=invalid):
+                error = self.failure(
+                    "update-node", self.path, "paper_001", "--year", invalid, code=2
+                )
+                self.assertEqual(error["error"], "UsageError")
+                self.assertEqual(self.path.read_bytes(), before)
+                error = self.failure(
+                    "add-node", self.path, "--alias", "不应创建", "--takeaway", "不应写入",
+                    "--year", invalid, code=2,
+                )
+                self.assertEqual(error["error"], "UsageError")
                 self.assertEqual(self.path.read_bytes(), before)
 
 

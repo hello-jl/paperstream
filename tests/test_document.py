@@ -498,6 +498,168 @@ class DocumentTests(unittest.TestCase):
         loaded.save()
         self.assertEqual(self.path.read_text(), ordinary_source)
 
+    def test_url_and_year_absent_from_legacy_documents_remain_none(self):
+        graph = self.load_fixture()
+        for node in graph.nodes():
+            self.assertIsNone(node.url)
+            self.assertIsNone(node.year)
+        graph.save()
+        self.assertEqual(self.path.read_bytes(), FIXTURE.encode("utf-8"))
+
+    def test_all_optional_fields_can_be_added_and_updated_together(self):
+        graph = self.load_fixture()
+        node = graph.update_node(
+            "paper_001", alias="新简称", takeaway="新的核心认识。",
+            name="Original Full Title", url="https://example.org/paper", year=2016,
+        )
+        self.assertEqual((node.name, node.url, node.year),
+                         ("Original Full Title", "https://example.org/paper", 2016))
+        self.assertEqual(self.path.read_text(), FIXTURE)
+        graph.save()
+        source = self.path.read_text()
+        for field in ("name", "url", "year"):
+            record_start = f"%% paperstream: {field} paper_001 "
+            self.assertEqual(source.count(record_start), 1)
+            self.assertLess(source.index(record_start), source.index('paper_001["`'))
+        loaded = Graph.load(self.path)
+        self.assertEqual(loaded.nodes()[0], node)
+        updated = loaded.update_node(
+            "paper_001", name='Updated "Full" Title',
+            url="http://localhost:8080/papers?id=2", year=2025,
+        )
+        loaded.save()
+        current = Graph.load(self.path).nodes()[0]
+        self.assertEqual(current, updated)
+        self.assertEqual((current.alias, current.takeaway), ("新简称", "新的核心认识。"))
+        self.assertEqual((current.name, current.url, current.year),
+                         ('Updated "Full" Title', "http://localhost:8080/papers?id=2", 2025))
+
+    def test_url_update_preserves_title_year_source_spelling_and_crlf(self):
+        old_url = '"https://example.org/original"'
+        records = (
+            '\t%% paperstream: name paper_001 "\\u4e2d\\u6587 title"   \r\n'
+            f'   %% paperstream: url paper_001   {old_url}  \r\n'
+            '\t%% paperstream: year paper_001 2016\t \r\n'
+        )
+        original = FIXTURE.replace("\n", "\r\n").replace(
+            '    paper_001["`', records + '    paper_001["`'
+        )
+        graph = self.load_fixture(original)
+        new_url = "https://example.org/new%20paper?q=a%25b"
+        graph.update_node("paper_001", url=new_url)
+        graph.save()
+        encoded_url = json.dumps(new_url, ensure_ascii=False).replace("%", r"\u0025")
+        expected = original.replace(old_url, encoded_url)
+        self.assertEqual(self.path.read_bytes(), expected.encode("utf-8"))
+        current = Graph.load(self.path).nodes()[0]
+        self.assertEqual((current.name, current.url, current.year), ("中文 title", new_url, 2016))
+
+    def test_none_fields_preserve_existing_optional_metadata(self):
+        graph = Graph.create(self.path)
+        node = graph.add_node("简称", "核心认识。", name="Full Title",
+                              url="https://example.org/paper", year=2016)
+        graph.save()
+        updated = graph.update_node(node.id, alias="更新简称", name=None, url=None, year=None)
+        graph.save()
+        self.assertEqual((updated.name, updated.url, updated.year),
+                         ("Full Title", "https://example.org/paper", 2016))
+        self.assertEqual(Graph.load(self.path).nodes()[0], updated)
+
+    def test_node_removal_deletes_all_its_metadata_and_preserves_others(self):
+        graph = self.load_fixture()
+        graph.update_node("paper_001", name="First Full Title",
+                          url="https://example.org/first", year=2016)
+        retained = graph.update_node("paper_002", name="Second Full Title",
+                                     url="https://example.org/second", year=2020)
+        graph.save()
+        before = self.path.read_text()
+        retained_records = [line for line in before.splitlines()
+                            if "%% paperstream:" in line and "paper_002 " in line]
+        graph.remove_node("paper_001", cascade=True)
+        graph.save()
+        source = self.path.read_text()
+        for field in ("name", "url", "year"):
+            self.assertNotIn(f"%% paperstream: {field} paper_001 ", source)
+        for record in retained_records:
+            self.assertIn(record, source)
+        current = Graph.load(self.path)
+        self.assertEqual(current.nodes(), [retained])
+        self.assertEqual(current.edges(), [])
+
+    def test_invalid_url_and_year_mutations_are_transactional(self):
+        graph = self.load_fixture()
+        before = graph.nodes()
+        bad_urls = (
+            "", "paper.pdf", "//example.org/paper", "ftp://example.org/paper", "https://",
+            "https://example.org/a b", "\nhttps://example.org/paper",
+            "https://example.org/a\u00a0b", "https://example.org/\\paper",
+            "https://example.org:invalid/paper", "https://example.org:70000/paper",
+            "https://[broken/paper", 123, True,
+        )
+        bad_years = (0, -1, 10000, True, False, 2016.0, "2016", "", [])
+        for url in bad_urls:
+            with self.subTest(url=url):
+                with self.assertRaises(ValidationError):
+                    graph.update_node("paper_001", alias="不应应用", name="Unapplied Title", url=url)
+                self.assertEqual(graph.nodes(), before)
+                with self.assertRaises(ValidationError):
+                    graph.add_node("不应增加", "不应保存。", url=url)
+                self.assertEqual(graph.nodes(), before)
+                self.assertEqual(self.path.read_text(), FIXTURE)
+        for year in bad_years:
+            with self.subTest(year=year):
+                with self.assertRaises(ValidationError):
+                    graph.update_node("paper_001", url="https://example.org/valid", year=year)
+                self.assertEqual(graph.nodes(), before)
+                with self.assertRaises(ValidationError):
+                    graph.add_node("不应增加", "不应保存。", year=year)
+                self.assertEqual(graph.nodes(), before)
+                self.assertEqual(self.path.read_text(), FIXTURE)
+
+    def test_invalid_url_and_year_metadata_are_not_ignored(self):
+        url_record = '    %% paperstream: url paper_001 "https://example.org/paper"\n'
+        year_record = '    %% paperstream: year paper_001 2016\n'
+        cases = {
+            "duplicate url": url_record + url_record,
+            "duplicate year": year_record + year_record,
+            "url without node": '    %% paperstream: url paper_999 "https://example.org/paper"\n',
+            "year without node": '    %% paperstream: year paper_999 2016\n',
+            "url belongs to edge": '    %% paperstream: url relation_001 "https://example.org/paper"\n',
+            "url wrong type": '    %% paperstream: url paper_001 123\n',
+            "url null": '    %% paperstream: url paper_001 null\n',
+            "url non-HTTP": '    %% paperstream: url paper_001 "file:///tmp/paper.pdf"\n',
+            "url with escaped newline": '    %% paperstream: url paper_001 "https://example.org/a\\nb"\n',
+            "year is string": '    %% paperstream: year paper_001 "2016"\n',
+            "year is float": '    %% paperstream: year paper_001 2016.0\n',
+            "year is bool": '    %% paperstream: year paper_001 true\n',
+            "year null": '    %% paperstream: year paper_001 null\n',
+            "year zero": '    %% paperstream: year paper_001 0\n',
+            "year too large": '    %% paperstream: year paper_001 10000\n',
+            "year trailing garbage": '    %% paperstream: year paper_001 2016 ignored\n',
+        }
+        for name, records in cases.items():
+            with self.subTest(name=name):
+                original = FIXTURE + records
+                self.path.write_text(original)
+                with self.assertRaises(PaperstreamError):
+                    Graph.load(self.path)
+                self.assertEqual(self.path.read_text(), original)
+
+    def test_percent_encoded_urls_and_full_year_range_roundtrip(self):
+        graph = Graph.create(self.path)
+        first_url = "https://example.org/paper%20name?q=a%2520b#section%202"
+        first = graph.add_node("第一篇", "第一条认识。", name="First Full Title",
+                               url=first_url, year=1)
+        second = graph.add_node("第二篇", "第二条认识。", name="Second Full Title",
+                                url="http://[::1]:8080/paper", year=9999)
+        graph.save()
+        source = self.path.read_text()
+        self.assertIn(r"\u002520", source)
+        loaded = Graph.load(self.path)
+        self.assertEqual(loaded.nodes(), [first, second])
+        self.assertEqual(loaded.nodes()[0].url, first_url)
+        self.assertEqual([node.year for node in loaded.nodes()], [1, 9999])
+
 
 if __name__ == "__main__":
     unittest.main()

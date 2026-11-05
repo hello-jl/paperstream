@@ -1,0 +1,18 @@
+flowchart TD
+    %% paperstream: name paper_001 "Deep Residual Learning for Image Recognition"
+    %% paperstream: url paper_001 "https://openaccess.thecvf.com/content_cvpr_2016/html/He_Deep_Residual_Learning_CVPR_2016_paper.html"
+    %% paperstream: year paper_001 2016
+    paper_001["`**ResNet**
+通过残差学习和捷径连接，缓解深层网络的优化困难。`"]
+    %% paperstream: name paper_002 "Densely Connected Convolutional Networks"
+    %% paperstream: url paper_002 "https://openaccess.thecvf.com/content_cvpr_2017/html/Huang_Densely_Connected_Convolutional_CVPR_2017_paper.html"
+    %% paperstream: year paper_002 2017
+    paper_002["`**DenseNet**
+在密集块内拼接此前各层特征，促进特征复用和信息传递。`"]
+    %% paperstream: name paper_003 "Aggregated Residual Transformations for Deep Neural Networks"
+    %% paperstream: url paper_003 "https://openaccess.thecvf.com/content_cvpr_2017/html/Xie_Aggregated_Residual_Transformations_CVPR_2017_paper.html"
+    %% paperstream: year paper_003 2017
+    paper_003["`**ResNeXt**
+聚合多个相同结构的分支，将分支数量作为深度和宽度之外的设计维度。`"]
+    paper_001 relation_001@-->|"连接方式对比：残差相加与密集拼接"| paper_002
+    paper_001 relation_002@-->|"残差块扩展：聚合多个相同结构的分支"| paper_003

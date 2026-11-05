@@ -1,6 +1,85 @@
 # paperstream
 
-用独立的 Mermaid 文档维护论文关系，通过 Python API 或命令行编辑。需要 Python 3.10 或更新版本，运行时仅使用标准库；以下命令在本项目根目录执行。
+用独立的 `.canvas` 纯文本文件管理论文关系。React Flow 提供拖动与编辑界面；Python API 和 CLI 让 agent 维护同一格式。无需 Obsidian。新工作以 Canvas 为主，旧 Mermaid API 和示例作为兼容入口保留，不做双向同步。
+
+**当前状态：** Canvas 文件 API、前端界面源码与 DSH 面板插件已实现。Python 测试、前端数据与保存逻辑测试、DSH 注册生命周期测试已通过；当前环境的 npm 网络受限，尚未完成 React Flow 依赖安装、完整前端构建和真实浏览器/DSH 联调。下列启动命令需要能访问 npm 的环境，不能把源码和单元测试视为已安装的 DSH 插件。
+
+## 打开图形编辑器
+
+需要 Node.js 22.18 或更新版本，在项目根目录执行：
+
+```sh
+npm --prefix web install
+npm --prefix web run dev
+```
+
+打开终端显示的本机地址，再选择 [examples/resnet.canvas](examples/resnet.canvas)。首次成功安装后应保留生成的 `web/package-lock.json`，后续使用 `npm --prefix web ci` 安装相同依赖。
+
+- 卡片显示 `alias`、简短 `takeaway` 和年份，详情面板编辑完整 `name`、原文 `url` 等信息。
+- 拖动圆点连接卡片，填写边上的 `relation`；拖动卡片或调整大小会更新布局。
+- “只看附近”显示选中卡片及直接相连的卡片，保存仍包含全图；“显示全图”恢复视图。
+- 编辑详情后先点击“应用更改”，再保存文件。支持撤销、重做与显式删除确认。
+- 支持文件句柄的浏览器可保存到原文件，保存前检查文件是否被其他程序修改；其他浏览器使用“下载副本”。Python/agent 更新文件后点击“重新读取”，或重新打开。
+- 本标签页的临时草稿用于恢复未保存内容，不能替代文件。恢复草稿不恢复文件写入权限。
+
+卡片可打开 HTTP(S) 原文页面或链接；不会给每张卡片嵌入 PDF 或加载网页。已有普通备注、文件卡片、链接、分组及未知字段会保留。第一版只提供基本卡片展示，文件卡片显示路径，不解析本地附件或渲染完整 Markdown/Obsidian 白板样式；分组框不自动带动框内卡片移动。
+
+## Canvas 的 Python API 与 CLI
+
+需要 Python 3.10 或更新版本，仅使用标准库；无需安装 React 或启动界面。
+
+```python
+from paperstream import CanvasGraph
+
+with CanvasGraph.create("papers.canvas") as graph:
+    # 示例文字，不是真实论文资料。
+    first = graph.add_node(alias="基础工作", takeaway="记录自己的核心认识。",
+                           name="An Example Original Paper Title", x=0, y=0)
+    second = graph.add_node(alias="后续工作", takeaway="记录与前作的差异。", x=480, y=0)
+    graph.add_edge(first.id, second.id, relation="扩展研究问题")
+
+with CanvasGraph.load("papers.canvas") as graph:
+    graph.update_node(first.id, takeaway="修订核心认识；位置和连接保持不变。")
+    graph.move_node(second.id, 480, 160)
+    graph.clear_node_fields(first.id, ["year"])  # 清空可选字段；None 在 update_node 中表示不修改
+```
+
+```sh
+python3 -m paperstream show examples/resnet.canvas
+python3 -m paperstream validate examples/resnet.canvas
+python3 -m paperstream update-node examples/resnet.canvas paper_001 --alias 'ResNet'
+# 单向转换成新文件；目标存在时拒绝覆盖，原 .mmd 保持不变。
+python3 -m paperstream export-canvas examples/resnet.mmd my-papers.canvas
+```
+
+CLI 根据 `.canvas` 后缀选择新 API；原增删改命令继续适用，额外提供 `move-node`、`resize-node`、`clear-node-fields` 和 `show --raw`。新 Canvas 自动 ID 为随机 UUID 的 32 位十六进制表示；迁移时保留旧 ID。agent 应使用操作返回的 ID。
+
+论文信息保存在标准 `text` 节点的 Markdown JSON 代码块中：`paperstream: 1` 是模板版本，其他键是 `name/alias/takeaway/url/year`。每个字段只保存一份，边使用标准 `label`。其他 Canvas 编辑器可以显示代码块，但不会自动提供本项目的论文表单。JSON 格式化可能改变，未修改数据保持；不承诺保留原 JSON 缩进。
+
+Python 保存使用快照检查、协作锁和原子替换；浏览器保存使用文件快照检查与浏览器写入流。二者没有共同事务锁，与手工编辑器并发时仍有最终检查到提交之间的竞态，不应同时编辑同一文件。遇到冲突先保留副本，再读取最新内容核对。
+
+## DSH 面板
+
+[dsh/README.md](dsh/README.md) 包含构建、安装与宿主版本要求。插件复用 DSH 的 React，在主面板和左侧导航提供入口。它使用浏览器选择的文件；远程 DSH Host 的工作区文件不会自动出现在本机选择器中。当前没有 Host 文件 RPC 或模型工具注册；agent 仍调用上述 API/CLI。
+
+## Canvas 验证
+
+```sh
+python3 -m unittest discover -s tests -v
+node --experimental-strip-types web/src/canvas.test.ts
+node --experimental-strip-types web/src/files.test.ts
+python3 web/scripts/check_python_roundtrip.py
+node dsh/test/register.test.mjs
+# 前端依赖完整后：
+npm --prefix web run build
+npm --prefix web run build:dsh
+```
+
+设计、格式选择与验证边界统一记录在 [设计文档](docs/mechanisms/paperstream-design.md)。
+
+## 旧 Mermaid 入口
+
+以下说明适用于保留的 `.mmd` 文件，运行时同样只需要 Python 标准库。
 
 ## Python API
 
@@ -13,10 +92,12 @@ with Graph.create("papers.mmd") as graph:
     base = graph.add_node(
         name="A Foundational Method for the Example Task",
         alias="基础方法", takeaway="提出研究路线的出发点。",
+        url="https://example.org/papers/foundational-method", year=2020,
     )
     improved = graph.add_node(
         name="A Lower-Cost Method for the Example Task",
         alias="后续改进", takeaway="降低计算成本。",
+        url="https://example.org/papers/lower-cost-method", year=2021,
     )
     relation = graph.add_edge(base.id, improved.id, relation="简化计算步骤")
 
@@ -31,8 +112,8 @@ with Graph.load("papers.mmd") as graph:
 | 操作 | 方法 |
 | --- | --- |
 | 读取全部节点、边 | `graph.nodes()`、`graph.edges()` |
-| 添加论文 | `graph.add_node(alias, takeaway, node_id=None, name=None)`；`name` 用关键字传入 |
-| 修改论文 | `graph.update_node(node_id, alias=None, takeaway=None, name=None)`；修改字段用关键字传入 |
+| 添加论文 | `graph.add_node(alias, takeaway, node_id=None, name=None, url=None, year=None)`；后三项用关键字传入 |
+| 修改论文 | `graph.update_node(node_id, alias=None, takeaway=None, name=None, url=None, year=None)`；修改字段用关键字传入 |
 | 删除论文 | `graph.remove_node(node_id, cascade=False)` |
 | 添加关系 | `graph.add_edge(source, target, relation, edge_id=None)` |
 | 修改关系 | `graph.update_edge(edge_id, source=None, target=None, relation=None)` |
@@ -55,26 +136,31 @@ python3 -m paperstream add-node papers.mmd --alias '后续改进' --takeaway '�
 python3 -m paperstream add-edge papers.mmd paper_001 paper_002 --relation '简化计算步骤'
 python3 -m paperstream update-node papers.mmd paper_002 --takeaway '降低成本，并保留主要效果。'
 python3 -m paperstream update-node papers.mmd paper_001 --name 'A Foundational Method for the Example Task'
+python3 -m paperstream update-node papers.mmd paper_001 --url 'https://example.org/papers/foundational-method' --year 2020
 ```
 
-创建命令与前面的 Python 示例分别用于一个新文件；若已创建 `papers.mmd`，直接读取或修改即可。命令的参数说明见 `python3 -m paperstream --help`。
+创建命令与前面的 Python 示例分别用于一个新文件；若已创建 `papers.mmd`，直接读取或修改即可。上述标题、年份及 example.org 链接仅用于演示，不是真实论文资料。`add-node` 同样接受 `--name`、`--url` 和 `--year`，也可只更新其中一个字段。命令的参数说明见 `python3 -m paperstream --help`。
 
 成功结果在 stdout 输出 JSON；失败在 stderr 输出 JSON。业务错误退出码为 1，命令用法错误为 2。agent 应使用返回的 ID，不能假定自己新增的节点必然是某个编号。多行 takeaway 优先通过 Python API 传入。
 
 ## 文档约定与边界
 
-- 主文件是 UTF-8 `.mmd`，独立于 DSH。`name` 是论文完整原始标题，保留原语言、大小写与标点；`alias` 是自定义简称；`takeaway` 是自己的核心认识；`relation` 是论文间的关系。字段语义是项目约定，不是 Mermaid 内置属性。
-- 节点 Markdown 标签首行表示 `alias`，后续行表示 `takeaway`；边标签表示 `relation`。`name` 单独存于同文件注释，不占用图面显示空间。例如下面这个虚构节点：
+- 主文件是 UTF-8 `.mmd`，独立于 DSH。`name` 是论文完整原始标题，保留原语言、大小写与标点；`alias` 是自定义简称；`takeaway` 是自己的核心认识；`url` 是原文页面；`year` 是所记录版本的年份；`relation` 是论文间的关系。字段语义是项目约定，不是 Mermaid 内置属性。
+- 节点 Markdown 标签首行表示 `alias`，后续行表示 `takeaway`；边标签表示 `relation`。`name`、`url`、`year` 单独存于同文件注释，不占用图面显示空间。例如下面这个虚构节点：
 
 ````text
 flowchart TD
     %% paperstream: name paper_001 "A Foundational Method for the Example Task"
+    %% paperstream: url paper_001 "https://example.org/papers/foundational-method"
+    %% paperstream: year paper_001 2020
     paper_001["`**基础方法**
 提出研究路线的出发点。`"]
 ````
 
-- `name` 注释按节点 ID 关联，建议放在节点定义前。标题使用标准 JSON 字符串：双引号写成 `\"`，反斜杠写成 `\\`；API 还将百分号写成 `\u0025`，避免被 Mermaid 当作配置指令，读取仍返回原始标题。手写标题不得包含未转义的 `%%{`。每个节点最多一条标题记录，不允许引用不存在的节点。
-- `name` 提供时必须是非空单行文本。为兼容旧文件，允许暂缺，读取为 Python `None` / JSON `null`，不会根据简称猜测或补造原题。修改方法中 `name=None` 表示不修改；目前没有单独清除标题的 API。
+- 元数据注释按节点 ID 关联，建议放在节点定义前。`name` 与 `url` 使用标准 JSON 字符串：双引号写成 `\"`，反斜杠写成 `\\`；API 还将百分号写成 `\u0025`，避免被 Mermaid 当作配置指令，读取仍返回原始文本，包括 URL 中的 `%20` 等编码。手写元数据不得包含未转义的 `%%{`。每个节点的每个字段最多一条记录，不允许引用不存在的节点。
+- `name` 提供时必须是非空单行文本。`url` 必须是包含主机名的绝对 HTTP(S) 链接，不接受空白、控制字符、反斜杠或非法端口；只做基本语法检查，不联网验证可访问性。推荐填 DOI、arXiv 或出版社的论文页面。
+- `year` 使用 JSON 整数，不加引号；接受 1 到 9999，不接受布尔值、浮点数或字符串。填写所链接版本的年份：正式会议/期刊页用发表年，预印本页可用首次公开年；同一张图尽量采用一致约定，不按 URL 或当前年份自动猜测。
+- 三个元数据字段均可暂缺，读取为 Python `None` / JSON `null`，不从简称猜测或补造。修改方法中传 `None` 表示不修改；目前没有单独清除元数据字段的 API。旧 `.mmd` 无需迁移即可读取。
 - `alias` 与 `relation` 是非空单行文本，`takeaway` 是非空文本，可多行。API 自动处理引号、反引号、百分号及 Mermaid 实体字符；返回的字段是解码后的原文。
 - 第一版支持 `flowchart TD/TB/LR/RL/BT`、注释、约定的多行节点和带 ID 的箭头连线。节点只能声明一次；边端点必须存在。前置 YAML、配置指令、样式、分组及其他 Mermaid 写法暂时报错，不会被忽略或删除。
 - 更新只替换指定字段的源码；未改字段、其他节点、注释和换行保持原样。新节点使用粗体 alias；已有的普通或粗体 alias 均可读取。
@@ -84,12 +170,23 @@ flowchart TD
 
 [AGENTS.md](AGENTS.md) 规定 agent 通过 API/CLI 修改用户维护的图文档。用户仍可手工编辑。该规则是工作约定；若要从权限层面阻止 agent 绕过，宿主还需要限制其直接写文件的能力。
 
+## 真实论文示例
+
+[examples/resnet.mmd](examples/resnet.mmd) 包含 ResNet、DenseNet、ResNeXt 三篇论文，完整标题、链接和会议发表年份已从 CVF 官方资料核对。边表示基于原文整理的方法比较或扩展，不表示引用方向，也不表示全部思想直接继承。
+
+```sh
+python3 -m paperstream show examples/resnet.mmd
+python3 -m paperstream validate examples/resnet.mmd
+```
+
+原文来源：[ResNet](https://openaccess.thecvf.com/content_cvpr_2016/html/He_Deep_Residual_Learning_CVPR_2016_paper.html)、[DenseNet](https://openaccess.thecvf.com/content_cvpr_2017/html/Huang_Densely_Connected_Convolutional_CVPR_2017_paper.html)、[ResNeXt](https://openaccess.thecvf.com/content_cvpr_2017/html/Xie_Aggregated_Residual_Transformations_CVPR_2017_paper.html)。原有 [examples/paperstream.mmd](examples/paperstream.mmd) 继续作为虚构的分支汇合示例，未给它补造真实链接或年份。
+
 ## 验证
 
 ```sh
 python3 -m unittest discover -s tests -v
 ```
 
-测试覆盖字段读写、原题与简称独立维护、旧格式兼容、特殊字符、局部源码保留、删除约束、编号不复用、外部修改冲突及保存失败保护。当前环境没有 Mermaid 渲染依赖，npm 网络访问受限，未做 Mermaid 原生解析或图形渲染验证；`validate` 检查的是上述文档约定。
+测试覆盖字段读写、标题/链接/年份独立维护、元数据类型与格式校验、旧格式兼容、特殊字符、局部源码保留、删除约束、编号不复用、外部修改冲突及保存失败保护。当前环境没有 Mermaid 渲染依赖，npm 网络访问受限，未做 Mermaid 原生解析或图形渲染验证；`validate` 检查的是上述文档约定。
 
-当前没有安装 DSH 插件，也没有常驻 API 服务；Python 模块与 CLI 可由 agent 直接调用。架构与来源见 [设计记录](docs/mechanisms/paperstream-design.md)。
+DSH 插件源码和 Canvas 新入口见本文开头；当前环境尚未安装运行该插件，也没有常驻 API 服务。Python 模块与 CLI 可由 agent 直接调用。

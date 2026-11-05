@@ -1,4 +1,4 @@
-"""Small, dependency-free API for paperstream Mermaid documents."""
+"""Dependency-free APIs for paperstream Mermaid and JSON Canvas documents."""
 
 from .document import (
     ConflictError,
@@ -9,8 +9,9 @@ from .document import (
     PaperstreamError,
     ValidationError,
 )
+from .canvas import CanvasGraph, export_canvas
 
 __all__ = [
     "Graph", "Node", "Edge", "PaperstreamError", "FormatError",
-    "ValidationError", "ConflictError",
+    "ValidationError", "ConflictError", "CanvasGraph", "export_canvas",
 ]

@@ -6,7 +6,7 @@ edges are accepted. This is not a parser for arbitrary Mermaid diagrams.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 import html
 import json
 import os
@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import stat
 import tempfile
+from urllib.parse import urlsplit
 
 
 class PaperstreamError(Exception):
@@ -38,6 +39,8 @@ class Node:
     alias: str
     takeaway: str
     name: str | None = None
+    url: str | None = None
+    year: int | None = None
 
 
 @dataclass(frozen=True)
@@ -61,13 +64,12 @@ class _Record:
     target_span: tuple[int, int] | None = None
     alias_span: tuple[int, int] | None = None
     takeaway_span: tuple[int, int] | None = None
-    name_span: tuple[int, int] | None = None
-    name_comment_span: tuple[int, int] | None = None
+    metadata: dict[str, _MetadataRecord] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
-class _NameRecord:
-    value: str
+class _MetadataRecord:
+    value: str | int
     span: tuple[int, int]
     value_span: tuple[int, int]
 
@@ -87,9 +89,9 @@ _EDGE = re.compile(
 _COMMENT = re.compile(r"[ \t]*%%[^\r\n]*(?:\r?\n|\Z)")
 _BLANK = re.compile(r"[ \t]*\r?\n")
 _RETIRED = re.compile(r"[ \t]*%% paperstream: retired (" + _ID + r")[ \t]*")
-_NAME = re.compile(
-    r'[ \t]*%% paperstream: name[ \t]+(?P<id>' + _ID + r')[ \t]+'
-    r'(?P<value>"(?:\\.|[^"\\])*")[ \t]*'
+_METADATA = re.compile(
+    r'[ \t]*%% paperstream: (?P<field>name|url|year)[ \t]+'
+    r'(?P<id>' + _ID + r')[ \t]+(?P<value>.+?)[ \t]*'
 )
 _ENTITY = re.compile(r"#(\d+|[A-Za-z][A-Za-z0-9]*);")
 _RESERVED = {
@@ -121,10 +123,30 @@ def _encode(value: str) -> str:
     return "".join(f"#{ord(c)};" if c in _ESCAPE else c for c in value)
 
 
-def _encode_name(value: str) -> str:
+def _metadata_value(name: str, value: str | int) -> str | int:
+    if name == "year":
+        if type(value) is not int or not 1 <= value <= 9999:
+            raise ValidationError("year must be an integer from 1 to 9999")
+        return value
+    value = _field(value, name)
+    if name == "url":
+        if any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value) or "\\" in value:
+            raise ValidationError("url must not contain whitespace, control characters or backslashes")
+        try:
+            parts = urlsplit(value)
+            if parts.scheme.lower() not in {"http", "https"} or not parts.hostname:
+                raise ValueError("missing HTTP(S) scheme or hostname")
+            # Accessing port also validates malformed and out-of-range ports.
+            _ = parts.port
+        except ValueError as exc:
+            raise ValidationError("url must be an absolute HTTP(S) URL with a valid host and port") from exc
+    return value
+
+
+def _encode_metadata(name: str, value: str | int) -> str:
     # Mermaid scans for %%{ directives before stripping ordinary comments.
-    # JSON escapes keep the title intact without exposing directive markers.
-    return json.dumps(_field(value, "name"), ensure_ascii=False).replace("%", r"\u0025")
+    # JSON escapes keep metadata intact without exposing directive markers.
+    return json.dumps(_metadata_value(name, value), ensure_ascii=False).replace("%", r"\u0025")
 
 
 def _decode(value: str) -> str:
@@ -149,7 +171,7 @@ def _decode(value: str) -> str:
 
 def _parse(text: str) -> tuple[dict[str, _Record], set[str], str]:
     records: dict[str, _Record] = {}
-    names: dict[str, _NameRecord] = {}
+    metadata: dict[str, dict[str, _MetadataRecord]] = {}
     retired: set[str] = set()
     direction = ""
     pos = 0
@@ -166,22 +188,24 @@ def _parse(text: str) -> tuple[dict[str, _Record], set[str], str]:
             if content.lstrip().startswith("%%{"):
                 raise FormatError("Mermaid configuration directives are not supported")
             tombstone = _RETIRED.fullmatch(content)
-            name = _NAME.fullmatch(content)
+            item = _METADATA.fullmatch(content)
             if tombstone:
                 retired.add(_identifier(tombstone.group(1)))
-            elif name:
-                identity = _identifier(name.group("id"))
-                if identity in names:
-                    raise ValidationError(f"Duplicate name for node: {identity}")
-                if "%%{" in name.group("value"):
-                    raise FormatError(r"Encode percent signs in title directives as \u0025")
+            elif item:
+                identity = _identifier(item.group("id"))
+                key = item.group("field")
+                fields = metadata.setdefault(identity, {})
+                if key in fields:
+                    raise ValidationError(f"Duplicate {key} for node: {identity}")
+                if "%%{" in item.group("value"):
+                    raise FormatError(r"Encode percent signs in metadata directives as \u0025")
                 try:
-                    value = json.loads(name.group("value"))
+                    value = json.loads(item.group("value"))
                 except json.JSONDecodeError as exc:
-                    raise FormatError(f"Invalid name JSON for node: {identity}") from exc
-                names[identity] = _NameRecord(
-                    _field(value, "name"), comment.span(),
-                    (pos + name.start("value"), pos + name.end("value")),
+                    raise FormatError(f"Invalid {key} JSON for node: {identity}") from exc
+                fields[key] = _MetadataRecord(
+                    _metadata_value(key, value), comment.span(),
+                    (pos + item.start("value"), pos + item.end("value")),
                 )
             elif content.lstrip().startswith("%% paperstream:"):
                 raise FormatError("Malformed paperstream metadata comment")
@@ -250,13 +274,13 @@ def _parse(text: str) -> tuple[dict[str, _Record], set[str], str]:
     if reused:
         raise ValidationError(f"Retired identifiers cannot be reused: {sorted(reused)}")
     nodes = {key for key, rec in records.items() if isinstance(rec.value, Node)}
-    for identity, name in names.items():
+    for identity, fields in metadata.items():
         if identity not in nodes:
-            raise ValidationError(f"Name references a missing node: {identity}")
+            raise ValidationError(f"Metadata references a missing node: {identity}")
         record = records[identity]
         records[identity] = replace(
-            record, value=replace(record.value, name=name.value),
-            name_span=name.value_span, name_comment_span=name.span,
+            record, value=replace(record.value, **{key: item.value for key, item in fields.items()}),
+            metadata=fields,
         )
     for record in records.values():
         value = record.value
@@ -355,13 +379,17 @@ class Graph:
         return (f"**{first}**" if bold else first) + self._newline + rest
 
     def add_node(self, alias: str, takeaway: str, node_id: str | None = None,
-                 *, name: str | None = None) -> Node:
+                 *, name: str | None = None, url: str | None = None,
+                 year: int | None = None) -> Node:
         identity = self._new_id(node_id, "paper_")
         label = self._label(alias, takeaway)
         declaration = f'    {identity}["`{label}`"]{self._newline}'
-        if name is not None:
-            title = _encode_name(name)
-            declaration = f"    %% paperstream: name {identity} {title}{self._newline}" + declaration
+        comments = []
+        for key, value in (("name", name), ("url", url), ("year", year)):
+            if value is not None:
+                encoded = _encode_metadata(key, value)
+                comments.append(f"    %% paperstream: {key} {identity} {encoded}{self._newline}")
+        declaration = "".join(comments) + declaration
         # Keep declarations before connections without moving existing text.
         edges = [r for r in self._records.values() if isinstance(r.value, Edge)]
         position = edges[0].start if edges else len(self._text)
@@ -370,31 +398,35 @@ class Graph:
         return self._get(identity, Node).value
 
     def update_node(self, node_id: str, *, alias: str | None = None,
-                    takeaway: str | None = None, name: str | None = None) -> Node:
+                    takeaway: str | None = None, name: str | None = None,
+                    url: str | None = None, year: int | None = None) -> Node:
         record = self._get(node_id, Node)
-        if alias is None and takeaway is None and name is None:
-            raise ValidationError("Provide alias, takeaway or name to update")
+        if all(value is None for value in (alias, takeaway, name, url, year)):
+            raise ValidationError("Provide alias, takeaway, name, url or year to update")
         changes = []
         if alias is not None:
             changes.append((*record.alias_span, _encode(_field(alias, "alias"))))
         if takeaway is not None:
             encoded = _encode(_field(takeaway, "takeaway", multiline=True))
             changes.append((*record.takeaway_span, encoded.replace("\n", self._newline)))
-        if name is not None:
-            title = _encode_name(name)
-            if record.name_span is not None:
-                changes.append((*record.name_span, title))
-            else:
-                comment = f"{record.indent}%% paperstream: name {node_id} {title}{self._newline}"
-                changes.append((record.start, record.start, comment))
+        comments = []
+        for key, value in (("name", name), ("url", url), ("year", year)):
+            if value is not None:
+                encoded = _encode_metadata(key, value)
+                if key in record.metadata:
+                    changes.append((*record.metadata[key].value_span, encoded))
+                else:
+                    comments.append(f"{record.indent}%% paperstream: {key} {node_id} {encoded}{self._newline}")
+        if comments:
+            changes.append((record.start, record.start, "".join(comments)))
         self._patch(changes)
         return self._get(node_id, Node).value
 
     def _remove(self, records: list[_Record]) -> None:
         changes = []
         for record in records:
-            if record.name_comment_span is not None:
-                changes.append((*record.name_comment_span, ""))
+            for item in record.metadata.values():
+                changes.append((*item.span, ""))
             ending = self._newline if self._text[record.start:record.end].endswith("\n") else ""
             comment = f"{record.indent}%% paperstream: retired {record.value.id}{ending}"
             changes.append((record.start, record.end, comment))
