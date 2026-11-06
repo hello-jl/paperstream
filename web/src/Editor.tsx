@@ -554,10 +554,16 @@ function Editor({ draftKey }: { draftKey: string }) {
     setError(''); setNotice(handle ? '已打开文件；保存前会检查外部修改。' : '已打开文件；更改后可下载副本。');
   }
   async function open() {
-    if (busy || (dirty && !window.confirm('当前有未保存的修改。放弃它们并打开其他文件吗？'))) return;
+    if (busy) return;
     if (!hasFilePicker()) { input.current?.click(); return; }
     setBusy(true);
-    try { const handle = await pickFile(); replace(await (await handle.getFile()).text(), handle.name, handle); }
+    try {
+      // The native picker needs this click's transient user activation. A
+      // confirmation before it can expire that activation while the user reads.
+      const handle = await pickFile();
+      if (dirty && !window.confirm('当前有未保存的修改。放弃它们并打开所选文件吗？')) return;
+      replace(await (await handle.getFile()).text(), handle.name, handle);
+    }
     catch (err) { if (!(err instanceof DOMException && err.name === 'AbortError')) setError(message(err)); }
     finally { setBusy(false); }
   }
@@ -743,6 +749,7 @@ function Editor({ draftKey }: { draftKey: string }) {
     <input ref={input} hidden type="file" accept=".canvas,application/json" onChange={async event => {
       const selected = event.target.files?.[0]; event.target.value = '';
       if (!selected) return;
+      if (dirty && !window.confirm('当前有未保存的修改。放弃它们并打开所选文件吗？')) return;
       setBusy(true);
       try { replace(await selected.text(), selected.name, null); }
       catch (err) { setError(message(err)); }
