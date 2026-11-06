@@ -124,6 +124,38 @@ test('recovery failure cannot overwrite unreadable existing workspace records', 
   assert.ok(statuses.includes('error'));
 });
 
+test('paused recovery protects session copies and cached drafts and bindings before any mutation', async () => {
+  const { adapter, records } = memory(), session = legacyMemory();
+  const store = createWorkspaceStore(adapter, session), original = file();
+  const draft = { canvas: { nodes: [], edges: [] }, note: 'precious unsaved work' };
+  const binding = { handle: original.handle, snapshot: 'original', bindingId: 'original-binding' };
+  await store.persistDraft('project', draft);
+  await store.persistFileBinding('project', binding);
+  const sessionBefore = session.getItem('project');
+  const durableBefore = records.get('draft:project');
+  const bindingBefore = records.get('file:project');
+  const originalGet = adapter.get;
+  adapter.get = async () => { throw new Error('temporary read failure'); };
+  await assert.rejects(store.hydrateWorkspace('project'), /temporary read failure/);
+
+  await assert.rejects(store.persistDraft('project', { note: 'replacement' }), /暂停覆盖/);
+  await assert.rejects(store.persistFileBinding('project', null), /暂停覆盖/);
+  await assert.rejects(store.persistFileBinding('project', { handle: file().handle, snapshot: 'different' }), /暂停覆盖/);
+  await assert.rejects(store.deleteDraft('project'), /暂停覆盖/);
+  assert.equal(session.getItem('project'), sessionBefore);
+  assert.equal(records.get('draft:project'), durableBefore);
+  assert.equal(records.get('file:project'), bindingBefore);
+  assert.deepEqual(store.getRestoredDraft('project'), draft);
+  assert.deepEqual(store.getRestoredFileBinding('project'), binding);
+
+  // A refused deletion must not leave a tombstone that silently drops later
+  // edits after recovery becomes readable again.
+  adapter.get = originalGet;
+  await store.hydrateWorkspace('project');
+  await store.persistDraft('project', { note: 'legitimate later edit' });
+  assert.deepEqual(store.getRestoredDraft('project'), { note: 'legitimate later edit' });
+});
+
 test('permission recovery never prompts during boot and never replaces the conflict snapshot with disk content', async () => {
   const { handle, state } = file('prompt');
   const binding = { handle, snapshot: 'original' };

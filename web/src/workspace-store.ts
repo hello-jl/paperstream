@@ -171,9 +171,9 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
     getRestoredFileBinding(key: string): FileBinding | null { const value = bindings.get(key); return value ? { ...value } : null; },
     persistDraft(key: string, value: unknown): Promise<void> {
       if (removed.has(key)) return Promise.resolve();
+      try { ensureReadable(key); } catch (error) { return Promise.reject(error); }
       const snapshot = draftCopy(value), updatedAt = timestamp(); drafts.set(key, snapshot);
       try { legacy?.setItem?.(key, JSON.stringify({ ...(snapshot as object), _workspaceUpdatedAt: updatedAt })); } catch { /* IndexedDB remains the durable source when session quota is small. */ }
-      try { ensureReadable(key); } catch (error) { return Promise.reject(error); }
       const record = { version: 1, updatedAt, value: snapshot };
       const previous = scheduledDrafts.get(key);
       if (previous) { previous.latest = record; return previous.promise; }
@@ -193,9 +193,9 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
     },
     persistFileBinding(key: string, binding: FileBinding | null): Promise<void> {
       if (removed.has(key)) return Promise.resolve();
+      try { ensureReadable(key); } catch (error) { return Promise.reject(error); }
       const snapshot = binding ? { ...binding } : null;
       if (snapshot) bindings.set(key, snapshot); else bindings.delete(key);
-      try { ensureReadable(key); } catch (error) { return Promise.reject(error); }
       return enqueue(`file:${key}`, () => snapshot ? storage.set(`file:${key}`, snapshot) : storage.delete(`file:${key}`));
     },
     persistWorkspace(baseKey: string, state: WorkspaceState): Promise<void> {
@@ -207,8 +207,8 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
       return enqueue(`tabs:${baseKey}`, () => storage.set(`tabs:${baseKey}`, snapshot));
     },
     async deleteDraft(key: string): Promise<void> {
-      removed.add(key); drafts.delete(key); bindings.delete(key);
       ensureReadable(key);
+      removed.add(key); drafts.delete(key); bindings.delete(key);
       await Promise.all([
         enqueue(`draft:${key}`, () => storage.delete(`draft:${key}`)),
         enqueue(`file:${key}`, () => storage.delete(`file:${key}`)),
