@@ -1,0 +1,109 @@
+{
+  "nodes": [
+    {
+      "id": "heisenberg-1925",
+      "type": "text",
+      "x": 220,
+      "y": 0,
+      "width": 360,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Über quantentheoretische Umdeutung kinematischer und mechanischer Beziehungen.\",\n  \"alias\": \"Heisenberg · 可观测量与矩阵力学\",\n  \"takeaway\": \"- 从可观测的跃迁量出发重建量子运动学。\\n- 适合追问：经典轨道图像为何失效？\",\n  \"url\": \"https://link.springer.com/article/10.1007/BF01328377\",\n  \"year\": 1925\n}\n```"
+    },
+    {
+      "id": "schrodinger-1926",
+      "type": "text",
+      "x": 220,
+      "y": 420,
+      "width": 360,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Quantisierung als Eigenwertproblem\",\n  \"alias\": \"Schrödinger · 波动力学\",\n  \"takeaway\": \"- 以本征值问题处理量子能级。\\n- 此处链接第一篇，不能与同年后续三篇混为一篇。\",\n  \"url\": \"https://onlinelibrary.wiley.com/doi/10.1002/andp.19263840404\",\n  \"year\": 1926\n}\n```"
+    },
+    {
+      "id": "born-1926",
+      "type": "text",
+      "x": 0,
+      "y": 840,
+      "width": 360,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Zur Quantenmechanik der Stoßvorgänge\",\n  \"alias\": \"Born · 散射与概率解释\",\n  \"takeaway\": \"- 从散射过程理解波函数与跃迁。\\n- 区分量子态的演化和观测结果的统计。\",\n  \"url\": \"https://link.springer.com/article/10.1007/BF01397477\",\n  \"year\": 1926\n}\n```"
+    },
+    {
+      "id": "dirac-1928",
+      "type": "text",
+      "x": 460,
+      "y": 840,
+      "width": 360,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"The Quantum Theory of the Electron\",\n  \"alias\": \"Dirac · 相对论性电子理论\",\n  \"takeaway\": \"- 寻求兼容量子论与相对论的电子方程。\\n- 阅读时关注自旋结构如何从理论中出现。\",\n  \"url\": \"https://royalsocietypublishing.org/doi/10.1098/rspa.1928.0023\",\n  \"year\": 1928\n}\n```"
+    },
+    {
+      "id": "epr-1935",
+      "type": "text",
+      "x": 0,
+      "y": 1260,
+      "width": 360,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Can Quantum-Mechanical Description of Physical Reality Be Considered Complete?\",\n  \"alias\": \"EPR · 完备性问题\",\n  \"takeaway\": \"- 通过关联体系讨论量子描述的完备性。\\n- 将可预测性、实在性和完备性的条件分开阅读。\",\n  \"url\": \"https://journals.aps.org/pr/abstract/10.1103/PhysRev.47.777\",\n  \"year\": 1935\n}\n```"
+    },
+    {
+      "id": "bell-1964",
+      "type": "text",
+      "x": 0,
+      "y": 1680,
+      "width": 360,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"On the Einstein Podolsky Rosen paradox\",\n  \"alias\": \"Bell · 局域性与可检验约束\",\n  \"takeaway\": \"- 延续 EPR 提出的问题，研究局域理论的约束。\\n- 区分原始论文论证与后来的实验检验。\",\n  \"url\": \"https://journals.aps.org/ppf/abstract/10.1103/PhysicsPhysiqueFizika.1.195\",\n  \"year\": 1964\n}\n```"
+    }
+  ],
+  "edges": [
+    {
+      "id": "3671c13a0cad4ea4b2e24d4656d3b787",
+      "fromNode": "heisenberg-1925",
+      "toNode": "schrodinger-1926",
+      "toEnd": "arrow",
+      "label": "方法对照：矩阵表述与波动表述",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "fromEnd": "arrow"
+    },
+    {
+      "id": "eae13979f32e44d8a52cffadf86a998a",
+      "fromNode": "schrodinger-1926",
+      "toNode": "born-1926",
+      "toEnd": "arrow",
+      "label": "阅读线索：从波函数到散射概率",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "7d2231ac6ade40f999cbfbe390f9f895",
+      "fromNode": "schrodinger-1926",
+      "toNode": "dirac-1928",
+      "toEnd": "arrow",
+      "label": "阅读线索：相对论性推广",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "9130e918b25a45e6a0d6e09ff78a22fd",
+      "fromNode": "born-1926",
+      "toNode": "epr-1935",
+      "toEnd": "arrow",
+      "label": "问题联系：统计解释与描述完备性",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "e94c34257f0c48b8b0e4f0905689f159",
+      "fromNode": "epr-1935",
+      "toNode": "bell-1964",
+      "toEnd": "arrow",
+      "label": "问题延续：局域性与可检验约束",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "title": "量子力学经典论文：从表述到完备性",
+  "description": "六篇原始论文的概念阅读图，年份均采用原始正式发表年份；边上的阅读线索和方法对照是整理者的解释，不表示完整引用关系，也不赋予虚构的继承权重。Dirac 链接原始出版页，该页面可能要求访问权限；原文已与莱顿大学所藏出版PDF交叉核对。",
+  "sourcesVerified": "2026-11-06"
+}

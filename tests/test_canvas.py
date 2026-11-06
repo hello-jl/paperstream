@@ -24,6 +24,23 @@ class CanvasTests(unittest.TestCase):
         graph.add_edge(first.id, second.id, "简化计算")
         return graph, first, second
 
+    def test_empty_relation_creation_and_clearing_preserve_other_edge_fields(self):
+        graph, first, second = self.pair()
+        added = graph.add_edge(first.id, second.id, "")
+        data = graph.to_dict()
+        data["edges"][0]["custom"] = {"keep": [1, 2]}
+        graph.set_document(data)
+        existing_id = graph.edges()[0].id
+        graph.update_edge(existing_id, relation="")
+        graph.save()
+        loaded = CanvasGraph.load(self.path)
+        self.assertEqual([edge.relation for edge in loaded.edges()], ["", ""])
+        self.assertEqual(loaded.edges()[1].id, added.id)
+        self.assertEqual(loaded.to_dict()["edges"][0]["custom"], {"keep": [1, 2]})
+        for invalid in ["\n", "\x00", None]:
+            with self.assertRaises(ValidationError):
+                graph.add_edge(first.id, second.id, invalid)
+
     def test_roundtrip_crud_geometry_and_optional_clear(self):
         graph, first, second = self.pair()
         self.assertFalse(self.path.exists())

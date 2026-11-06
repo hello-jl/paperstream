@@ -76,8 +76,8 @@ function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function requireText(value: unknown, field: string, singleLine = true): asserts value is string {
-  requireCondition(typeof value === "string" && value.trim().length > 0, `${field} must be non-empty text`);
+function requireText(value: unknown, field: string, singleLine = true, allowEmpty = false): asserts value is string {
+  requireCondition(typeof value === "string" && (allowEmpty || value.trim().length > 0), `${field} must be ${allowEmpty ? "" : "non-empty "}text`);
   if (singleLine) requireCondition(!/[\r\n]/.test(value), `${field} must be a single line`);
   requireCondition(!/[\u0000-\u0008\u000b-\u001f\ud800-\udfff]/u.test(value.replace(/\r\n/g, "\n")),
     `${field} contains unsupported control characters`);
@@ -370,7 +370,7 @@ export function removeNode(document: JSONCanvasDocument, id: string, options: { 
 export function createEdge(fromNode: string, toNode: string, label: string, options: { id?: string } = {}): CanvasEdge {
   requireText(fromNode, "source");
   requireText(toNode, "target");
-  requireText(label, "relation", true);
+  requireText(label, "relation", true, true);
   const id = options.id ?? newId();
   requireText(id, "Edge id");
   return { id, fromNode, toNode, label };
@@ -385,7 +385,7 @@ export function addEdge(document: JSONCanvasDocument, edge: CanvasEdge): JSONCan
 export function patchEdge(document: JSONCanvasDocument, id: string, patch: Partial<CanvasEdge>): JSONCanvasDocument {
   requireCondition(!Object.hasOwn(patch, "id"), "An edge id cannot be changed");
   requireCondition(document.edges.some((edge) => edge.id === id), `Edge not found: ${id}`);
-  if (Object.hasOwn(patch, "label")) requireText(patch.label, "relation", true);
+  if (Object.hasOwn(patch, "label")) requireText(patch.label, "relation", true, true);
   const next = { ...document, edges: document.edges.map((edge) => edge.id === id ? { ...edge, ...patch } : edge) };
   validateCanvas(next);
   return next;

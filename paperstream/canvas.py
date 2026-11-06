@@ -31,8 +31,8 @@ _TEXT_WHITESPACE = ("\t\n\v\f\r \u00a0\u1680\u2000\u2001\u2002\u2003\u2004"
                     "\u205f\u3000\ufeff")
 
 
-def _text(value: object, field: str, *, multiline: bool = False) -> str:
-    if not isinstance(value, str) or not value.strip():
+def _text(value: object, field: str, *, multiline: bool = False, allow_empty: bool = False) -> str:
+    if not isinstance(value, str) or (not allow_empty and not value.strip()):
         raise ValidationError(f"{field} must be nonempty text")
     value = value.replace("\r\n", "\n")
     if not multiline and "\n" in value:
@@ -409,7 +409,7 @@ class CanvasGraph:
         self._find(target, "nodes")
         identity = self._new_id(edge_id)
         row = {"id": identity, "fromNode": source, "toNode": target,
-               "toEnd": "arrow", "label": _text(relation, "relation")}
+               "toEnd": "arrow", "label": _text(relation, "relation", allow_empty=True)}
         data = self.to_dict()
         data.setdefault("edges", []).append(row)
         self.set_document(data)
@@ -425,7 +425,7 @@ class CanvasGraph:
                 self._find(value, "nodes")
                 row[key] = value
         if relation is not None:
-            row["label"] = _text(relation, "relation")
+            row["label"] = _text(relation, "relation", allow_empty=True)
         self._replace("edges", edge_id, row)
         return Edge(edge_id, row["fromNode"], row["toNode"], row.get("label", ""))
 

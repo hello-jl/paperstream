@@ -13,8 +13,8 @@
     {
       "id": "826610d17e9846929192a39edfae0f19",
       "type": "text",
-      "x": 520,
-      "y": 0,
+      "x": 0,
+      "y": 350,
       "width": 360,
       "height": 169,
       "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"ImageNet Classification with Deep Convolutional Neural Networks\",\n  \"alias\": \"AlexNet · 大规模图像分类\",\n  \"takeaway\": \"结合 ReLU、GPU 训练和 Dropout，让深层卷积网络在 ImageNet 大规模图像分类中取得突破。\",\n  \"url\": \"https://proceedings.neurips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html\",\n  \"year\": 2012\n}\n```",
@@ -23,8 +23,8 @@
     {
       "id": "38df7ec686794a1b947a7aaaf16a0fbf",
       "type": "text",
-      "x": 520,
-      "y": 370,
+      "x": 0,
+      "y": 700,
       "width": 360,
       "height": 169,
       "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Very Deep Convolutional Networks for Large-Scale Image Recognition\",\n  \"alias\": \"VGG · 小卷积核加深网络\",\n  \"takeaway\": \"重复堆叠 3×3 小卷积核，将网络加深到 16–19 个权重层，验证深度对图像识别的价值。\",\n  \"url\": \"https://www.robots.ox.ac.uk/~vgg/publications/2015/Simonyan15/\",\n  \"year\": 2015\n}\n```",
@@ -33,8 +33,8 @@
     {
       "id": "0b172118166848ee9cac2d00a1d6e205",
       "type": "text",
-      "x": 1040,
-      "y": 370,
+      "x": 0,
+      "y": 1050,
       "width": 360,
       "height": 169,
       "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Deep Residual Learning for Image Recognition\",\n  \"alias\": \"ResNet · 残差学习\",\n  \"takeaway\": \"用捷径连接学习残差，缓解深层网络的优化退化，使 152 层网络也能有效训练。\",\n  \"url\": \"https://openaccess.thecvf.com/content_cvpr_2016/html/He_Deep_Residual_Learning_CVPR_2016_paper.html\",\n  \"year\": 2016\n}\n```",
@@ -48,8 +48,8 @@
       "toNode": "826610d17e9846929192a39edfae0f19",
       "toEnd": "arrow",
       "label": "方法比较：扩大任务与规模",
-      "fromSide": "right",
-      "toSide": "left"
+      "fromSide": "bottom",
+      "toSide": "top"
     },
     {
       "id": "449437d65b314339859ae79dd0905ee3",
@@ -67,8 +67,8 @@
       "toNode": "0b172118166848ee9cac2d00a1d6e205",
       "toEnd": "arrow",
       "label": "方法比较：改善深层优化",
-      "fromSide": "right",
-      "toSide": "left"
+      "fromSide": "bottom",
+      "toSide": "top"
     }
   ],
   "title": "CNN 方法演进：LeNet-5 → AlexNet → VGG → ResNet",

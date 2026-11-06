@@ -203,13 +203,20 @@ test("edge labels and endpoint edits preserve unknown attributes and original ob
   assert.equal(document.edges[0].label, "推广方法");
 });
 
-test("native blank or multiline labels survive while new relation edits require a line", () => {
+test("blank relations can be created and cleared while native multiline labels survive", () => {
   const document = fixture();
   document.edges[0].label = "line one\nline two";
   assert.equal(parseCanvas(serializeCanvas(document)).edges[0].label, document.edges[0].label);
-  for (const label of ["", "  ", "two\nlines"]) {
+  for (const label of ["two\nlines", "\r", "\u0000"]) {
     assert.throws(() => createEdge("one", "two", label), CanvasError);
     assert.throws(() => patchEdge(document, "relation", { label }), CanvasError);
+  }
+  document.edges[0].custom = { kept: true };
+  for (const label of ["", "  "]) {
+    assert.equal(createEdge("one", "two", label).label, label);
+    const changed = patchEdge(document, "relation", { label });
+    assert.equal(parseCanvas(serializeCanvas(changed)).edges[0].label, label);
+    assert.deepEqual(changed.edges[0].custom, { kept: true });
   }
 });
 

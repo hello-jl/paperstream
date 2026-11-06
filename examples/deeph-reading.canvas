@@ -1,0 +1,72 @@
+{
+  "nodes": [
+    {
+      "id": "hk-1964",
+      "type": "text",
+      "x": 0,
+      "y": 0,
+      "width": 380,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Inhomogeneous Electron Gas\",\n  \"alias\": \"Hohenberg–Kohn · DFT 理论基础\",\n  \"takeaway\": \"- 以基态电子密度组织多体问题。\\n- 为后续 DFT 方法提供理论基础。\",\n  \"url\": \"https://journals.aps.org/pr/abstract/10.1103/PhysRev.136.B864\",\n  \"year\": 1964\n}\n```"
+    },
+    {
+      "id": "ks-1965",
+      "type": "text",
+      "x": 0,
+      "y": 420,
+      "width": 380,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Self-Consistent Equations Including Exchange and Correlation Effects\",\n  \"alias\": \"Kohn–Sham · 自洽方程\",\n  \"takeaway\": \"- 用自洽单粒子方程处理交换与关联效应。\\n- 区分理论框架、泛函近似和具体数值实现。\",\n  \"url\": \"https://journals.aps.org/pr/abstract/10.1103/PhysRev.140.A1133\",\n  \"year\": 1965\n}\n```"
+    },
+    {
+      "id": "deeph-2022",
+      "type": "text",
+      "x": 0,
+      "y": 840,
+      "width": 380,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Deep-learning density functional theory Hamiltonian for efficient ab initio electronic-structure calculation\",\n  \"alias\": \"DeepH · 学习 DFT Hamiltonian\",\n  \"takeaway\": \"- 从结构学习局域 DFT 哈密顿量。\\n- 关注预测矩阵而非仅预测标量能量的意义。\",\n  \"url\": \"https://www.nature.com/articles/s43588-022-00265-6\",\n  \"year\": 2022\n}\n```"
+    },
+    {
+      "id": "deeph-e3-2023",
+      "type": "text",
+      "x": 0,
+      "y": 1260,
+      "width": 380,
+      "height": 230,
+      "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"General framework for E(3)-equivariant neural network representation of density functional theory Hamiltonian\",\n  \"alias\": \"DeepH-E3 · 显式等变表示\",\n  \"takeaway\": \"- 在神经网络中显式满足 E(3) 等变要求。\\n- 阅读时对照坐标变换、自旋轨道耦合与训练数据。\",\n  \"url\": \"https://www.nature.com/articles/s41467-023-38468-8\",\n  \"year\": 2023\n}\n```"
+    }
+  ],
+  "edges": [
+    {
+      "id": "dc639b97e7bc40258ccf6b468e68fac9",
+      "fromNode": "hk-1964",
+      "toNode": "ks-1965",
+      "toEnd": "arrow",
+      "label": "理论推进：构造可求解的自洽方程",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "71bc6b7caff34e30bb872db828f1adf0",
+      "fromNode": "ks-1965",
+      "toNode": "deeph-2022",
+      "toEnd": "arrow",
+      "label": "任务联系：学习 DFT 哈密顿量",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "9b86473385514176bb4c174295de18f1",
+      "fromNode": "deeph-2022",
+      "toNode": "deeph-e3-2023",
+      "toEnd": "arrow",
+      "label": "方法对照：局域坐标与显式等变",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "title": "DeepH 阅读路线：DFT、哈密顿量与等变网络",
+  "description": "四篇正式发表论文的阅读线索，年份为1964、1965、2022、2023。任务联系和方法对照由整理者概括，不等于完整引用图或定量继承权重。DeepH 团队官方文档 https://docs.deeph-pack.com/deeph-pack/en/latest/ 用于核对原始方法与项目领域；本图并不宣称覆盖其后全部版本。",
+  "sourcesVerified": "2026-11-06"
+}
