@@ -266,9 +266,15 @@ MCP 工具与 MCP Apps 是可选接入方式，不应成为独立文件 API 或�
 
 补充 Codex 的明确边界：当前官方 [Browser 文档](https://learn.chatgpt.com/docs/browser)将相关能力描述为 ChatGPT 桌面应用中的 Codex 使用体验，并给出启动本地服务、在应用内打开页面的步骤；不将这一能力泛化为任意版本的独立客户端或原生插件插槽。[Codex 官方实践](https://learn.chatgpt.com/docs/learn/best-practices#use-mcps-for-external-context)确认可接入 STDIO 和 Streamable HTTP MCP 工具。因此可以保留 React 编辑器并单独接入工具 API；终端使用时，画布可由外部浏览器显示。网页能显示不代表项目保存、同步和安装流程已经完成联调。
 
+用户进一步明确希望点开 `.canvas` 就在右侧文件面板显示，避免额外打开网页。OpenAI 的 [File viewers and editors](https://developers.openai.com/plugins/build/extensions#file-viewers-and-editors)明确提供按扩展名进入会话侧面板的自定义查看器/编辑器，并向组件传入文件资源 URI；可据此开发 `extensions: ["canvas"]` 的入口，接入现有画布及宿主读写、更新通知。这是需要安装和联调的文件处理扩展，不是宿主已经内置 JSON Canvas 渲染。官方[插件说明](https://learn.chatgpt.com/docs/plugins)包含 ChatGPT 桌面中的 Codex，但文件扩展接口文档以 ChatGPT 为目标，不能由插件通用支持推断用户任意 Codex 版本都已开放同一个文件面板；须在目标客户端核验。普通[文件预览文档](https://learn.chatgpt.com/docs/artifacts-viewer)也未承诺原生识别 JSON Canvas。
+
+Claude Code 的[文件面板](https://code.claude.com/docs/en/desktop#open-and-edit-files)可打开和编辑本地项目文件，但未声明原生 JSON Canvas 图形预览。当前 [Mods](https://code.claude.com/docs/en/plugins/mods/overview)可在 CLI、桌面 Code 标签页和 VS Code 增加交互面板；[界面接口](https://code.claude.com/docs/en/plugins/mods/interface)主要是宿主绘制的 Box、Text、Button、Pane 等元素描述树，不能因为支持 JSX 就将其当作 React DOM。它另有 Svg 与 Client 元素，本轮未确认 Client 是否能承载 React Flow。未找到按文件扩展名注册查看器、接管现有文件面板的公开接口，因此自定义 Pane、Browser 网页预览和原有文件预览栏须分别评估，不能宣称两家宿主已有等价接入能力。
+
+运行开销应按实际机制判断：上述 MCP App 仍是隔离 iframe 中的网页界面，放入侧栏不会消除 React、图节点、连线和编辑状态的开销。生产构建可打包界面资源，避免把 Vite 开发服务器作为使用要求，也无需为此再包装一套独立桌面浏览器；但宿主隔离视图与 MCP 工具服务仍可能增加进程和内存。建议按需加载编辑器、关闭面板时释放交互资源，继续只显示文字卡片与连线、不自动嵌入 PDF 或原文网页。比较时用同一张图记录宿主、相关渲染进程及工具服务的总内存增量，不以位置在“侧栏”或“网页”推断更轻。只读场景可另评估静态预览以免运行完整编辑器，但不以静态图片替代用户要求的手工编辑。[UI 隔离与打包](https://developers.openai.com/plugins/build/chatgpt-ui)
+
 ChatGPT 官方建议优先用开放 MCP Apps 协议实现可复用 UI，再加平台专用扩展；UI 通过隔离 iframe 与宿主通信，不能将现有浏览器文件句柄视为跨宿主通用能力。文件长期保存仍应落在明确的本地目录或文件服务，避免把聊天组件状态当作论文唯一存档。个人测试和公开分发也要区分：[本地插件测试与打包](https://developers.openai.com/plugins/build/plugins)支持本地来源；[本地 MCP 的公开提交](https://developers.openai.com/plugins/deploy/desktop-only)目前有批准伙伴限制，这不等于禁止个人本地测试。
 
-建议顺序：先完成当前独立编辑器的完整构建与运行验证；随后以 Claude Code 的网页预览验证现有界面，再封装通用 MCP 工具和 MCP Apps UI，为 ChatGPT 文件编辑入口及 Claude Desktop 交互连接器分别增加适配。此顺序是基于公开接口和现有源码的判断，未测移植工时、性能或各桌面端文件保存能力。
+建议顺序：先完成当前编辑器的完整构建与运行验证；按用户偏好，优先在实际 Codex 桌面客户端核验文件扩展入口，再适配文档读写和刷新。Claude Code 先验证自定义文件入口是否可用，缺少对应能力时再选 Browser 或另做 Mods 面板；独立网页继续作为通用入口。MCP 工具与 MCP Apps UI 按具体接入需要封装。此顺序是基于公开接口和现有源码的判断，未测移植工时、性能或各桌面端文件保存能力。
 
 ## 后续验证顺序
 
