@@ -1,0 +1,22 @@
+.ps-card-title { padding-right: 20px; }
+.ps-card-title.has-open-link { padding-right: 54px; }
+.ps-takeaway-paragraph { white-space: pre-wrap; }
+.ps-takeaway-list { display: block; white-space: normal; margin: 3px 0; }
+.ps-takeaway-item { position: relative; display: block; padding-left: 14px; }
+.ps-takeaway-item::before { content: '•'; position: absolute; left: 2px; color: currentColor; }
+.ps-card-figures { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; width: 100%; min-width: 0; }
+.ps-card-figure { position: relative; flex: none; min-width: 0; margin: 0; }
+.ps-card-figure img { display: block; width: 100%; height: auto; max-width: 100%; border-radius: 4px; }
+.ps-card-figure figcaption { margin-top: 5px; font-size: 10px; line-height: 1.4; color: var(--ps-muted); overflow-wrap: anywhere; white-space: pre-wrap; }
+.paperstream-editor button.ps-figure-resize { position: absolute; bottom: 0; right: 0; padding: 0; width: 20px; height: 20px; border-radius: 4px; color: var(--ps-ink); background: var(--ps-surface, #fff); border-color: var(--ps-line); cursor: nwse-resize; touch-action: none; font-size: 14px; line-height: 18px; }
+.ps-card-open { position: absolute; top: 10px; right: 40px; display: flex; width: 25px; height: 25px; padding: 5px; border-radius: 5px; color: var(--ps-muted); text-decoration: none; opacity: .7; }
+.ps-card-open:hover, .ps-card-open:focus-visible { opacity: 1; color: var(--ps-accent); background: var(--ps-surface-alt, #edf3eb); }
+.ps-card-open svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ps-figure-controls { border-top: 1px solid var(--ps-line); padding-top: 12px; margin-top: 14px; }
+.ps-figure-controls-heading { display: flex; align-items: center; justify-content: space-between; font-weight: 600; color: var(--ps-ink); }
+.ps-figure-help { color: var(--ps-muted); font-size: 11px; line-height: 1.5; margin: 7px 0 12px; }
+.ps-figure-control { padding-top: 8px; border-top: 1px solid var(--ps-line); margin-top: 8px; }
+.ps-figure-control-row { display: flex; align-items: flex-end; gap: 6px; }
+.ps-figure-control-row label { flex: 1; margin-bottom: 0; min-width: 0; }
+.ps-figure-control-row button { margin-bottom: 0; font-size: 11px; padding: 7px 9px; }
+.ps-card-media-error { display: block; font-size: 11px; color: var(--ps-error, #a34e44); line-height: 1.5; }
