@@ -49,16 +49,31 @@
 .ps-help small { display: block; padding-top: 20px; border-top: 1px solid var(--ps-line); }
 .ps-muted { color: var(--ps-muted); font-size: 12px; }
 .ps-file-path { overflow-wrap: anywhere; }
-.ps-card { position: relative; height: 100%; width: 100%; padding: 18px 20px; background: #fff; border: 1px solid #b5c7ba; border-radius: 10px; }
+.ps-appearance-fields { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 10px; }
+.ps-appearance-fields label { margin-bottom: 6px; }
+.ps-appearance-hint { margin: 0 0 16px; line-height: 1.6; }
+.ps-card { position: relative; height: 100%; width: 100%; background: #fff; border: 1px solid #b5c7ba; border-radius: 10px; }
+.ps-card-content { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; padding: 18px 20px; }
 .react-flow__node.selected .ps-card { border-color: #34694f; outline: 2px solid #34694f; outline-offset: 2px; }
-.ps-card-kind { display: block; text-transform: uppercase; font-size: 10px; color: var(--ps-muted); letter-spacing: 1px; margin-bottom: 10px; }
-.ps-card strong { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 19px; line-height: 1.3; overflow-wrap: anywhere; }
-.ps-card p { font-size: 13px; color: #617369; line-height: 1.65; margin: 10px 0 20px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
-.ps-card-year { position: absolute; bottom: 12px; right: 16px; font-size: 11px; color: var(--ps-muted); }
+.ps-card-kind { display: block; text-transform: uppercase; font-size: 10px; color: var(--ps-muted); letter-spacing: 1px; }
+.ps-card strong { display: block; font-size: 19px; line-height: 1.3; overflow-wrap: anywhere; }
+.ps-card p { font-size: 13px; color: #617369; line-height: 1.65; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ps-card p:empty { display: none; }
+.ps-card-year { align-self: flex-end; font-size: 11px; color: var(--ps-muted); }
 .ps-card.ps-group { background: #ebf0e980; border-style: dashed; }
 .paperstream-editor .react-flow__handle { width: 9px; height: 9px; border: 2px solid #f6f8f4; background: #6c8b76; }
 .paperstream-editor .react-flow__edge-text { fill: #4c6357; font-size: 12px; }
 .paperstream-editor .react-flow__edge-textbg { fill: #f6f8f4; }
+.paperstream-editor button.ps-relation-label {
+  position: absolute; pointer-events: all; width: max-content; max-width: 240px; min-width: 0;
+  padding: 6px 10px; border: 1px solid #cad8ce; border-radius: 7px;
+  color: #3d5b49; background: #f8fbf7; box-shadow: 0 1px 3px #263d3412;
+  font-size: 12px; line-height: 1.5; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.paperstream-editor button.ps-relation-label.is-selected { border-color: #34694f; outline: 2px solid #34694f; outline-offset: 1px; }
+.paperstream-editor .ps-relation-leader { fill: none; stroke: #9aae9f; stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.paperstream-editor .react-flow__controls-button { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; color: var(--ps-ink); background: #fff; }
+.paperstream-editor .react-flow__controls-button svg { display: block; width: 14px; height: 14px; max-width: none; max-height: none; color: inherit; fill: currentColor; }
 .ps-empty { pointer-events: none; position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px; text-align: center; }
 .ps-empty > span { font-size: 24px; font-weight: 600; }
 .ps-empty p { color: var(--ps-muted); margin: 12px 0 24px; }

@@ -2,20 +2,21 @@
 
 这个目录把 [独立编辑器](../web/) 放进 DSH 的主面板，并在左侧导航加入 Paperstream。编辑器复用宿主 React；文件仍由浏览器选择、保存或下载，不依赖 Obsidian。
 
-当前接入按 **DSH 0.2.2-rc.1 的官方源码接口** 编写，已提供生命周期测试。开发环境没有 DSH，也无法通过网络安装未缓存的前端依赖，因此尚未完成真实 DSH Web/Desktop 的端到端验证。`engines.dsh` 暂时严格限定该版本；它表达目标版本，不代表已经通过宿主实测。升级范围前先验证下文步骤。
+当前接入按 **DSH 0.2.2-rc.1** 编写，并于 2026-11-06 在 macOS arm64、Node.js 26.12.1、Chrome 的真实 DSH Web 中完成下述联调。`engines.dsh` 严格限定该版本；Desktop 和其他宿主版本尚未验证，升级范围前应重新联调。
 
 ## 构建
 
 在项目根目录执行：
 
 ```sh
-npm --prefix web install
+npm --prefix web ci
+npm --prefix web run build
 npm --prefix dsh run build
 npm --prefix dsh test
 node dsh/verify-build.mjs
 ```
 
-当前尚无 `web/package-lock.json`；联网安装并生成锁文件后，后续可改用 `npm --prefix web ci`。前端依赖安装需要 npm 网络或完整缓存。`dsh/build.mjs` 直接复用 `web/node_modules` 中的 React、React Flow 和 esbuild，不要求另装一套依赖，也不依赖 DSH 源码工作区。Node 版本遵循 `web/package.json` 的要求。
+`web/package-lock.json` 已生成，使用 `npm --prefix web ci` 安装锁定依赖。`dsh/build.mjs` 直接复用 `web/node_modules` 中的 React、React Flow 和 esbuild，不要求另装一套依赖，也不依赖 DSH 源码工作区。独立编辑器要求 Node.js 22.18+；本次 DSH 版本要求 Node.js 24.9+。
 
 产物为 `dsh/lib/index.js` 和 `dsh/lib/client.js`。构建会提取编辑器 CSS，将其嵌入插件工厂；React 及 React DOM 保持 external，由 DSH 的共享模块表提供。产物不提交 Git。
 
@@ -32,6 +33,19 @@ dsh web
 ```
 
 相对目录安装按照官方流程链接本地目录。`--dump-config` 应包含 `dsh-paperstream` 层和 `paperstream` 行。打开 Web 后，左侧导航应出现 **Paperstream**，点击进入编辑器，再从工具栏选择本机 `.canvas` 文件。
+
+也可将 DSH 与配置隔离在当前项目中，本次使用的安装方式为：
+
+```sh
+npm install --prefix .local/dsh-runtime @deepseek-ai/dsh@0.2.2-rc.1 pnpm@10
+export DSH_HOME="$PWD/.local/dsh-home"
+export PATH="$PWD/.local/dsh-runtime/node_modules/.bin:$PATH"
+dsh --profile web --dump-config
+dsh plugin --profile web add ./dsh
+dsh web --no-open --host 127.0.0.1 --port 3080
+```
+
+`--dump-config` 首次运行会初始化 Web profile。本次安装使用 pnpm 10.34.9；`.local/` 已被 Git 忽略。开发机已有 `.local/start-dsh.sh`，后续可从项目根目录执行 `sh .local/start-dsh.sh`。打开 DSH 输出的地址后，选择 [CNN 演进图](../examples/cnn-evolution.canvas) 或 [ResNet 关系图](../examples/resnet.canvas)。
 
 如需分发预构建包，在 `dsh/` 目录执行 `npm pack`，再在目标机器使用：
 
@@ -63,13 +77,29 @@ dsh plugin --profile web remove dsh-paperstream
 
 插件释放通过 `ctx.effect` 注册的导航项、主面板和自身样式。若当前就在 Paperstream，释放主面板前切回 Conversation；独立的 `.canvas` 文件不会被删除，浏览器草稿也不会被插件清除。
 
-在可运行 DSH 的环境中仍需验证：
+本次已观察到代码热更新卸载当前画布时返回 Conversation。但插件管理总开关的 Off 状态虽然能持久化，导航未立即卸载；切回 On 后已恢复。这是当前宿主联调的已知限制，不能把总开关动态禁用视为通过。
 
-1. 左侧入口出现，画布能显示、拖动、连线和编辑。
-2. 打开真实 `.canvas`，修改后保存/导出，再重新打开核对内容与位置。
-3. 切换面板后返回，确认草稿恢复；恢复后确认不会无提示覆盖原文件。
-4. 在画布页禁用插件，确认返回 Conversation、导航项消失、插件样式移除。
-5. 分别在 Web 和 Desktop 验证文件选择与保存，不能用单元测试代替这些检查。
+2026-11-06 的 Chrome / DSH Web 实测已通过：
+
+- 左侧入口、画布显示、本机文件选择、论文详情编辑及拖动；新建空白画布的确认流程。
+- 未应用表单时禁用保存；取消放弃修改后保留输入；应用修改、撤销和重做。
+- 保存写回测试副本，并通过 Python API 回读核对；外部 API 修改文件后，界面保存拒绝覆盖，重新读取显示外部内容。
+- “只看附近”显示 2/3 张卡片时，保存仍保留完整 3 张卡片和 2 条关系；放大和适应视图。
+- 未应用的表单修改在切换到 Plugins 后返回仍保留，画布维持已应用内容并显示草稿恢复提示；恢复后保存仍须先应用，重新读取禁用，因为文件句柄未恢复。
+- 选中已有卡片后点击“＋论文”正常进入空表单，不再被旧选择抢回；新增中文长标题、多行中文及长英文词的测试卡成功。
+- 卡片按内容自动增高，手动收窄后重新换行并增高，全部文字和年份保持可见；缩放控件图标可见。
+- 通过按钮新增关系、编辑关系说明、确认删除关系并撤销恢复；删除带关系卡片时提示关联数量，确认后卡片及其关系一起删除，撤销可恢复两者。
+- 另存为测试副本成功，经 CanvasGraph 回读确认 4 张卡片、3 条关系，以及长卡片的宽 225、高 471 均已持久化。
+- 关系说明可点击编辑，长中文说明正常换行；拥挤的 4 卡片、3 标签图中没有文字遮挡卡片，拖动卡片占据原标签位置后，标签自动移到空白处。
+- CNN 四篇样例完整显示，初始视图包含关系说明。拖动 LeNet 底部连接点到 VGG 左侧可进入正确起终点的关系表单，应用后增加一条边，撤销后恢复原有 3 条边并保存。
+- 下载副本完成，下载文件通过 Python Canvas 校验；“适应视图”同时计入卡片与标签边界，包括负坐标。
+- “定位论文”选择 LeNet 后正确定位并进入详情；点击原文链接打开作者页面，显示论文标题、作者及 1998 年发表信息。
+
+论文卡片现在默认按内容自动增高和收缩。手动调整尺寸后切换到手动高度模式，保留宽度和留白，但高度不低于内容需要；详情中的“卡片高度”可切回自动模式。论文边框和关系线粗细范围为 0.5–8 px，默认分别为 1 px、1.8 px。外观保存在节点或边的 `paperstreamStyle` 扩展中，修改时保留未知属性。
+
+标签避让只改变显示位置，不改动论文卡片坐标或文件里的关系说明；拥挤时标签可能移到图外侧，“适应视图”会将其一起纳入。
+
+本轮高度模式与线宽设置的自动检查共 123 项及构建通过；新加入的自动收缩、模式切换和粗细设置正在进行实际 DSH 手测，不能据此视为手测通过。此前实测清单仍适用于已记录的操作。上述记录不代表所有使用场景均无问题；Desktop、不支持 File System Access API 的浏览器回退流程，以及大规模性能仍未验证。
 
 ## 使用的官方接口
 

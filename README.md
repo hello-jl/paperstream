@@ -2,21 +2,24 @@
 
 用独立的 `.canvas` 纯文本文件管理论文关系。React Flow 提供拖动与编辑界面；Python API 和 CLI 让 agent 维护同一格式。无需 Obsidian。新工作以 Canvas 为主，旧 Mermaid API 和示例作为兼容入口保留，不做双向同步。
 
-**当前状态：** Canvas 文件 API、前端界面源码与 DSH 面板插件已实现。Python 测试、前端数据与保存逻辑测试、DSH 注册生命周期测试已通过；当前环境的 npm 网络受限，尚未完成 React Flow 依赖安装、完整前端构建和真实浏览器/DSH 联调。下列启动命令需要能访问 npm 的环境，不能把源码和单元测试视为已安装的 DSH 插件。
+**当前状态：** Canvas 文件 API、React Flow 编辑器和 DSH 面板插件已实现。依赖安装、完整前端构建、插件构建与自动测试已通过；2026-11-06 已在 macOS 的 Chrome 中运行 DSH Web 0.2.2-rc.1，手测论文与关系增删改、拖点连线、撤销重做、卡片自动增高、关系标签避让、文件保存/下载和冲突保护。Desktop 尚未验证，详细范围与已知限制见 [DSH 说明](dsh/README.md)。
 
 ## 打开图形编辑器
 
 需要 Node.js 22.18 或更新版本，在项目根目录执行：
 
 ```sh
-npm --prefix web install
+npm --prefix web ci
 npm --prefix web run dev
 ```
 
-打开终端显示的本机地址，再选择 [examples/resnet.canvas](examples/resnet.canvas)。首次成功安装后应保留生成的 `web/package-lock.json`，后续使用 `npm --prefix web ci` 安装相同依赖。
+打开终端显示的本机地址，再选择 [CNN 演进图](examples/cnn-evolution.canvas)（LeNet-5、AlexNet、VGG、ResNet 四篇）或 [ResNet 关系图](examples/resnet.canvas)。`web/package-lock.json` 已生成，使用 `npm --prefix web ci` 安装锁定依赖。
 
 - 卡片显示 `alias`、简短 `takeaway` 和年份，详情面板编辑完整 `name`、原文 `url` 等信息。
+- 论文卡片默认随内容自动增高或收缩，文字换行，年份排在正文之后。手动调整卡片大小会切到“手动保留高度”，保留留白但不压住内容；可在详情中切回“自动适应内容”。
+- 论文卡片边框和关系线粗细可在详情中设置，范围为 0.5–8 px，默认分别为 1 px 和 1.8 px。
 - 拖动圆点连接卡片，填写边上的 `relation`；拖动卡片或调整大小会更新布局。
+- 关系说明支持换行并自动避开可见卡片和其他关系说明；点击说明可编辑。适应视图同时包含卡片与关系说明。
 - “只看附近”显示选中卡片及直接相连的卡片，保存仍包含全图；“显示全图”恢复视图。
 - 编辑详情后先点击“应用更改”，再保存文件。支持撤销、重做与显式删除确认。
 - 支持文件句柄的浏览器可保存到原文件，保存前检查文件是否被其他程序修改；其他浏览器使用“下载副本”。Python/agent 更新文件后点击“重新读取”，或重新打开。
@@ -62,15 +65,17 @@ Python 保存使用快照检查、协作锁和原子替换；浏览器保存使�
 
 [dsh/README.md](dsh/README.md) 包含构建、安装与宿主版本要求。插件复用 DSH 的 React，在主面板和左侧导航提供入口。它使用浏览器选择的文件；远程 DSH Host 的工作区文件不会自动出现在本机选择器中。当前没有 Host 文件 RPC 或模型工具注册；agent 仍调用上述 API/CLI。
 
+本次开发机的 DSH 与配置位于项目 `.local/`，已有环境可在根目录执行 `sh .local/start-dsh.sh`，再打开终端输出的本机地址。该临时脚本和运行环境不提交 Git；其他机器按 DSH 说明安装。
+
 ## Canvas 验证
 
 ```sh
 python3 -m unittest discover -s tests -v
 node --experimental-strip-types web/src/canvas.test.ts
 node --experimental-strip-types web/src/files.test.ts
+node --experimental-strip-types web/src/edge-label-layout.test.ts
 python3 web/scripts/check_python_roundtrip.py
 node dsh/test/register.test.mjs
-# 前端依赖完整后：
 npm --prefix web run build
 npm --prefix web run build:dsh
 ```
@@ -187,6 +192,6 @@ python3 -m paperstream validate examples/resnet.mmd
 python3 -m unittest discover -s tests -v
 ```
 
-测试覆盖字段读写、标题/链接/年份独立维护、元数据类型与格式校验、旧格式兼容、特殊字符、局部源码保留、删除约束、编号不复用、外部修改冲突及保存失败保护。当前环境没有 Mermaid 渲染依赖，npm 网络访问受限，未做 Mermaid 原生解析或图形渲染验证；`validate` 检查的是上述文档约定。
+测试覆盖字段读写、标题/链接/年份独立维护、元数据类型与格式校验、旧格式兼容、特殊字符、局部源码保留、删除约束、编号不复用、外部修改冲突及保存失败保护。旧 Mermaid 入口仍未做 Mermaid 原生解析或图形渲染验证；`validate` 检查的是上述文档约定。
 
-DSH 插件源码和 Canvas 新入口见本文开头；当前环境尚未安装运行该插件，也没有常驻 API 服务。Python 模块与 CLI 可由 agent 直接调用。
+DSH 插件和 Canvas 新入口见本文开头；本地 DSH Web 已完成上述联调。插件没有额外的常驻文件 API 服务，Python 模块与 CLI 可由 agent 直接调用。

@@ -1,9 +1,9 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  Background, ConnectionMode, Controls, Handle, MarkerType, NodeResizer,
+  Background, ConnectionMode, ControlButton, Controls, Handle, MarkerType, NodeResizer,
   Position, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow,
 } from '@xyflow/react';
-import type { Connection, Edge, Node, NodeProps, OnNodesChange } from '@xyflow/react';
+import type { Connection, Node, NodeProps, OnNodesChange } from '@xyflow/react';
 import {
   addEdge, addNode, createCanvas, createEdge, createPaperNode, parseCanvas,
   patchEdge, patchNode, readPaper, removeEdge, removeNode, serializeCanvas, updatePaper,
@@ -11,6 +11,10 @@ import {
 import type { CanvasEdge, CanvasNode, JSONCanvasDocument, PaperFields } from './canvas';
 import { downloadFile, hasFilePicker, pickFile, pickSaveFile, writeFile } from './files';
 import type { LocalFileHandle } from './files';
+import { RelationEdge } from './RelationEdge';
+import type { EdgeLabelMeasurement, RelationEdgeModel } from './RelationEdge';
+import { getContentBounds, layoutEdgeLabels } from './edge-label-layout';
+import { readNodeStyle, readEdgeStyle, updateNodeStyle, updateEdgeStyle } from './appearance';
 import '@xyflow/react/dist/style.css';
 import './editor.css';
 
@@ -21,6 +25,9 @@ type FormValues = Record<string, string>;
 type CardNode = Node<{
   raw: CanvasNode;
   busy: boolean;
+  measurePass: number;
+  startInteraction: () => void;
+  fitHeight: (node: CanvasNode, height: number, persist: boolean) => void;
   resize: (id: string, width: number, height: number, x: number, y: number) => void;
 }, 'paper'>;
 
@@ -36,18 +43,48 @@ function message(error: unknown) { return error instanceof Error ? error.message
 
 const PaperCard = memo(function PaperCard({ id, data, selected }: NodeProps<CardNode>) {
   const paper = readPaper(data.raw);
+  const appearance = readNodeStyle(data.raw);
+  const content = useRef<HTMLDivElement>(null);
+  const resizing = useRef(false);
+  const [minimumHeight, setMinimumHeight] = useState(100);
+  // offsetHeight is in unscaled CSS pixels, unlike getBoundingClientRect().
+  // Measure a natural-height child so stored height cannot feed back into its
+  // own measurement. Include the user-selected border and one rounding pixel.
+  const contentHeight = () => content.current?.offsetWidth
+    ? Math.max(100, Math.ceil(content.current.offsetHeight + 2 * appearance.strokeWidth + 1)) : 100;
+  useLayoutEffect(() => {
+    const element = content.current;
+    if (!element) return;
+    const measure = () => {
+      if (!element.offsetWidth) return;
+      const height = contentHeight();
+      setMinimumHeight(previous => previous === height ? previous : height);
+      data.fitHeight(data.raw, height, !resizing.current && !data.busy);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [data.raw, data.busy, data.fitHeight, data.measurePass]);
   return <div className={`ps-card ${data.raw.type === 'group' ? 'ps-group' : ''}`}
-    style={{ borderColor: color(data.raw.color) }}>
-    <NodeResizer isVisible={selected && !data.busy} minWidth={160} minHeight={100}
-      onResizeEnd={(_event, size) => data.resize(id, size.width, size.height, size.x, size.y)} />
+    style={{ borderColor: color(data.raw.color), borderWidth: appearance.strokeWidth, minHeight: minimumHeight }}>
+    <NodeResizer isVisible={selected && !data.busy} minWidth={160} minHeight={minimumHeight}
+      onResizeStart={() => { resizing.current = true; data.startInteraction(); }}
+      onResizeEnd={(_event, size) => {
+        resizing.current = false;
+        data.resize(id, size.width, Math.max(size.height, contentHeight()), size.x, size.y);
+      }} />
     {Object.values(Position).map(side => <Handle key={side} id={side} type="source" position={side} />)}
-    <span className="ps-card-kind">{paper ? '论文' : { text: '备注', file: '文件', link: '链接', group: '分组' }[data.raw.type]}</span>
-    <strong>{title(data.raw)}</strong>
-    <p>{paper?.takeaway ?? (data.raw.type === 'text' ? data.raw.text : data.raw.type === 'group' ? '' : '点击查看详情')}</p>
-    {paper?.year && <span className="ps-card-year">{paper.year}</span>}
+    <div className="ps-card-content" ref={content}>
+      <span className="ps-card-kind">{paper ? '论文' : { text: '备注', file: '文件', link: '链接', group: '分组' }[data.raw.type]}</span>
+      <strong>{title(data.raw)}</strong>
+      <p>{paper?.takeaway ?? (data.raw.type === 'text' ? data.raw.text : data.raw.type === 'group' ? '' : '点击查看详情')}</p>
+      {paper?.year && <span className="ps-card-year">{paper.year}</span>}
+    </div>
   </div>;
 });
 const nodeTypes = { paper: PaperCard };
+const edgeTypes = { relation: RelationEdge };
 
 function initialState(key: string) {
   const empty = createCanvas();
@@ -89,6 +126,11 @@ function Editor({ draftKey }: { draftKey: string }) {
   const [selection, setSelection] = useState<Selection>(initial.selection);
   const selectionRef = useRef(selection);
   selectionRef.current = selection;
+  const changeSelection = useCallback((next: Selection) => {
+    selectionRef.current = next;
+    setSelection(next);
+  }, []);
+  const selectRef = useRef<(next: Selection) => boolean>(() => false);
   const [form, setForm] = useState<FormValues>(initial.form);
   const [formDirty, setFormDirty] = useState(initial.formDirty);
   const [fileName, setFileName] = useState(initial.fileName);
@@ -99,6 +141,11 @@ function Editor({ draftKey }: { draftKey: string }) {
   const [error, setError] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<CardNode[]>([]);
+  const [contentHeights, setContentHeights] = useState<Record<string, number>>({});
+  const [labelMeasurements, setLabelMeasurements] = useState<Map<string, EdgeLabelMeasurement>>(() => new Map());
+  const interacting = useRef(false);
+  const pendingInitialFit = useRef(true);
+  const [measurePass, setMeasurePass] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const flow = useReactFlow<CardNode>();
   const source = useMemo(() => serializeCanvas(canvas), [canvas]);
@@ -126,11 +173,44 @@ function Editor({ draftKey }: { draftKey: string }) {
     setCanvas(next);
     setError('');
   }, []);
+  const startInteraction = useCallback(() => {
+    interacting.current = true;
+    pendingInitialFit.current = false;
+  }, []);
+  const finishInteraction = useCallback(() => {
+    interacting.current = false;
+    setMeasurePass(pass => pass + 1);
+  }, []);
+  const fitHeight = useCallback((measuredNode: CanvasNode, height: number, persist: boolean) => {
+    // Ignore measurements from a deleted/replaced/edited node. Height changes
+    // are part of the current edit, not another undo step or a new redo branch.
+    const node = current.current.nodes.find(item => item.id === measuredNode.id);
+    if (node !== measuredNode) return;
+    // Labels also avoid natural content that has grown during a resize, before
+    // that gesture commits the card's final dimensions to the document.
+    setContentHeights(previous => previous[node.id] === height ? previous : { ...previous, [node.id]: height });
+    const automatic = Boolean(readPaper(node)) && readNodeStyle(node).heightMode === 'auto';
+    const nextHeight = automatic ? height : Math.max(node.height, height);
+    if (!persist || interacting.current || nextHeight === node.height) return;
+    try {
+      const next = patchNode(current.current, node.id, { height: nextHeight });
+      current.current = next;
+      setCanvas(next);
+    } catch (err) { setError(message(err)); }
+  }, []);
   const resize = useCallback((id: string, width: number, height: number, x: number, y: number) => {
+    finishInteraction();
     if (busy) return;
-    try { commit(patchNode(current.current, id, { width: Math.round(width), height: Math.round(height), x: Math.round(x), y: Math.round(y) })); }
+    try {
+      const node = current.current.nodes.find(item => item.id === id)!;
+      const { id: _id, ...styled } = readPaper(node) ? updateNodeStyle(node, { heightMode: 'manual' }) : node;
+      commit(patchNode(current.current, id, { ...styled, width: Math.round(width), height: Math.round(height), x: Math.round(x), y: Math.round(y) }));
+      if (selectionRef.current?.kind === 'node' && selectionRef.current.id === id) {
+        setForm(values => ({ ...values, heightMode: 'manual' }));
+      }
+    }
     catch (err) { setError(message(err)); }
-  }, [commit, busy]);
+  }, [commit, busy, finishInteraction]);
   const visible = useMemo(() => {
     if (!focusId || !canvas.nodes.some(node => node.id === focusId)) return new Set(canvas.nodes.map(node => node.id));
     const ids = new Set([focusId]);
@@ -144,20 +224,80 @@ function Editor({ draftKey }: { draftKey: string }) {
     setNodes(canvas.nodes.map((node, index) => ({
       id: node.id, type: 'paper', position: { x: node.x, y: node.y },
       width: node.width, height: node.height, style: { width: node.width, height: node.height },
-      data: { raw: node, resize, busy }, selected: selection?.kind === 'node' && selection.id === node.id,
+      data: { raw: node, resize, busy, fitHeight, startInteraction, measurePass }, selected: selection?.kind === 'node' && selection.id === node.id,
       hidden: !visible.has(node.id), zIndex: index,
     })));
-  }, [canvas, visible, resize, selection, busy]);
-  const edges = useMemo<Edge[]>(() => canvas.edges.map(edge => ({
+  }, [canvas, visible, resize, selection, busy, fitHeight, startInteraction, measurePass]);
+  const measureLabel = useCallback((measurement: EdgeLabelMeasurement) => {
+    setLabelMeasurements(previous => {
+      if (JSON.stringify(previous.get(measurement.id)) === JSON.stringify(measurement)) return previous;
+      const next = new Map(previous);
+      next.set(measurement.id, measurement);
+      return next;
+    });
+  }, []);
+  useEffect(() => {
+    const ids = new Set(canvas.edges.map(edge => edge.id));
+    setLabelMeasurements(previous => {
+      const retained = new Map([...previous].filter(([id]) => ids.has(id)));
+      return retained.size === previous.size ? previous : retained;
+    });
+  }, [canvas.edges]);
+  const selectEdgeLabel = useCallback((id: string) => { selectRef.current({ kind: 'edge', id }); }, []);
+  const visibleCardBounds = useMemo(() => nodes.filter(node => !node.hidden).map(node => ({
+    x: node.position.x, y: node.position.y,
+    width: node.width ?? node.data.raw.width,
+    height: Math.max(node.height ?? node.data.raw.height, contentHeights[node.id] ?? 0),
+  })), [nodes, contentHeights]);
+  const labelPositions = useMemo(() => {
+    const labels = canvas.edges.flatMap(edge => {
+      if (!edge.label || !visible.has(edge.fromNode) || !visible.has(edge.toNode)) return [];
+      const measurement = labelMeasurements.get(edge.id);
+      return measurement?.text === edge.label ? [measurement] : [];
+    });
+    return layoutEdgeLabels(labels, visibleCardBounds);
+  }, [canvas.edges, visible, visibleCardBounds, labelMeasurements]);
+  const contentBounds = useMemo(() => getContentBounds([
+    ...visibleCardBounds,
+    ...[...labelPositions].flatMap(([id, position]) => {
+      const label = labelMeasurements.get(id);
+      return label ? [{ x: position.x - label.width / 2, y: position.y - label.height / 2,
+        width: label.width, height: label.height }] : [];
+    }),
+  ]), [visibleCardBounds, labelPositions, labelMeasurements]);
+  const fitContent = useCallback(() => {
+    pendingInitialFit.current = false;
+    if (contentBounds) void flow.fitBounds(contentBounds, { padding: 0.15, duration: 0 });
+  }, [flow, contentBounds]);
+  useEffect(() => {
+    if (!pendingInitialFit.current) return;
+    if (!canvas.nodes.length) { pendingInitialFit.current = false; return; }
+    // Wait for the new document, natural card sizes and HTML labels to agree.
+    // A pair of frames lets path/label measurement settle before the one-time
+    // fit. Later dragging and label movement never change the user's viewport.
+    if (canvas.nodes.some(raw => visible.has(raw.id) && (!nodes.some(node => node.data.raw === raw)
+      || contentHeights[raw.id] === undefined))) return;
+    if (canvas.edges.some(edge => edge.label && visible.has(edge.fromNode) && visible.has(edge.toNode)
+      && !labelPositions.has(edge.id))) return;
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
+        if (pendingInitialFit.current && !interacting.current) fitContent();
+      });
+    });
+    return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
+  }, [canvas, nodes, visible, contentHeights, labelPositions, fitContent]);
+  const edges = useMemo<RelationEdgeModel[]>(() => canvas.edges.map(edge => ({
     id: edge.id, source: edge.fromNode, target: edge.toNode,
     sourceHandle: edge.fromSide ?? 'bottom', targetHandle: edge.toSide ?? 'top',
-    label: edge.label, type: 'smoothstep', animated: false,
+    label: edge.label, type: 'relation', animated: false,
+    data: { position: labelPositions.get(edge.id), busy, onMeasure: measureLabel, onSelect: selectEdgeLabel },
     markerStart: edge.fromEnd === 'arrow' ? { type: MarkerType.ArrowClosed } : undefined,
     markerEnd: edge.toEnd !== 'none' ? { type: MarkerType.ArrowClosed } : undefined,
-    style: { stroke: color(edge.color) ?? '#70877e', strokeWidth: 1.8 },
+    style: { stroke: color(edge.color) ?? '#70877e', strokeWidth: readEdgeStyle(edge).strokeWidth },
     selected: selection?.kind === 'edge' && selection.id === edge.id,
     hidden: !visible.has(edge.fromNode) || !visible.has(edge.toNode),
-  })), [canvas, visible, selection]);
+  })), [canvas, visible, selection, labelPositions, busy, measureLabel, selectEdgeLabel]);
   const onNodesChange: OnNodesChange<CardNode> = useCallback(changes => {
     // Deletion is explicit in the inspector; filtering never mutates stored nodes.
     setNodes(items => applyNodeChanges(changes.filter(change => change.type !== 'remove'), items));
@@ -174,27 +314,34 @@ function Editor({ draftKey }: { draftKey: string }) {
       commit(next);
     } catch (err) { setError(message(err)); }
   }, [busy, commit]);
+  // Explicit card/edge actions own selection. Mirroring React Flow's selection
+  // observer back into this state replays stale controlled nodes while switching
+  // to a label or a new form, and can silently replace the current form.
 
   function discardForm() { return !formDirty || window.confirm('详情还有未应用的修改。放弃这些字段修改吗？'); }
   function select(next: Selection) {
+    if (next?.kind === 'node' && !current.current.nodes.some(node => node.id === next.id)) return false;
+    if (next?.kind === 'edge' && !current.current.edges.some(edge => edge.id === next.id)) return false;
     if (JSON.stringify(next) === JSON.stringify(selectionRef.current)) return true;
     if (busy || !discardForm()) return false;
-    selectionRef.current = next;
-    setSelection(next);
+    changeSelection(next);
     setFormDirty(false);
     setError('');
     if (next?.kind === 'node') {
-      const node = canvas.nodes.find(item => item.id === next.id)!;
+      const node = current.current.nodes.find(item => item.id === next.id)!;
       const paper = readPaper(node);
-      setForm(paper ? { alias: paper.alias, takeaway: paper.takeaway, name: paper.name ?? '', url: paper.url ?? '', year: paper.year?.toString() ?? '' }
+      setForm(paper ? { alias: paper.alias, takeaway: paper.takeaway, name: paper.name ?? '', url: paper.url ?? '', year: paper.year?.toString() ?? '',
+        strokeWidth: String(readNodeStyle(node).strokeWidth), heightMode: readNodeStyle(node).heightMode }
         : { text: node.text ?? '' });
     } else if (next?.kind === 'edge') {
-      setForm({ relation: canvas.edges.find(item => item.id === next.id)?.label ?? '' });
+      const edge = current.current.edges.find(item => item.id === next.id)!;
+      setForm({ relation: edge.label ?? '', strokeWidth: String(readEdgeStyle(edge).strokeWidth) });
     } else if (next?.kind === 'connection') {
-      setForm({ relation: '', source: next.source, target: next.target });
-    } else setForm({ alias: '', takeaway: '', name: '', url: '', year: '' });
+      setForm({ relation: '', source: next.source, target: next.target, strokeWidth: '1.8' });
+    } else setForm({ alias: '', takeaway: '', name: '', url: '', year: '', strokeWidth: '1', heightMode: 'auto' });
     return true;
   }
+  selectRef.current = select;
   function field(key: string, value: string) {
     setForm(values => ({ ...values, [key]: value }));
     setFormDirty(true);
@@ -202,27 +349,41 @@ function Editor({ draftKey }: { draftKey: string }) {
   function apply() {
     if (!selection || busy) return;
     try {
-      let next = canvas;
+      let next = current.current;
       if (selection.kind === 'new' || (selection.kind === 'node' && readPaper(canvas.nodes.find(n => n.id === selection.id)!))) {
         const fields: PaperFields = { alias: form.alias, takeaway: form.takeaway, name: form.name || null, url: form.url || null,
           year: form.year ? Number(form.year) : null };
         if (selection.kind === 'new') {
           const position = flow.screenToFlowPosition({ x: window.innerWidth * 0.4, y: window.innerHeight * 0.4 });
-          const node = createPaperNode(fields, { x: Math.round(position.x), y: Math.round(position.y) });
-          next = addNode(canvas, node);
-          setSelection({ kind: 'node', id: node.id });
+          const node = updateNodeStyle(createPaperNode(fields, { x: Math.round(position.x), y: Math.round(position.y) }), {
+            strokeWidth: Number(form.strokeWidth ?? 1), heightMode: form.heightMode === 'manual' ? 'manual' : 'auto',
+          });
+          next = addNode(next, node);
+          changeSelection({ kind: 'node', id: node.id });
           setFocusId(null);
-        } else next = updatePaper(canvas, selection.id, fields);
+        } else {
+          next = updatePaper(next, selection.id, fields);
+          const node = next.nodes.find(item => item.id === selection.id)!;
+          const previousStyle = readNodeStyle(node);
+          const { id: nodeId, ...nodePatch } = updateNodeStyle(node, {
+            ...(form.strokeWidth !== undefined && Number(form.strokeWidth) !== previousStyle.strokeWidth ? { strokeWidth: Number(form.strokeWidth) } : {}),
+            ...(form.heightMode !== undefined && form.heightMode !== previousStyle.heightMode ? { heightMode: form.heightMode === 'manual' ? 'manual' as const : 'auto' as const } : {}),
+          });
+          next = patchNode(next, nodeId, nodePatch);
+        }
       } else if (selection.kind === 'edge') {
-        next = patchEdge(canvas, selection.id, { label: form.relation });
+        const edge = next.edges.find(item => item.id === selection.id)!;
+        const { id: edgeId, ...edgePatch } = updateEdgeStyle(edge,
+          form.strokeWidth !== undefined && Number(form.strokeWidth) !== readEdgeStyle(edge).strokeWidth ? { strokeWidth: Number(form.strokeWidth) } : {});
+        next = patchEdge(next, edgeId, { ...edgePatch, label: form.relation });
       } else if (selection.kind === 'connection') {
-        const edge = createEdge(form.source, form.target, form.relation);
+        const edge = updateEdgeStyle(createEdge(form.source, form.target, form.relation), { strokeWidth: Number(form.strokeWidth ?? 1.8) });
         if (selection.fromSide) edge.fromSide = selection.fromSide;
         if (selection.toSide) edge.toSide = selection.toSide;
-        next = addEdge(canvas, edge);
-        setSelection({ kind: 'edge', id: edge.id });
+        next = addEdge(next, edge);
+        changeSelection({ kind: 'edge', id: edge.id });
       } else if (selection.kind === 'node') {
-        next = patchNode(canvas, selection.id, { text: form.text });
+        next = patchNode(next, selection.id, { text: form.text });
       }
       commit(next);
       setFormDirty(false);
@@ -240,7 +401,7 @@ function Editor({ draftKey }: { draftKey: string }) {
         if (!window.confirm('删除这条关系？')) return;
         commit(removeEdge(canvas, selection.id));
       }
-      setSelection(null); setFormDirty(false);
+      changeSelection(null); setFormDirty(false);
     } catch (err) { setError(message(err)); }
   }
   function travel(back: boolean) {
@@ -250,15 +411,17 @@ function Editor({ draftKey }: { draftKey: string }) {
     const next = list[list.length - 1];
     if (back) { setPast(list.slice(0, -1)); setFuture(items => [...items, canvas]); }
     else { setFuture(list.slice(0, -1)); setPast(items => [...items, canvas]); }
-    current.current = next; setCanvas(next); setSelection(null); setFormDirty(false); setError('');
+    current.current = next; setCanvas(next); changeSelection(null); setFormDirty(false); setError('');
   }
   function replace(text: string, name: string, handle: LocalFileHandle | null) {
     const next = parseCanvas(text);
+    interacting.current = false;
+    pendingInitialFit.current = true;
+    setContentHeights({});
     current.current = next; setCanvas(next); setSaved(serializeCanvas(next)); setFileName(name);
     file.current = handle ? { handle, snapshot: text } : null;
-    setPast([]); setFuture([]); setSelection(null); setForm({}); setFormDirty(false); setFocusId(null);
+    setPast([]); setFuture([]); changeSelection(null); setForm({}); setFormDirty(false); setFocusId(null);
     setError(''); setNotice(handle ? '已打开文件；保存前会检查外部修改。' : '已打开文件；更改后可下载副本。');
-    requestAnimationFrame(() => void flow.fitView({ duration: 0 }));
   }
   async function open() {
     if (busy || (dirty && !window.confirm('当前有未保存的修改。放弃它们并打开其他文件吗？'))) return;
@@ -271,7 +434,7 @@ function Editor({ draftKey }: { draftKey: string }) {
   async function save(asNew = false) {
     if (busy || formDirty) return;
     setBusy(true); setError('');
-    const text = source;
+    const text = serializeCanvas(current.current);
     try {
       let target = asNew ? null : file.current;
       if (!target) {
@@ -333,22 +496,17 @@ function Editor({ draftKey }: { draftKey: string }) {
     </div>
     <div className="ps-workspace">
       <main className="ps-canvas" aria-label="论文关系画布">
-        <ReactFlow<CardNode> nodes={nodes} edges={edges} nodeTypes={nodeTypes}
+        <ReactFlow<CardNode, RelationEdgeModel> nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes}
           onNodesChange={onNodesChange} connectionMode={ConnectionMode.Loose}
-          onSelectionChange={({ nodes: selectedNodes, edges: selectedEdges }) => {
-            const next: Selection = selectedNodes.length ? { kind: 'node', id: selectedNodes[0].id }
-              : selectedEdges.length ? { kind: 'edge', id: selectedEdges[0].id } : null;
-            // Pane clicks handle clearing. This also synchronizes keyboard selection.
-            if (next && !select(next)) {
-              setNodes(items => items.map(item => ({ ...item, selected: selectionRef.current?.kind === 'node' && selectionRef.current.id === item.id })));
-            }
-          }}
           nodesDraggable={!busy} nodesConnectable={!busy} deleteKeyCode={null} multiSelectionKeyCode={null}
-          elevateNodesOnSelect={false} fitView minZoom={0.1} maxZoom={2}
+          elevateNodesOnSelect={false} minZoom={0.1} maxZoom={2}
+          onMoveStart={event => { if (event) pendingInitialFit.current = false; }}
           onNodeClick={(_event, node) => select({ kind: 'node', id: node.id })}
           onEdgeClick={(_event, edge) => select({ kind: 'edge', id: edge.id })}
           onPaneClick={() => select(null)}
+          onNodeDragStart={startInteraction}
           onNodeDragStop={(_event, node, dragged) => {
+            finishInteraction();
             try {
               let next = current.current;
               for (const item of dragged?.length ? dragged : [node]) {
@@ -360,7 +518,11 @@ function Editor({ draftKey }: { draftKey: string }) {
           onConnect={(connection: Connection) => select({ kind: 'connection', source: connection.source, target: connection.target,
             fromSide: connection.sourceHandle as CanvasEdge['fromSide'], toSide: connection.targetHandle as CanvasEdge['toSide'] })}>
           <Background color="#cbd7d0" gap={24} size={1} />
-          <Controls showInteractive={false} />
+          <Controls showInteractive={false} showFitView={false}>
+            <ControlButton onClick={fitContent} aria-label="Fit View" title="适应画布（含关系说明）">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h6v2H5v4H3V3Zm12 0h6v6h-2V5h-4V3ZM3 15h2v4h4v2H3v-6Zm16 0h2v6h-6v-2h4v-4Z" /></svg>
+            </ControlButton>
+          </Controls>
         </ReactFlow>
         {!canvas.nodes.length && <div className="ps-empty"><span>从一篇论文开始</span><p>留下你的理解，再用关系线把研究脉络连起来。</p><button disabled={busy} onClick={() => select({ kind: 'new' })}>新增第一篇论文</button></div>}
         {focusId && <div className="ps-view-note">局部视图 · 保存仍包含完整关系图</div>}
@@ -372,6 +534,14 @@ function Editor({ draftKey }: { draftKey: string }) {
         <form onSubmit={event => { event.preventDefault(); apply(); }}>
           <fieldset disabled={busy}>
             {paperForm && <>
+              <div className="ps-appearance-fields">
+                <label>卡片高度<select value={form.heightMode ?? (selectedNode ? readNodeStyle(selectedNode).heightMode : 'auto')} onChange={e => field('heightMode', e.target.value)}>
+                  <option value="auto">自动适应内容</option><option value="manual">手动保留高度</option>
+                </select></label>
+                <label>边框粗细（px）<input type="number" min="0.5" max="8" step="0.1" required
+                  value={form.strokeWidth ?? (selectedNode ? readNodeStyle(selectedNode).strokeWidth : 1)} onChange={e => field('strokeWidth', e.target.value)} /></label>
+              </div>
+              <p className="ps-muted ps-appearance-hint">自动模式随文字增减高度；拖动卡片边角后保留手动尺寸。</p>
               <label>简称 · alias<input required value={form.alias ?? ''} onChange={e => field('alias', e.target.value)} placeholder="例如 ResNet" /></label>
               <label>核心认识 · takeaway<textarea required rows={5} value={form.takeaway ?? ''} onChange={e => field('takeaway', e.target.value)} placeholder="这篇论文最值得记住的是什么？" /></label>
               <label>论文原名 · name<textarea rows={3} value={form.name ?? ''} onChange={e => field('name', e.target.value)} placeholder="保留原始标题" /></label>
@@ -381,6 +551,8 @@ function Editor({ draftKey }: { draftKey: string }) {
             </>}
             {selection?.kind === 'connection' && <>{(['source', 'target'] as const).map(key => <label key={key}>{key === 'source' ? '从这张卡片' : '指向这张卡片'}<select required value={form[key] ?? ''} onChange={e => field(key, e.target.value)}><option value="">请选择…</option>{canvas.nodes.map(n => <option key={n.id} value={n.id}>{title(n)}</option>)}</select></label>)}</>}
             {relationForm && <label>关系说明 · relation<textarea required rows={4} value={form.relation ?? ''} onChange={e => field('relation', e.target.value)} placeholder="例如：在残差连接的基础上改进…" /></label>}
+            {relationForm && <label>连线粗细（px）<input type="number" min="0.5" max="8" step="0.1" required
+              value={form.strokeWidth ?? (selection?.kind === 'edge' ? readEdgeStyle(canvas.edges.find(edge => edge.id === selection.id)!).strokeWidth : 1.8)} onChange={e => field('strokeWidth', e.target.value)} /></label>}
             {selectedNode && !paper && <>
               <p className="ps-muted">这是一张{selectedNode.type === 'text' ? '备注' : selectedNode.type === 'file' ? '文件' : selectedNode.type === 'link' ? '链接' : '分组'}卡片。</p>
               {selectedNode.type === 'text' && <label>内容<textarea rows={12} value={form.text ?? ''} onChange={e => field('text', e.target.value)} /></label>}
@@ -397,7 +569,7 @@ function Editor({ draftKey }: { draftKey: string }) {
     </div>
     <footer className={`ps-status ${error ? 'has-error' : ''}`} role={error ? 'alert' : 'status'}>
       <span>{busy ? '正在处理文件…' : error || notice}</span>
-      <button disabled={busy || formDirty} onClick={() => { downloadFile(fileName, source); setNotice('已发起下载；请保留下载的 .canvas 文件。'); }}>下载副本</button>
+      <button disabled={busy || formDirty} onClick={() => { downloadFile(fileName, serializeCanvas(current.current)); setNotice('已发起下载；请保留下载的 .canvas 文件。'); }}>下载副本</button>
     </footer>
     <input ref={input} hidden type="file" accept=".canvas,application/json" onChange={async event => {
       const selected = event.target.files?.[0]; event.target.value = '';
