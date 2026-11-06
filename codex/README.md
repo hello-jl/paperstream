@@ -1,0 +1,74 @@
+# Paperstream for ChatGPT desktop
+
+Local MCP Apps file editor for `.canvas` files. The desktop host provides the
+opened resource, read/write permissions, version tokens and update notifications.
+The plugin reuses the project's React Flow editor, with React, CSS and all browser
+code bundled into one HTML resource. No API key, OpenAI API call, Vite server or
+HTTP server is required at runtime. Node 22.18+ is required for the stdio server.
+
+## Build and check
+
+From the repository root:
+
+```sh
+npm ci --prefix web
+npm ci --prefix codex
+npm --prefix codex run typecheck
+npm --prefix codex run build
+npm --prefix codex test
+```
+
+The installable package is `codex/dist/plugin/`; it has no `node_modules`
+dependency. `codex/.agents/plugins/marketplace.json` points to that package.
+`package-lock.json` pins the dependencies. The Zod override selects the patched
+4.6.6 release because MCP Extensions 0.2.1 pins an older vulnerable version.
+
+## Local installation
+
+```sh
+codex plugin marketplace add /absolute/path/to/dsh-paperstream/codex
+codex plugin add paperstream@paperstream-local
+codex plugin marketplace list
+```
+
+Restart ChatGPT desktop after installing or updating the plugin, then open an
+existing `.canvas` file in the conversation's file panel. Use a new chat if the
+existing chat has not picked up the plugin. Local installation and protocol
+tests do not themselves prove the desktop UI works; test in the target desktop
+version. The supported surface is the file editor, not a terminal canvas or an
+ordinary chatgpt.com browser conversation.
+
+## Save and update behavior
+
+The URI is opaque and never interpreted as a local path. Save is enabled only
+when the host explicitly reports `writable: true` and provides a nonempty `etag`.
+Every save includes `ifMatch`. A conflict keeps the unsaved graph and old version
+token; repeated Save cannot silently replace the newer file. Clean external
+updates reload automatically; dirty graphs remain open with a notice. Reloading
+a dirty graph requires explicit discard, and reload is blocked during a save.
+File read/parse errors, write failures and host size limits retain the editor's
+current document. There is no automatic browser draft recovery for host files.
+
+Linked local attachments require a separate host-relative resource adapter and
+are not provided by this first file adapter. HTTP images are subject to the host
+CSP; the plugin requests no external resource or connection domains. The source
+data is retained when such images cannot be displayed. External paper links use
+the host's open-link API.
+
+## Browser integration harness
+
+```sh
+npm --prefix codex run preview
+```
+
+Open `http://127.0.0.1:4318`. This development-only test host runs the real bundled
+app and official `AppBridge` protocol in an iframe. It simulates an opaque host
+resource **in memory**, exposes read-only, conflict and external-update controls,
+and never changes the example file. Use it for interaction checks; it is not a
+ChatGPT desktop substitute and is excluded from the packaged plugin.
+
+The design and desktop validation record live in
+[`docs/mechanisms/paperstream-design.md`](../docs/mechanisms/paperstream-design.md).
+The integration follows OpenAI's
+[file editor extensions](https://developers.openai.com/plugins/build/extensions)
+and [local plugin packaging](https://developers.openai.com/plugins/build/plugins).

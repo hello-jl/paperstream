@@ -1,0 +1,13 @@
+{
+  "name": "paperstream",
+  "version": "0.1.0",
+  "description": "Open and edit JSON Canvas paper graphs in the ChatGPT desktop file panel.",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Paperstream",
+    "shortDescription": "Edit .canvas paper graphs",
+    "longDescription": "Open JSON Canvas files in the conversation file panel. Edit paper cards and relations, save with version conflict checks, and follow external file updates.",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"]
+  }
+}
