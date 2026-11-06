@@ -239,6 +239,8 @@ API 的基础读写比现有 Mermaid 解析直接，但业务字段仍需要约�
 
 本节只记录官方接口调研与工程判断，未实施移植。应分别评估 agent 调用文件 API、在应用内显示现有网页、以及注册原生插件界面。共同使用 React 并不意味着 DSH 的槽位注册、共享依赖或文件选择器可以原样搬到其他宿主。
 
+用户已进一步明确：图形适配只面向 Codex App 与 Claude Code 桌面 App，不开发终端画布。以下重点评估文件侧栏与应用内交互；Python API / CLI 仍是已有自动化接口，不因此扩展图形适配范围。
+
 跨平台架构建议：保留 React / React Flow，进一步分离宿主服务，不因 DSH 使用 React 而更换界面框架。React 是通用网页界面库，可接入采用其他技术的现有页面；宿主若提供合适的网页容器与扩展入口，也可以承载独立打包的 React 界面。DSH 已有 React 只是同页集成时复用依赖的便利条件，并非 Paperstream 必须依赖 DSH 的理由。[React 官方集成说明](https://react.dev/learn/add-react-to-an-existing-project)
 
 建议维持以下四个边界，不要求立即拆成多个发布包：
@@ -266,15 +268,21 @@ MCP 工具与 MCP Apps 是可选接入方式，不应成为独立文件 API 或�
 
 补充 Codex 的明确边界：当前官方 [Browser 文档](https://learn.chatgpt.com/docs/browser)将相关能力描述为 ChatGPT 桌面应用中的 Codex 使用体验，并给出启动本地服务、在应用内打开页面的步骤；不将这一能力泛化为任意版本的独立客户端或原生插件插槽。[Codex 官方实践](https://learn.chatgpt.com/docs/learn/best-practices#use-mcps-for-external-context)确认可接入 STDIO 和 Streamable HTTP MCP 工具。因此可以保留 React 编辑器并单独接入工具 API；终端使用时，画布可由外部浏览器显示。网页能显示不代表项目保存、同步和安装流程已经完成联调。
 
-用户进一步明确希望点开 `.canvas` 就在右侧文件面板显示，避免额外打开网页。OpenAI 的 [File viewers and editors](https://developers.openai.com/plugins/build/extensions#file-viewers-and-editors)明确提供按扩展名进入会话侧面板的自定义查看器/编辑器，并向组件传入文件资源 URI；可据此开发 `extensions: ["canvas"]` 的入口，接入现有画布及宿主读写、更新通知。这是需要安装和联调的文件处理扩展，不是宿主已经内置 JSON Canvas 渲染。官方[插件说明](https://learn.chatgpt.com/docs/plugins)包含 ChatGPT 桌面中的 Codex，但文件扩展接口文档以 ChatGPT 为目标，不能由插件通用支持推断用户任意 Codex 版本都已开放同一个文件面板；须在目标客户端核验。普通[文件预览文档](https://learn.chatgpt.com/docs/artifacts-viewer)也未承诺原生识别 JSON Canvas。
+用户希望点开 `.canvas` 就在右侧文件面板显示，避免额外打开网页。Codex App 现已找到具体接入依据：OpenAI [文件编辑器扩展](https://developers.openai.com/plugins/build/extensions#file-viewers-and-editors)支持按扩展名打开会话侧栏中的自定义界面；[正式协议](https://github.com/openai/mcp-extensions/blob/main/docs/spec.md#platform-support)明确列出 Desktop 支持文件入口、文件资源和打开文件。官方 Bits & Bolts [插件清单](https://github.com/openai/mcp-extensions/blob/main/plugins/bits-and-bolts/.codex-plugin/plugin.json)明确面向 Codex 提供交互式 CAD 文件查看和修改，是同类桌面接入示例，不能再将本方案仅描述成泛泛的网页兼容猜测。实现时仍须在目标 App 检查资源能力与可写状态；有公开接口和示例，不等于本项目已完成安装验证。
 
-Claude Code 的[文件面板](https://code.claude.com/docs/en/desktop#open-and-edit-files)可打开和编辑本地项目文件，但未声明原生 JSON Canvas 图形预览。当前 [Mods](https://code.claude.com/docs/en/plugins/mods/overview)可在 CLI、桌面 Code 标签页和 VS Code 增加交互面板；[界面接口](https://code.claude.com/docs/en/plugins/mods/interface)主要是宿主绘制的 Box、Text、Button、Pane 等元素描述树，不能因为支持 JSX 就将其当作 React DOM。它另有 Svg 与 Client 元素，本轮未确认 Client 是否能承载 React Flow。未找到按文件扩展名注册查看器、接管现有文件面板的公开接口，因此自定义 Pane、Browser 网页预览和原有文件预览栏须分别评估，不能宣称两家宿主已有等价接入能力。
+Codex 文件接入可直接复用[官方 TypeScript SDK](https://github.com/openai/mcp-extensions/blob/main/typescript/README.md#file-extension-handlers)：入口传入 `{file:{name,resourceUri}}`，界面调用 `resources.read`、`subscribe` / `addUpdateHandler` 和 `write`，保存时携带 `ifMatch` 版本标记，处理 `saved`、`conflict`、`too-large`。只在读取元数据的 `writable` 明确为 true 时保存；初始化确认 `hostCapabilities.experimental["openai/resource"]` 及扩展对象存在。资源 URI 不当作本地路径解析，服务端需要路径时走正式的文件工具上下文。按[正式入口规范](https://github.com/openai/mcp-extensions/blob/main/docs/spec.md#file-extension-entrypoint)使用 `extensions: [".canvas"]`；产品概览的无点示例与规范有差别，以规范及目标 SDK 校验为准。外部文件更新不能覆盖界面尚未保存的编辑，需结合版本冲突处理。`desktop.custom_file_handlers` 则是启动外部编辑器的 Open in 菜单配置，不是内嵌文件编辑接口。[配置说明](https://learn.chatgpt.com/docs/config-file/config-advanced#add-custom-file-handlers)
+
+Codex 生产运行不必常驻 Vite 或额外 HTTP 界面服务。Bits & Bolts 的[构建脚本](https://github.com/openai/mcp-extensions/blob/main/plugins/bits-and-bolts/scripts/build-app.mjs)将前端脚本与样式内联为 HTML，其[服务端](https://github.com/openai/mcp-extensions/blob/main/plugins/bits-and-bolts/src/server/index.ts)使用本地 stdio MCP 提供打包资源；仍有 MCP 工具进程和 App 的界面渲染开销。[本地插件安装](https://developers.openai.com/plugins/build/plugins#install-a-local-plugin-manually)允许通过个人或仓库 marketplace 私下安装测试，无需先公开发布。
+
+Claude Code 桌面 App 的[文件面板](https://code.claude.com/docs/en/desktop#open-and-edit-files)可打开和编辑本地项目文件，但未声明原生 JSON Canvas 图形预览。其 [Mods 界面接口](https://code.claude.com/docs/en/plugins/mods/interface)支持自建 Pane 与宿主绘制的 Box、Text、Button 等元素。深入核对[官方类型声明](https://github.com/anthropics/claude-code/blob/main/mods/types/claude-code.d.ts#L11214-L11221)后，已确认 Client 与 hooks 环境均没有 DOM，不能原样运行依赖 DOM 的 React Flow；Client 的 module 是插件内 JS/TS 路径，也不是任意 HTML 入口。[Svg 元素](https://github.com/anthropics/claude-code/blob/main/mods/types/claude-code.d.ts#L9540-L9574)只开放有限的悬停与样式交互，禁止脚本和事件属性，不能借它装入 React Flow。未找到按文件扩展名接管原有文件侧栏的公开注册接口。
+
+因此 Claude Code App 目前有两条不同成本的路线：保留现有完整编辑器时，用 App 内的 [Browser 面板](https://code.claude.com/docs/en/desktop#preview-your-app)承载本地页面；若坚持 Mods 自建面板，则另做关系图预览与字段表单，通过 hooks 读写 API 衔接资料，完整拖动、连线体验还需另行验证和实现。后者不是对 React Flow 换一个入口，不能以“已支持 Mods”承诺现有画布直接嵌入。更换为其他网页框架也不会消除无 DOM 的宿主限制。
 
 运行开销应按实际机制判断：上述 MCP App 仍是隔离 iframe 中的网页界面，放入侧栏不会消除 React、图节点、连线和编辑状态的开销。生产构建可打包界面资源，避免把 Vite 开发服务器作为使用要求，也无需为此再包装一套独立桌面浏览器；但宿主隔离视图与 MCP 工具服务仍可能增加进程和内存。建议按需加载编辑器、关闭面板时释放交互资源，继续只显示文字卡片与连线、不自动嵌入 PDF 或原文网页。比较时用同一张图记录宿主、相关渲染进程及工具服务的总内存增量，不以位置在“侧栏”或“网页”推断更轻。只读场景可另评估静态预览以免运行完整编辑器，但不以静态图片替代用户要求的手工编辑。[UI 隔离与打包](https://developers.openai.com/plugins/build/chatgpt-ui)
 
 ChatGPT 官方建议优先用开放 MCP Apps 协议实现可复用 UI，再加平台专用扩展；UI 通过隔离 iframe 与宿主通信，不能将现有浏览器文件句柄视为跨宿主通用能力。文件长期保存仍应落在明确的本地目录或文件服务，避免把聊天组件状态当作论文唯一存档。个人测试和公开分发也要区分：[本地插件测试与打包](https://developers.openai.com/plugins/build/plugins)支持本地来源；[本地 MCP 的公开提交](https://developers.openai.com/plugins/deploy/desktop-only)目前有批准伙伴限制，这不等于禁止个人本地测试。
 
-建议顺序：先完成当前编辑器的完整构建与运行验证；按用户偏好，优先在实际 Codex 桌面客户端核验文件扩展入口，再适配文档读写和刷新。Claude Code 先验证自定义文件入口是否可用，缺少对应能力时再选 Browser 或另做 Mods 面板；独立网页继续作为通用入口。MCP 工具与 MCP Apps UI 按具体接入需要封装。此顺序是基于公开接口和现有源码的判断，未测移植工时、性能或各桌面端文件保存能力。
+建议顺序：先完成当前编辑器的完整构建与运行验证；按用户偏好，优先仿照官方文件插件在 Codex App 核验 `.canvas` 入口、资源读写和刷新，再测内存。Claude Code App 若优先复用完整交互，先采用内置 Browser；若用户坚持专用面板，则单独评估 Mods 界面的功能与成本，不预先重写现有 React 编辑器。独立网页继续作为通用入口，MCP 工具与 MCP Apps UI 按具体接入需要封装。此顺序是基于公开接口和现有源码的判断，未测移植工时、性能或各桌面端文件保存能力。
 
 ## 后续验证顺序
 
