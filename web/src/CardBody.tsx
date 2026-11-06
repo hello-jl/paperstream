@@ -32,31 +32,69 @@ function Figure({ figure, selected, busy, onResize }: {
   figure: CardFigure; selected: boolean; busy: boolean; onResize: (width: number) => void;
 }) {
   const element = useRef<HTMLElement>(null);
-  const gesture = useRef<{ id: number; startX: number; width: number; parentWidth: number; current: number } | null>(null);
+  const gesture = useRef<{ id: number; startX: number; width: number; parentWidth: number; current: number;
+    target: HTMLButtonElement } | null>(null);
+  const detach = useRef<(() => void) | null>(null);
+  const latest = useRef({ width: figure.widthPercent, onResize });
+  latest.current = { width: figure.widthPercent, onResize };
   const [preview, setPreview] = useState<number | null>(null);
+  const release = (current: NonNullable<typeof gesture.current>) => {
+    if (current.target.hasPointerCapture(current.id)) current.target.releasePointerCapture(current.id);
+  };
+  const finish = (commit: boolean) => {
+    const current = gesture.current;
+    if (!current) return;
+    // Clear before releasing capture: any resulting event must not commit twice.
+    gesture.current = null;
+    detach.current?.(); detach.current = null;
+    release(current); setPreview(null);
+    if (commit && current.current !== latest.current.width) latest.current.onResize(current.current);
+  };
+  useEffect(() => () => {
+    const current = gesture.current; gesture.current = null;
+    detach.current?.(); detach.current = null;
+    if (current) release(current);
+  }, []);
   const begin = (event: PointerEvent<HTMLButtonElement>) => {
     event.preventDefault(); event.stopPropagation();
     const parentWidth = element.current?.parentElement?.getBoundingClientRect().width;
     if (!parentWidth || busy) return;
+    finish(false);
+    const target = event.currentTarget;
     gesture.current = { id: event.pointerId, startX: event.clientX, width: figure.widthPercent,
-      parentWidth, current: figure.widthPercent };
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-  const move = (event: PointerEvent<HTMLButtonElement>) => {
-    const current = gesture.current;
-    if (!current || event.pointerId !== current.id) return;
-    event.preventDefault(); event.stopPropagation();
-    current.current = Math.round(Math.min(100, Math.max(15,
-      current.width + (event.clientX - current.startX) / current.parentWidth * 100)));
-    setPreview(current.current);
-  };
-  const end = (event: PointerEvent<HTMLButtonElement>, commit: boolean) => {
-    const current = gesture.current;
-    if (!current || event.pointerId !== current.id) return;
-    event.preventDefault(); event.stopPropagation();
-    gesture.current = null; setPreview(null);
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    if (commit && current.current !== figure.widthPercent) onResize(current.current);
+      parentWidth, current: figure.widthPercent, target };
+    const view = target.ownerDocument.defaultView ?? window;
+    const move = (pointer: globalThis.PointerEvent) => {
+      const current = gesture.current;
+      if (!current || pointer.pointerId !== current.id) return;
+      pointer.preventDefault(); pointer.stopPropagation();
+      current.current = Math.round(Math.min(100, Math.max(15,
+        current.width + (pointer.clientX - current.startX) / current.parentWidth * 100)));
+      setPreview(current.current);
+    };
+    const end = (pointer: globalThis.PointerEvent, commit: boolean) => {
+      if (!gesture.current || pointer.pointerId !== gesture.current.id) return;
+      pointer.preventDefault(); pointer.stopPropagation();
+      // A final pointer position may arrive without a preceding move event.
+      if (commit) move(pointer);
+      finish(commit);
+    };
+    const up = (pointer: globalThis.PointerEvent) => end(pointer, true);
+    const cancel = (pointer: globalThis.PointerEvent) => end(pointer, false);
+    const blur = () => finish(false);
+    view.addEventListener('pointermove', move, { capture: true, passive: false });
+    view.addEventListener('pointerup', up, { capture: true, passive: false });
+    view.addEventListener('pointercancel', cancel, { capture: true, passive: false });
+    view.addEventListener('blur', blur);
+    detach.current = () => {
+      view.removeEventListener('pointermove', move, true);
+      view.removeEventListener('pointerup', up, true);
+      view.removeEventListener('pointercancel', cancel, true);
+      view.removeEventListener('blur', blur);
+    };
+    // The window listeners also cover a grip moved by natural card reflow.
+    // They remain the fallback when the browser cannot retain pointer capture.
+    try { target.setPointerCapture(event.pointerId); } catch { /* Window owns the active gesture. */ }
   };
   return <figure ref={element} className="ps-card-figure" style={{ width: `${preview ?? figure.widthPercent}%` }}>
     <img src={figure.src} alt={figure.caption || '论文插图'} draggable={false}
@@ -64,8 +102,7 @@ function Figure({ figure, selected, busy, onResize }: {
     {figure.caption && <figcaption>{figure.caption}</figcaption>}
     {selected && <button type="button" className="ps-figure-resize nodrag nopan" disabled={busy}
       aria-label={`调整图片大小：${figure.caption || 'fig'}`} title="拖动调整图片宽度；双击恢复铺满"
-      onPointerDown={begin} onPointerMove={move} onPointerUp={event => end(event, true)}
-      onPointerCancel={event => end(event, false)}
+      onPointerDown={begin}
       onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); onResize(100); }}
       onKeyDown={event => {
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
@@ -106,6 +143,7 @@ export function CardBody({ node, paper, editing, editText, editNote, selected, b
     {kind !== 'paper' && <span className="ps-card-kind">{kindLabel}</span>}
     {safeLink && <a className="ps-card-open nodrag nopan" href={safeLink} target="_blank" rel="noopener noreferrer"
       aria-label="打开论文原文" title="打开论文原文"
+      onContextMenu={event => event.stopPropagation()}
       onPointerDown={event => event.stopPropagation()}
       onClick={event => { event.stopPropagation(); if (onOpenUrl) { event.preventDefault(); onOpenUrl(safeLink); } }}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-10 10M10 4H4v16h16v-6" /></svg>
