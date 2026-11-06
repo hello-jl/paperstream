@@ -73,6 +73,7 @@ function title(node: CanvasNode): string {
   return node.label ?? node.file ?? node.url ?? node.text?.slice(0, 80) ?? '卡片';
 }
 function message(error: unknown) { return error instanceof Error ? error.message : String(error); }
+function manualRelations(document: JSONCanvasDocument) { return document.edges.some(edge => { const geometry = readEdgeRouting(edge); return Boolean(geometry.labelPosition || geometry.waypoints.length); }); }
 
 const PaperCard = memo(function PaperCard({ id, data, selected }: NodeProps<CardNode>) {
   const paper = readPaper(data.raw);
@@ -349,7 +350,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     try {
       let next = patchNode(current.current, node.id, { height: nextHeight });
       if (next.paperstreamLayout === 'vertical') {
-        const manual = next.edges.some(edge => { const geometry = readEdgeRouting(edge); return Boolean(geometry.labelPosition || geometry.waypoints.length); });
+        const manual = manualRelations(next);
         next = manual ? { ...next, paperstreamLayout: 'manual' } : layoutVertical(next);
       }
       current.current = next;
@@ -666,7 +667,8 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
       : { id: crypto.randomUUID().replaceAll('-', ''), type: 'text', ...placement, label: kind === 'page' ? '插页' : 'Note', text: '- 在这里记录想法', paperstreamCard: { kind } };
     let next = addNode(current.current, node);
     if (kind === 'page') next = createPresentationPage(next, { title: node.label || '插页', nodeIds: [node.id] });
-    commit(next.paperstreamLayout === 'vertical' ? layoutVertical(next) : next); setFocusId(null); setCreateMenu(null);
+    if (next.paperstreamLayout === 'vertical') next = manualRelations(next) ? { ...next, paperstreamLayout: 'manual' } : layoutVertical(next);
+    commit(next); setFocusId(null); setCreateMenu(null);
     select({ kind: 'node', id: node.id }, true);
     if (kind === 'paper') { setInlineField('alias'); setDetailsAnchor(null); }
     else showDetails({ kind: 'node', id: node.id }, anchor);
@@ -711,7 +713,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     element.addEventListener('wheel', wheel, { passive: false, capture: true });
     return () => element.removeEventListener('wheel', wheel, true);
   }, [flow, busy, inlineField, formDirty, commit]);
-  const hasManualRelations = canvas.edges.some(edge => { const route = readEdgeRouting(edge); return Boolean(route.labelPosition || route.waypoints.length); });
+  const hasManualRelations = manualRelations(canvas);
   const selectedNode = selection?.kind === 'node' ? canvas.nodes.find(node => node.id === selection.id) : undefined;
   const paper = selectedNode ? readPaper(selectedNode) : null;
   const paperForm = Boolean(paper);
@@ -793,7 +795,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
           <button onClick={() => insertCard('paper', createMenu)}>＋ 论文</button><button onClick={() => insertCard('note', createMenu)}>＋ Note</button><button onClick={() => insertCard('page', createMenu)}>＋ 插页</button><button onClick={() => insertCard('relation', createMenu)}>＋ 共享关系</button>
         </div>}
       </main>
-      {pagesOpen && <PagePanel document={canvas} onChange={next => { try { commit(next); } catch (err) { setError(message(err)); } }} onClose={() => setPagesOpen(false)} selectedNodeIds={selection?.kind === 'node' ? [selection.id] : []} onFocus={ids => { setFocusId(null); void flow.fitView({ nodes: ids.map(id => ({ id })), maxZoom: 1, duration: 0 }); }} />}
+      {pagesOpen && <PagePanel document={canvas} onChange={(next, field) => { try { if (field) commitContinuous(next, field); else commit(next); } catch (err) { setError(message(err)); } }} onClose={() => setPagesOpen(false)} selectedNodeIds={selection?.kind === 'node' ? [selection.id] : []} onFocus={ids => { setFocusId(null); void flow.fitView({ nodes: ids.map(id => ({ id })), maxZoom: 1, duration: 0 }); }} />}
       {detailsAnchor && selection && <aside ref={details} className="ps-inspector" role="dialog" aria-label="详情编辑" aria-modal="false"
         style={{ left: detailsPosition.x, top: detailsPosition.y, width: Math.min(340, Math.max(0, workspaceSize.width - 24)), maxHeight: Math.max(0, workspaceSize.height - 24) }}>
         <div className="ps-inspector-heading" tabIndex={-1}><span>{paperForm ? '论文详情' : relationForm ? '关系详情' : '卡片详情'}</span>

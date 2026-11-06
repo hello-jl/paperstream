@@ -7,7 +7,7 @@ import './presentation-pages.css';
 
 export interface PagePanelProps {
   document: JSONCanvasDocument;
-  onChange: (document: JSONCanvasDocument) => void;
+  onChange: (document: JSONCanvasDocument, field?: string) => void;
   onFocus: (nodeIds: string[]) => void;
   onClose: () => void;
   selectedNodeIds?: string[];
@@ -25,8 +25,8 @@ export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeId
   const current = pages.find(page => page.id === currentId) ?? pages[0];
   const currentIndex = current ? pages.indexOf(current) : -1;
   const known = new Set(document.nodes.map(node => node.id));
-  function change(operation: () => JSONCanvasDocument) {
-    try { onChange(operation()); setError(''); }
+  function change(operation: () => JSONCanvasDocument, field?: string) {
+    try { onChange(operation(), field); setError(''); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
   function add(nodeIds: string[], title?: string) {
@@ -54,7 +54,7 @@ export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeId
         onClick={() => setCurrentId(page.id)}><span>{index + 1}</span>{page.title || '未命名页面'}<small>{page.nodeIds.filter(id => known.has(id)).length} 张卡片</small></button>)}</nav>
       {!pages.length && <p className="ps-pages-help">尚未分页时导出整图。新增页面后，可选择卡片并调整顺序，PPTX 会按此列表生成多张幻灯片。</p>}
       {current && <section className="ps-page-fields">
-        <label>页面标题<input aria-label="页面标题" value={current.title} onChange={event => change(() => updatePresentationPage(document, current.id, { title: event.target.value }))} /></label>
+        <label>页面标题<input aria-label="页面标题" value={current.title} onChange={event => change(() => updatePresentationPage(document, current.id, { title: event.target.value }), `page-title:${current.id}`)} /></label>
         <div className="ps-pages-actions">
           <button disabled={currentIndex === 0} onClick={() => change(() => movePresentationPage(document, current.id, -1))}>上移</button>
           <button disabled={currentIndex === pages.length - 1} onClick={() => change(() => movePresentationPage(document, current.id, 1))}>下移</button>

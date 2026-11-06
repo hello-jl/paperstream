@@ -4,7 +4,6 @@ import type { CanvasEdge, JSONCanvasDocument } from './canvas.ts';
 
 export type RecoveredSelection = { kind: 'node' | 'edge'; id: string } | null;
 export type RecoveredInlineField = 'alias' | 'takeaway' | 'relation' | 'text' | 'label';
-export interface RecoveredInlineBaseline { value: string; wasDirty: boolean }
 export interface RecoveredEditorDraft {
   canvas: JSONCanvasDocument;
   fileName: string;
@@ -13,7 +12,6 @@ export interface RecoveredEditorDraft {
   form: Record<string, string>;
   formDirty: boolean;
   inlineField: RecoveredInlineField | null;
-  inlineBaseline: RecoveredInlineBaseline | null;
   fileBindingId: string | null;
   restored: boolean;
   recoveryError: string;
@@ -25,7 +23,7 @@ function record(value: unknown): value is Record<string, unknown> {
 function freshEditorDraft(): RecoveredEditorDraft {
   const canvas = { ...createCanvas(), paperstreamLayout: 'vertical' };
   return { canvas, fileName: 'papers.canvas', saved: serializeCanvas(canvas), selection: null, form: {}, formDirty: false,
-    inlineField: null, inlineBaseline: null, fileBindingId: null, restored: false, recoveryError: '' };
+    inlineField: null, fileBindingId: null, restored: false, recoveryError: '' };
 }
 function connectionSide(value: unknown): CanvasEdge['fromSide'] {
   if (value === undefined) return undefined;
@@ -81,12 +79,9 @@ export function restoreEditorDraft(draft: unknown): RecoveredEditorDraft {
       if (readPaper(selectedNode) && (source.inlineField === 'alias' || source.inlineField === 'takeaway')) inlineField = source.inlineField;
       else if (!readPaper(selectedNode) && selectedNode.type === 'text' && (source.inlineField === 'text' || source.inlineField === 'label')) inlineField = source.inlineField;
     } else if (selection?.kind === 'edge' && source.inlineField === 'relation') inlineField = 'relation';
-    const baseline = source.inlineBaseline;
-    const inlineBaseline: RecoveredInlineBaseline | null = inlineField && record(baseline) && typeof baseline.value === 'string'
-      && typeof baseline.wasDirty === 'boolean' ? { ...baseline, value: baseline.value, wasDirty: baseline.wasDirty } : null;
     return { ...fallback, canvas, fileName: typeof source.fileName === 'string' ? source.fileName : fallback.fileName,
       saved: typeof source.saved === 'string' ? source.saved : fallback.saved, selection, form,
-      formDirty: Boolean(selection && source.formDirty), inlineField, inlineBaseline,
+      formDirty: Boolean(selection && source.formDirty), inlineField,
       fileBindingId: typeof source.fileBindingId === 'string' ? source.fileBindingId : null, restored: true };
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);

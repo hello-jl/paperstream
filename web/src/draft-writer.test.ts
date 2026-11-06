@@ -33,6 +33,33 @@ test('flush immediately writes the latest snapshot without waiting for the timer
   assert.equal(writes.length, 1);
 });
 
+test('continuous typing flushes by the maximum wait and starts a fresh window afterward', async context => {
+  context.mock.timers.enable({ apis: ['setTimeout'] });
+  const writes: number[] = [];
+  let reads = 0;
+  const writer = createDraftWriter<number>(async value => { writes.push(value); });
+  writer.schedule(() => { reads++; return 0; });
+  for (let value = 1; value <= 7; value++) {
+    context.mock.timers.tick(200);
+    writer.schedule(() => { reads++; return value; });
+  }
+  assert.equal(reads, 0, 'no idle gap occurred during 1400 ms of continuous typing');
+  context.mock.timers.tick(100);
+  await Promise.resolve();
+  assert.deepEqual(writes, [7], 'the original 1500 ms deadline is not reset by typing');
+  await writer.flush();
+
+  writer.schedule(() => { reads++; return 8; });
+  context.mock.timers.tick(249);
+  assert.equal(reads, 1);
+  context.mock.timers.tick(1);
+  await Promise.resolve();
+  assert.deepEqual(writes, [7, 8], 'the normal idle delay still applies after a periodic flush');
+  await writer.dispose({ flush: true });
+  context.mock.timers.tick(5000);
+  assert.equal(reads, 2, 'disposal cancels remaining timers');
+});
+
 test('an in-flight write drains only the newest queued value and concurrent flush waits for it', async () => {
   const firstStarted = deferred(), releaseFirst = deferred(), secondStarted = deferred(), releaseSecond = deferred();
   const writes: number[] = [];

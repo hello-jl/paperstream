@@ -1,11 +1,15 @@
 /** Delay snapshot creation as well as persistence while the user is typing. */
 export function createDraftWriter<T>(write: (snapshot: T) => Promise<void>, options: {
   delayMs?: number;
+  maxWaitMs?: number;
   onError?: (error: unknown) => void;
 } = {}) {
   const delay = options.delayMs ?? 250;
+  const maxWait = options.maxWaitMs ?? 1500;
   if (!Number.isFinite(delay) || delay < 0) throw new Error('Draft delay must be a non-negative number.');
+  if (!Number.isFinite(maxWait) || maxWait < 0) throw new Error('Draft maximum wait must be a non-negative number.');
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let maxTimer: ReturnType<typeof setTimeout> | undefined;
   let latest: (() => T) | undefined;
   let running: Promise<void> | undefined;
   let disposed = false;
@@ -13,7 +17,8 @@ export function createDraftWriter<T>(write: (snapshot: T) => Promise<void>, opti
 
   function cancelTimer() {
     if (timer !== undefined) clearTimeout(timer);
-    timer = undefined;
+    if (maxTimer !== undefined) clearTimeout(maxTimer);
+    timer = undefined; maxTimer = undefined;
   }
   function flush(): Promise<void> {
     cancelTimer();
@@ -40,11 +45,12 @@ export function createDraftWriter<T>(write: (snapshot: T) => Promise<void>, opti
   function schedule(getSnapshot: () => T): void {
     if (disposed) return;
     latest = getSnapshot;
-    cancelTimer();
-    timer = setTimeout(() => {
-      timer = undefined;
-      void flush().catch(error => { options.onError?.(error); });
-    }, delay);
+    if (timer !== undefined) clearTimeout(timer);
+    const save = () => { void flush().catch(error => { options.onError?.(error); }); };
+    timer = setTimeout(save, delay);
+    // Continuous typing postpones the idle timer, but not this periodic attempt.
+    // Neither timer can guarantee durability if the browser or storage fails.
+    if (maxTimer === undefined) maxTimer = setTimeout(save, maxWait);
   }
   function dispose({ flush: save = false }: { flush?: boolean } = {}): Promise<void> {
     disposed = true;

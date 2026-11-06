@@ -63,11 +63,11 @@ test('existing note and shared-text inline fields, empty values, and invalid in-
       form: { text: '', label: '', year: '202x' }, formDirty: true, inlineBaseline: { value: 'Before', wasDirty: true } }));
     assert.equal(result.recoveryError, ''); assert.equal(result.inlineField, inlineField);
     assert.deepEqual(result.form, { text: '', label: '', year: '202x' });
-    assert.deepEqual(result.inlineBaseline, { value: 'Before', wasDirty: true });
+    assert.equal(Object.hasOwn(result, 'inlineBaseline'), false);
     assert.equal(result.formDirty, true); assert.equal(result.canvas.nodes[2].text, '- First');
   }
   const mismatch = restoreEditorDraft({ canvas, selection: { kind: 'node', id: 'note' }, inlineField: 'alias' });
-  assert.equal(mismatch.inlineField, null); assert.equal(mismatch.inlineBaseline, null);
+  assert.equal(mismatch.inlineField, null); assert.equal(Object.hasOwn(mismatch, 'inlineBaseline'), false);
 });
 
 test('current drafts preserve all Canvas metadata, file generation, save baseline and empty relation input', () => {
