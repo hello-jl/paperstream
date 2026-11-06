@@ -235,7 +235,7 @@ API 的基础读写比现有 Mermaid 解析直接，但业务字段仍需要约�
 
 运行开销取决于显示的节点/连线数量、卡片复杂度以及更新方式；官方性能文档特别指出拖动触发的无效重绘、过多节点和复杂样式的影响。[React Flow 性能建议](https://reactflow.dev/learn/advanced-use/performance) 对本项目可先采用简短文字卡片、按需显示详细内容、减少动画，并在面板不用时停止不必要的订阅或渲染。开发端会增加 JavaScript/TypeScript 的依赖与构建流程，但开发依赖目录体积不能当作插件下载大小或运行内存。尚未打包或测量内存、启动时间、拖动性能，不提供未经测量的 MB 数字或容量上限。
 
-## ChatGPT 与 Claude 桌面端移植判断（2026-11-06）
+## ChatGPT、Codex 与 Claude 桌面端移植判断（2026-11-06）
 
 本节只记录官方接口调研与工程判断，未实施移植。应分别评估 agent 调用文件 API、在应用内显示现有网页、以及注册原生插件界面。共同使用 React 并不意味着 DSH 的槽位注册、共享依赖或文件选择器可以原样搬到其他宿主。
 
@@ -257,11 +257,14 @@ MCP 工具与 MCP Apps 是可选接入方式，不应成为独立文件 API 或�
 | 目标 | 官方可确认入口 | 判断 |
 | --- | --- | --- |
 | agent 自动维护文件 | Claude Code 可调用本地命令或 stdio MCP；有本地执行与文件权限的 ChatGPT/Codex 会话也可运行项目 CLI | 接入相对简单；将 Python API 包装为 MCP 工具可进一步减少对命令行提示的依赖。仍需安装运行环境与明确文件位置。 |
+| Codex 桌面会话的 Browser | OpenAI 官方文档记录桌面中的 Codex 可操作内置浏览器，浏览器可打开本地服务提供的页面 | 可先承载同一份 React 编辑器，再验证文件保存与 agent 修改后的刷新；该 Browser 不提供于 Codex CLI 或 IDE 扩展，不能由此推断所有 Codex 客户端都支持画布面板。 |
 | Claude Code 桌面 Code 标签页 | Browser 面板可预览并手工操作本地开发服务器提供的网页 | 先复用独立编辑器是较短路径；这是网页承载，不等同于已安装专属画布插件。SSH 会话的 Browser 自动预览有官方限制，不能照搬本地会话结论。 |
 | Claude Desktop 聊天 | 官方交互连接器支持聊天内嵌与全屏 MCP Apps | 画布可复用，需 MCP Apps UI 接口和工具服务，文件持久化要重新接入；不能把 Code 的 MCP 工具支持视为其已保证渲染 MCP Apps。 |
 | ChatGPT 桌面插件 | MCP Apps UI，以及侧栏应用、会话面板、按扩展名打开文件的编辑器扩展 | 可把 `.canvas` 注册为文件编辑入口；属中等规模宿主适配，实际账户、版本和文件接口还需实测。 |
 
 官方依据：[ChatGPT MCP Apps UI](https://developers.openai.com/plugins/build/chatgpt-ui)、[ChatGPT 插件扩展与文件编辑器](https://developers.openai.com/plugins/build/extensions)、[ChatGPT 本地执行能力](https://learn.chatgpt.com/docs/use-chatgpt)、[Claude Code 桌面预览](https://code.claude.com/docs/en/desktop#preview-your-app)、[Claude Code MCP](https://code.claude.com/docs/en/mcp)、[Claude 交互连接器](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude)。
+
+补充 Codex 的明确边界：当前官方 [Browser 文档](https://learn.chatgpt.com/docs/browser)将相关能力描述为 ChatGPT 桌面应用中的 Codex 使用体验，并给出启动本地服务、在应用内打开页面的步骤；不将这一能力泛化为任意版本的独立客户端或原生插件插槽。[Codex 官方实践](https://learn.chatgpt.com/docs/learn/best-practices#use-mcps-for-external-context)确认可接入 STDIO 和 Streamable HTTP MCP 工具。因此可以保留 React 编辑器并单独接入工具 API；终端使用时，画布可由外部浏览器显示。网页能显示不代表项目保存、同步和安装流程已经完成联调。
 
 ChatGPT 官方建议优先用开放 MCP Apps 协议实现可复用 UI，再加平台专用扩展；UI 通过隔离 iframe 与宿主通信，不能将现有浏览器文件句柄视为跨宿主通用能力。文件长期保存仍应落在明确的本地目录或文件服务，避免把聊天组件状态当作论文唯一存档。个人测试和公开分发也要区分：[本地插件测试与打包](https://developers.openai.com/plugins/build/plugins)支持本地来源；[本地 MCP 的公开提交](https://developers.openai.com/plugins/deploy/desktop-only)目前有批准伙伴限制，这不等于禁止个人本地测试。
 
