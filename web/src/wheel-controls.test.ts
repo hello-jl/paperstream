@@ -1,20 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { zoomAt, wheelStroke, wheelIntent } from './wheel-controls.ts';
+import { zoomAt, wheelIntent } from './wheel-controls.ts';
 
-test('selection switches ordinary wheel to line weight; Ctrl and Meta always zoom', () => {
-  for (const selected of [false, true]) {
-    assert.equal(wheelIntent({}, selected), selected ? 'weight' : 'zoom');
-    assert.equal(wheelIntent({ ctrlKey: true }, selected), 'zoom');
-    assert.equal(wheelIntent({ metaKey: true }, selected), 'zoom');
-    assert.equal(wheelIntent({ ctrlKey: true, altKey: true }, selected), 'zoom');
-    assert.equal(wheelIntent({ metaKey: true, altKey: true }, selected), 'zoom');
+test('canvas wheel always zooms; controls scroll ordinarily and Ctrl or Meta retain zoom', () => {
+  assert.equal(wheelIntent({}), 'zoom');
+  assert.equal(wheelIntent({}, true), 'scroll');
+  for (const overControls of [false, true]) {
+    assert.equal(wheelIntent({ ctrlKey: true }, overControls), 'zoom');
+    assert.equal(wheelIntent({ metaKey: true }, overControls), 'zoom');
+    assert.equal(wheelIntent({ ctrlKey: true, metaKey: true }, overControls), 'zoom');
   }
-  assert.equal(wheelIntent({ altKey: true }, false), 'zoom');
-  assert.equal(wheelIntent({ altKey: true }, true), 'weight');
 });
 
-test('Ctrl-wheel retains the same graph point under the pointer for translated negative-coordinate views', () => {
+test('wheel zoom retains the graph point under the pointer for translated negative-coordinate views', () => {
   const original = { x: -210, y: 88, zoom: 0.7 }, pointer = { x: 315, y: 220 };
   for (const delta of [-120, 120, -100000, 100000]) {
     const next = zoomAt(original, delta, pointer);
@@ -23,8 +21,7 @@ test('Ctrl-wheel retains the same graph point under the pointer for translated n
     assert.ok(next.zoom >= 0.1 && next.zoom <= 2);
   }
 });
-test('line weight changes independently in bounded tenths and ignores horizontal-only input', () => {
-  assert.equal(wheelStroke(1, -1), 1.2); assert.equal(wheelStroke(1.8, 1), 1.6);
-  assert.equal(wheelStroke(0.5, 1), 0.5); assert.equal(wheelStroke(8, -1), 8);
-  assert.equal(wheelStroke(3, 0), 3);
+test('horizontal-only wheel input does not change viewport', () => {
+  const viewport = { x: 32, y: -70, zoom: 1.2 };
+  assert.deepEqual(zoomAt(viewport, 0, { x: 123, y: 456 }), viewport);
 });

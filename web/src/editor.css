@@ -50,6 +50,21 @@
   color: var(--ps-ink); background: var(--ps-field); margin-top: 5px; resize: vertical; font-size: 13px;
 }
 .ps-inspector a { color: var(--ps-accent); word-break: break-word; }
+.ps-details-section { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--ps-line); }
+.ps-details-section h3 { margin: 0 0 12px; font-size: 12px; font-weight: 650; }
+.ps-stroke-control { margin-bottom: 14px; }
+.ps-inspector .ps-stroke-control > label { margin-bottom: 4px; }
+.ps-stroke-control-row { display: grid; grid-template-columns: minmax(0, 1fr) 66px auto; align-items: center; gap: 8px; }
+.ps-inspector .ps-stroke-control-row input { margin-top: 0; }
+.ps-inspector .ps-stroke-control-row input[type="range"] { padding: 0; height: 28px; border: 0; background: transparent; accent-color: var(--ps-accent); }
+.ps-inspector .ps-stroke-control-row input[type="number"] { padding: 5px 6px; }
+.ps-stroke-control-row > span { color: var(--ps-muted); font-size: 11px; }
+.ps-edge-endpoints { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 10px; margin: 0 0 14px; font-size: 12px; }
+.ps-edge-endpoints dt { color: var(--ps-muted); }
+.ps-edge-endpoints dd { margin: 0; overflow-wrap: anywhere; }
+.ps-routing-details { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--ps-line); }
+.ps-routing-details summary { cursor: pointer; font-size: 12px; color: var(--ps-muted); }
+.ps-routing-details > button { display: block; width: 100%; margin-top: 7px; white-space: normal; }
 .ps-link { display: block; margin: 8px 0 16px; }
 .ps-apply { width: 100%; margin-top: 10px; }
 .paperstream-editor button.ps-danger { color: var(--ps-error); margin-top: 18px; background: transparent; }
