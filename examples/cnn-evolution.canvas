@@ -6,7 +6,7 @@
       "x": 0,
       "y": 0,
       "width": 360,
-      "height": 230,
+      "height": 169,
       "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Gradient-Based Learning Applied to Document Recognition\",\n  \"alias\": \"LeNet-5 · 手写数字识别\",\n  \"takeaway\": \"通过梯度学习训练卷积网络，从像素学习手写数字的识别特征，减少手工特征设计。\",\n  \"url\": \"https://bottou.org/papers/lecun-98h\",\n  \"year\": 1998\n}\n```",
       "color": "4"
     },
@@ -16,7 +16,7 @@
       "x": 520,
       "y": 0,
       "width": 360,
-      "height": 230,
+      "height": 169,
       "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"ImageNet Classification with Deep Convolutional Neural Networks\",\n  \"alias\": \"AlexNet · 大规模图像分类\",\n  \"takeaway\": \"结合 ReLU、GPU 训练和 Dropout，让深层卷积网络在 ImageNet 大规模图像分类中取得突破。\",\n  \"url\": \"https://proceedings.neurips.cc/paper_files/paper/2012/hash/c399862d3b9d6b76c8436e924a68c45b-Abstract.html\",\n  \"year\": 2012\n}\n```",
       "color": "5"
     },
@@ -26,7 +26,7 @@
       "x": 520,
       "y": 370,
       "width": 360,
-      "height": 230,
+      "height": 169,
       "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Very Deep Convolutional Networks for Large-Scale Image Recognition\",\n  \"alias\": \"VGG · 小卷积核加深网络\",\n  \"takeaway\": \"重复堆叠 3×3 小卷积核，将网络加深到 16–19 个权重层，验证深度对图像识别的价值。\",\n  \"url\": \"https://www.robots.ox.ac.uk/~vgg/publications/2015/Simonyan15/\",\n  \"year\": 2015\n}\n```",
       "color": "6"
     },
@@ -36,7 +36,7 @@
       "x": 1040,
       "y": 370,
       "width": 360,
-      "height": 230,
+      "height": 169,
       "text": "```json\n{\n  \"paperstream\": 1,\n  \"name\": \"Deep Residual Learning for Image Recognition\",\n  \"alias\": \"ResNet · 残差学习\",\n  \"takeaway\": \"用捷径连接学习残差，缓解深层网络的优化退化，使 152 层网络也能有效训练。\",\n  \"url\": \"https://openaccess.thecvf.com/content_cvpr_2016/html/He_Deep_Residual_Learning_CVPR_2016_paper.html\",\n  \"year\": 2016\n}\n```",
       "color": "2"
     }

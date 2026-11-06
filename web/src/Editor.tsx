@@ -93,7 +93,7 @@ const PaperCard = memo(function PaperCard({ id, data, selected }: NodeProps<Card
         onKeyDown={event => { if (event.key === 'Enter' || event.key === 'F2') {
           event.preventDefault(); event.stopPropagation(); data.actions.edit({ kind: 'node', id }, field);
         } }}>{data.draft?.[field] ?? value}</span>;
-  return <div className={`ps-card ${data.raw.type === 'group' ? 'ps-group' : ''}`}
+  return <div className={`ps-card ${data.raw.type === 'group' ? 'ps-group' : ''}${paper?.year ? ' has-year' : ''}`}
     style={{ borderColor: color(data.raw.color), borderWidth: appearance.strokeWidth, minHeight: minimumHeight }}>
     <NodeResizer isVisible={selected && !data.busy && !data.editing} minWidth={160} minHeight={minimumHeight}
       onResizeStart={() => { resizing.current = true; data.startInteraction(); }}
