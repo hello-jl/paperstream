@@ -1,4 +1,4 @@
-import { cloneElement, isValidElement, useEffect, useRef, useState } from 'react';
+import { cloneElement, isValidElement, useEffect, useId, useRef, useState } from 'react';
 import type { PointerEvent, ReactElement, ReactNode } from 'react';
 import type { CanvasNode, Paper } from './canvas';
 import {
@@ -124,7 +124,7 @@ export function CardBody({ node, paper, editing, editText, editNote, selected, b
   let takeaway: ReactNode;
   if (paper) {
     const editable = editText('takeaway', paper.takeaway);
-    takeaway = editing === 'takeaway' || !isValidElement(editable) ? editable
+    takeaway = !paper.takeaway || editing === 'takeaway' || !isValidElement(editable) ? editable
       : cloneElement(editable as ReactElement<{ children?: ReactNode }>, undefined, <TakeawayText text={paper.takeaway} />);
   } else if (node.type === 'text') {
     const text = node.text ?? '';
@@ -160,7 +160,53 @@ export function CardBody({ node, paper, editing, editText, editNote, selected, b
 export interface FigureControlsProps {
   node: CanvasNode;
   busy: boolean;
-  onPatchNode: (patch: Partial<CanvasNode>) => void;
+  onPatchNode: (patch: Partial<CanvasNode>, field?: string) => void;
+}
+
+/** Keep incomplete input local; only valid sizes become document changes. */
+function FigureWidthInput({ value, disabled, onChange }: {
+  value: number; disabled: boolean; onChange: (value: number) => void;
+}) {
+  const [buffer, setBuffer] = useState(String(value));
+  const [invalid, setInvalid] = useState(false);
+  const latestValid = useRef(value);
+  const ownChange = useRef<number | null>(null);
+  const focused = useRef(false);
+  const helpId = useId();
+  useEffect(() => {
+    latestValid.current = value;
+    // Preserve a user's decimal point/caret when our own edit is echoed back.
+    // A drag, fill button, or undo instead replaces even an incomplete buffer.
+    if (focused.current && ownChange.current === value) { ownChange.current = null; return; }
+    ownChange.current = null; setBuffer(String(value)); setInvalid(false);
+  }, [value]);
+  function change(text: string) {
+    setBuffer(text);
+    const trimmed = text.trim(), number = Number(trimmed);
+    const valid = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(trimmed) && Number.isFinite(number) && number >= 15 && number <= 100;
+    setInvalid(!valid);
+    if (valid) {
+      latestValid.current = number; ownChange.current = number;
+      if (number !== value) onChange(number);
+    }
+  }
+  return <label>宽度 %<input aria-label="图片宽度百分比" role="spinbutton" type="text" inputMode="decimal"
+    aria-valuemin={15} aria-valuemax={100} aria-valuenow={value} aria-invalid={invalid || undefined}
+    aria-describedby={invalid ? helpId : undefined} disabled={disabled} value={buffer}
+    onFocus={() => { focused.current = true; }} onChange={event => change(event.target.value)}
+    onBlur={() => {
+      focused.current = false; ownChange.current = null;
+      setBuffer(String(latestValid.current)); setInvalid(false);
+    }}
+    onKeyDown={event => {
+      if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); }
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+        event.preventDefault(); event.stopPropagation();
+        change(String(Math.min(100, Math.max(15, latestValid.current + (event.key === 'ArrowUp' ? 1 : -1)))));
+      }
+    }} />
+    {invalid && <span id={helpId} className="ps-card-media-error" role="status">请输入 15–100 的数字；图片保留最近有效宽度。</span>}
+  </label>;
 }
 /** Image controls are contextual, so selecting a card never changes its height. */
 export function FigureControls({ node, busy, onPatchNode }: FigureControlsProps) {
@@ -174,7 +220,11 @@ export function FigureControls({ node, busy, onPatchNode }: FigureControlsProps)
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { uploadGeneration.current++; setLoading(false); setError(''); }, [node.id]);
   function update(id: string, patch: Partial<Pick<CardFigure, 'caption' | 'widthPercent'>>) {
-    try { onPatchNode(updateFigurePatch(node, id, patch)); setError(''); }
+    try {
+      const next = updateFigurePatch(currentNode.current, id, patch);
+      currentNode.current = { ...currentNode.current, ...next };
+      onPatchNode(next, `figure:${id}:${Object.keys(patch).join(':')}`); setError('');
+    }
     catch (err) { setError(err instanceof Error ? err.message : String(err)); }
   }
   return <section className="ps-figure-controls nodrag nopan" aria-label="卡片图片"
@@ -203,16 +253,11 @@ export function FigureControls({ node, busy, onPatchNode }: FigureControlsProps)
         }
         finally { if (mounted.current && uploadGeneration.current === generation) setLoading(false); }
       }} />
-    {figures.map(figure => <div className="ps-figure-control" key={figure.id}>
-      <label>图片说明<input key={`${figure.id}:caption:${figure.caption}`} aria-label="图片说明" disabled={busy || loading}
-        defaultValue={figure.caption} onBlur={event => {
-          if (event.target.value !== figure.caption) update(figure.id, { caption: event.target.value });
-        }} /></label>
-      <div className="ps-figure-control-row"><label>宽度 %<input key={`${figure.id}:width:${figure.widthPercent}`}
-        aria-label="图片宽度百分比" type="number" min={15} max={100} step={1} disabled={busy || loading}
-        defaultValue={figure.widthPercent} onBlur={event => {
-          if (event.target.value !== String(figure.widthPercent)) update(figure.id, { widthPercent: Number(event.target.value) });
-        }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); } }} /></label>
+    {figures.map(figure => <div className="ps-figure-control" key={`${node.id}:${figure.id}`}>
+      <label>图片说明<input aria-label="图片说明" disabled={busy || loading}
+        value={figure.caption} onChange={event => update(figure.id, { caption: event.target.value })} /></label>
+      <div className="ps-figure-control-row"><FigureWidthInput value={figure.widthPercent} disabled={busy || loading}
+        onChange={widthPercent => update(figure.id, { widthPercent })} />
         <button type="button" disabled={busy || loading} onClick={() => update(figure.id, { widthPercent: 100 })}>铺满</button>
         <button type="button" disabled={busy || loading} aria-label={`移除图片：${figure.caption}`} onClick={() => {
           try { onPatchNode(removeFigurePatch(node, figure.id)); setError(''); }

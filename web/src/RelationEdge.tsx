@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, useReactFlow, useViewport } from '@xyflow/react';
 import type { Edge, EdgeProps } from '@xyflow/react';
@@ -24,8 +24,7 @@ export type RelationEdgeModel = Edge<{
   onEdit: () => void;
   onDetails: (anchor: Point) => void;
   onChange: (value: string) => void;
-  onApply: () => void;
-  onCancel: () => void;
+  onFinish: () => void;
 }, 'relation'>;
 
 /** Keep the actual connection and arrowheads in SVG; place its HTML label in
@@ -139,7 +138,8 @@ export const RelationEdge = memo(function RelationEdge({
     return () => observer.disconnect();
   }, [id, text, path, anchorX, anchorY, onMeasure, data?.editing]);
 
-  const markerId = `ps-arrow-${id.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const instanceId = useId();
+  const markerId = `ps-arrow-${instanceId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const arrow = data?.arrowShape ?? 'triangle';
   const custom = arrow !== 'triangle';
   const displaced = !manualPosition && position && Math.hypot(position.x - anchorX, position.y - anchorY) > 18;
@@ -191,8 +191,8 @@ export const RelationEdge = memo(function RelationEdge({
           userSelect: data?.editing ? undefined : 'none' }}
         onPointerDown={event => { if (!(event.target as Element).closest('textarea, input, .ps-inline-actions')) begin(event, 'label'); }}
         onContextMenu={event => { event.preventDefault(); event.stopPropagation(); data?.onDetails({ x: event.clientX, y: event.clientY }); }}>
-        {data?.editing ? <InlineTextEditor label="关系说明" value={data.draft} required={false}
-          onChange={data.onChange} onCommit={data.onApply} onCancel={data.onCancel} />
+        {data?.editing ? <InlineTextEditor label="关系说明" value={data.draft}
+          onChange={data.onChange} onFinish={data.onFinish} />
           : <button type="button" className="ps-relation-text" disabled={data?.busy}
               aria-label={`编辑关系：${text}`} aria-pressed={Boolean(selected)} title="拖动移动关系文字；双击编辑；右键查看详情"
               onClick={event => { event.stopPropagation(); data?.onSelect(id); }}

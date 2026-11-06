@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { layoutVertical } from './graph-layout.ts';
+import { layoutVertical, layoutVerticalWithRelations } from './graph-layout.ts';
 import { parseCanvas, serializeCanvas } from './canvas.ts';
 import type { JSONCanvasDocument } from './canvas.ts';
 
@@ -34,4 +34,16 @@ test('cycles, merges, disconnected nodes and input order have stable non-overlap
   assert.deepEqual(layoutVertical(next), next);
   assert.throws(() => layoutVertical(source, { rowGap: -1 }));
   assert.deepEqual(layoutVertical({ nodes: [], edges: [] }), { nodes: [], edges: [] });
+});
+
+test('explicit vertical layout resets absolute relation geometry while preserving annotations and styles', () => {
+  const source = graph([['a', 'b']]);
+  source.edges[0].paperstreamStyle = { strokeWidth: 4, labelPosition: { x: -100, y: 20 }, waypoints: [{ x: 30, y: 50 }], unknown: { keep: true } };
+  source.edges[0].paperstreamRelation = { evidence: 'Section 4', type: 'comparison' };
+  const before = serializeCanvas(source), result = layoutVerticalWithRelations(source);
+  assert.deepEqual(result.edges[0].paperstreamStyle, { strokeWidth: 4, unknown: { keep: true } });
+  assert.deepEqual(result.edges[0].paperstreamRelation, source.edges[0].paperstreamRelation);
+  assert.equal(result.paperstreamLayout, 'vertical');
+  assert.equal(serializeCanvas(source), before);
+  assert.deepEqual(result.nodes, layoutVertical(source).nodes);
 });

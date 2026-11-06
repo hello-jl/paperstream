@@ -6,9 +6,9 @@ import {
 import type { Connection, Node, NodeProps, OnNodesChange } from '@xyflow/react';
 import {
   addEdge, addNode, createCanvas, createEdge, createPaperNode, parseCanvas,
-  patchEdge, patchNode, readPaper, removeEdge, removeNode, serializeCanvas, updatePaper,
+  patchEdge, patchNode, readPaper, removeEdge, removeNode, serializeCanvas,
 } from './canvas';
-import type { CanvasEdge, CanvasNode, JSONCanvasDocument, PaperFields } from './canvas';
+import type { CanvasEdge, CanvasNode, JSONCanvasDocument } from './canvas';
 import { downloadFile, hasFilePicker, pickFile, pickSaveFile, writeFile } from './files';
 import type { LocalFileHandle } from './files';
 import { RelationEdge } from './RelationEdge';
@@ -18,30 +18,35 @@ import { readNodeStyle, readEdgeStyle, updateNodeStyle, updateEdgeStyle } from '
 import { InlineTextEditor } from './InlineTextEditor';
 import { placePopover } from './popover-layout';
 import type { PopoverPoint } from './popover-layout';
-import { directionPatch, readEdgeDirection } from './edge-direction';
-import type { EdgeDirection } from './edge-direction';
+import { readEdgeDirection } from './edge-direction';
 import { WorkspaceTabs } from './WorkspaceTabs';
 import type { TabMetadata } from './WorkspaceTabs';
 import { CardBody, FigureControls } from './CardBody';
-import { layoutVertical } from './graph-layout';
+import { layoutVertical, layoutVerticalWithRelations } from './graph-layout';
 import { createRelationNode, promoteEdgeRelation, isRelationNode } from './graph-relations';
 import { downloadGraph } from './graph-export';
 import { zoomAt, wheelStroke, wheelIntent } from './wheel-controls';
+import { editField } from './live-edit';
+import { createDraftWriter } from './draft-writer';
+import { restoreEditorDraft } from './draft-recovery';
+import type { RecoveredSelection } from './draft-recovery';
+import { getRestoredDraft, getRestoredFileBinding, persistDraft, persistFileBinding, recoverFileBinding } from './workspace-store';
+import type { FileBinding } from './workspace-store';
+import { edgeRoutingPatch, readEdgeRouting } from './edge-routing';
+import { PagePanel } from './PagePanel';
+import { createPresentationPage } from './presentation-pages';
+import { RelationMetadataControls } from './RelationMetadataControls';
 import '@xyflow/react/dist/style.css';
 import './editor.css';
 
-type Selection = { kind: 'node' | 'edge'; id: string } | { kind: 'new' } | {
-  kind: 'connection'; source: string; target: string; fromSide?: CanvasEdge['fromSide']; toSide?: CanvasEdge['toSide'];
-} | null;
+type Selection = RecoveredSelection;
 type FormValues = Record<string, string>;
 type InlineField = 'alias' | 'takeaway' | 'relation' | 'text' | 'label';
-type InlineBaseline = { value: string; wasDirty: boolean };
 type EditActions = {
   edit: (selection: Selection, field: InlineField) => void;
   details: (selection: Selection, anchor: PopoverPoint) => void;
   field: (key: string, value: string) => void;
-  apply: () => void;
-  cancel: () => void;
+  finish: () => void;
   patch: (id: string, patch: Partial<CanvasNode>) => void;
   openUrl: (url: string) => void;
 };
@@ -63,7 +68,9 @@ const colors: Record<string, string> = {
 };
 function color(value?: string) { return value ? colors[value] ?? value : undefined; }
 function title(node: CanvasNode): string {
-  return readPaper(node)?.alias ?? node.label ?? node.file ?? node.url ?? node.text?.slice(0, 80) ?? '卡片';
+  const paper = readPaper(node);
+  if (paper) return paper.alias || '未命名论文';
+  return node.label ?? node.file ?? node.url ?? node.text?.slice(0, 80) ?? '卡片';
 }
 function message(error: unknown) { return error instanceof Error ? error.message : String(error); }
 
@@ -94,18 +101,18 @@ const PaperCard = memo(function PaperCard({ id, data, selected }: NodeProps<Card
     return () => observer.disconnect();
   }, [data.raw, data.busy, data.fitHeight, data.measurePass, data.editing]);
   const editNote = (field: 'label' | 'text', value: string) => data.editing === field
-    ? <InlineTextEditor label={field === 'label' ? '标题' : '内容'} value={data.draft?.[field] ?? value} multiline={field === 'text'} required={false} onChange={value => data.actions.field(field, value)} onCommit={data.actions.apply} onCancel={data.actions.cancel} />
+    ? <InlineTextEditor label={field === 'label' ? '标题' : '内容'} value={data.draft?.[field] ?? value} multiline={field === 'text'} onChange={value => data.actions.field(field, value)} onFinish={data.actions.finish} />
     : <span className="ps-editable-text" role="button" tabIndex={0} onDoubleClick={event => { event.stopPropagation(); data.actions.edit({ kind: 'node', id }, field); }} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); data.actions.edit({ kind: 'node', id }, field); } }}>{value || (field === 'label' ? '无标题' : '双击编辑')}</span>;
   const editText = (field: 'alias' | 'takeaway', value: string) => data.editing === field
     ? <InlineTextEditor label={field === 'alias' ? '简称' : '核心认识'} value={data.draft?.[field] ?? value}
         multiline={field === 'takeaway'} onChange={value => data.actions.field(field, value)}
-        onCommit={data.actions.apply} onCancel={data.actions.cancel} />
+        onFinish={data.actions.finish} />
     : <span className="ps-editable-text" role="button" tabIndex={data.busy ? -1 : 0}
         title="双击编辑；键盘 Enter 编辑" aria-label={`编辑${field === 'alias' ? '简称' : '核心认识'}：${value}`}
         onDoubleClick={event => { event.stopPropagation(); data.actions.edit({ kind: 'node', id }, field); }}
         onKeyDown={event => { if (event.key === 'Enter' || event.key === 'F2') {
           event.preventDefault(); event.stopPropagation(); data.actions.edit({ kind: 'node', id }, field);
-        } }}>{data.draft?.[field] ?? value}</span>;
+        } }}>{(data.draft?.[field] ?? value) || (field === 'alias' ? '未命名论文' : '双击填写要点')}</span>;
   return <div className={`ps-card ${data.raw.type === 'group' ? 'ps-group' : ''}${paper?.year ? ' has-year' : ''}${isRelationNode(data.raw) ? ' ps-shared-relation' : ''}`}
     style={{ borderColor: color(data.raw.color), borderWidth: appearance.strokeWidth, minHeight: minimumHeight }}>
     <NodeResizer isVisible={selected && !data.busy && !data.editing} minWidth={160} minHeight={minimumHeight}
@@ -133,32 +140,12 @@ const nodeTypes = { paper: PaperCard };
 const edgeTypes = { relation: RelationEdge };
 
 function initialState(key: string) {
-  const empty = { ...createCanvas(), paperstreamLayout: 'vertical' };
-  const fallback = { canvas: empty, fileName: 'papers.canvas', saved: serializeCanvas(empty), selection: null as Selection,
-    form: {} as FormValues, formDirty: false, inlineField: null as InlineField | null,
-    inlineBaseline: null as InlineBaseline | null, restored: false };
   try {
-    const text = sessionStorage.getItem(key);
-    if (!text) return fallback;
-    const draft = JSON.parse(text);
-    const canvas = parseCanvas(JSON.stringify(draft.canvas));
-    const form = draft.form && Object.values(draft.form).every(v => typeof v === 'string') ? draft.form as FormValues : {};
-    const candidate = draft.selection as Selection;
-    let selection: Selection = null;
-    if (candidate?.kind === 'new') selection = candidate;
-    if (candidate?.kind === 'node' && canvas.nodes.some(n => n.id === candidate.id)) selection = candidate;
-    if (candidate?.kind === 'edge' && canvas.edges.some(e => e.id === candidate.id)) selection = candidate;
-    if (candidate?.kind === 'connection' && typeof candidate.source === 'string' && typeof candidate.target === 'string') selection = candidate;
-    const inlineField: InlineField | null = selection?.kind === 'node' && readPaper(canvas.nodes.find(n => n.id === selection.id)!)
-      && (draft.inlineField === 'alias' || draft.inlineField === 'takeaway') ? draft.inlineField
-      : selection?.kind === 'edge' && draft.inlineField === 'relation' ? 'relation' : null;
-    const inlineBaseline: InlineBaseline | null = inlineField && typeof draft.inlineBaseline?.value === 'string'
-      && typeof draft.inlineBaseline?.wasDirty === 'boolean' ? draft.inlineBaseline : null;
-    // A draft is convenience recovery, never authority to overwrite a file.
-    return { ...fallback, canvas, fileName: typeof draft.fileName === 'string' ? draft.fileName : fallback.fileName,
-      saved: typeof draft.saved === 'string' ? draft.saved : fallback.saved,
-      selection, form, formDirty: Boolean(selection && draft.formDirty), inlineField, inlineBaseline, restored: true };
-  } catch { return fallback; }
+    const restored = getRestoredDraft(key);
+    return restoreEditorDraft(restored === undefined ? sessionStorage.getItem(key) ?? undefined : restored);
+  } catch (err) {
+    return { ...restoreEditorDraft(undefined), recoveryError: `恢复草稿无法读取，已暂停覆盖：${message(err)}` };
+  }
 }
 
 export interface PaperstreamEditorProps { draftKey?: string; loadTheme?: () => Promise<'sage' | 'paper' | 'night'>; saveTheme?: (theme: 'sage' | 'paper' | 'night') => Promise<void>; openExternal?: (url: string) => Promise<void> }
@@ -186,23 +173,26 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   const [form, setForm] = useState<FormValues>(initial.form);
   const [formDirty, setFormDirty] = useState(initial.formDirty);
   const [inlineField, setInlineField] = useState<InlineField | null>(initial.inlineField);
-  const [inlineBaseline, setInlineBaseline] = useState<InlineBaseline | null>(initial.inlineBaseline);
   const [detailsAnchor, setDetailsAnchor] = useState<PopoverPoint | null>(initial.formDirty && !initial.inlineField
     ? { x: window.innerWidth / 2, y: window.innerHeight / 3 } : null);
   const [detailsPosition, setDetailsPosition] = useState({ x: 12, y: 12 });
   const [workspaceSize, setWorkspaceSize] = useState({ width: 800, height: 600 });
   const workspace = useRef<HTMLDivElement>(null);
   const details = useRef<HTMLElement>(null);
-  const actionsRef = useRef<EditActions>({ edit: () => {}, details: () => {}, field: () => {}, apply: () => {}, cancel: () => {}, patch: () => {}, openUrl: () => {} });
+  const actionsRef = useRef<EditActions>({ edit: () => {}, details: () => {}, field: () => {}, finish: () => {}, patch: () => {}, openUrl: () => {} });
   const actions = useMemo<EditActions>(() => ({
     edit: (...args) => actionsRef.current.edit(...args), details: (...args) => actionsRef.current.details(...args),
-    field: (...args) => actionsRef.current.field(...args), apply: () => actionsRef.current.apply(), cancel: () => actionsRef.current.cancel(), patch: (...args) => actionsRef.current.patch(...args), openUrl: url => actionsRef.current.openUrl(url),
+    field: (...args) => actionsRef.current.field(...args), finish: () => actionsRef.current.finish(), patch: (...args) => actionsRef.current.patch(...args), openUrl: url => actionsRef.current.openUrl(url),
   }), []);
   const [fileName, setFileName] = useState(initial.fileName);
   const [saved, setSaved] = useState(initial.saved);
-  const file = useRef<{ handle: LocalFileHandle; snapshot: string } | null>(null);
+  const file = useRef<FileBinding | null>(null);
+  const [recoveryError, setRecoveryError] = useState(initial.recoveryError);
+  const [fileBindingId, setFileBindingId] = useState(initial.fileBindingId);
+  const [pendingBinding, setPendingBinding] = useState<FileBinding | null>(null);
+  const bindingRevision = useRef(0);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState(initial.restored ? '已恢复本标签页的草稿。保存到文件后才能长期保留。' : '打开一张关系图，或新增第一篇论文。');
+  const [notice, setNotice] = useState(initial.restored ? '已恢复本机工作区草稿。' : '打开一张关系图，或新增第一篇论文。');
   const [error, setError] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
   const [nodes, setNodes] = useState<CardNode[]>([]);
@@ -218,14 +208,73 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   const [connectSource, setConnectSource] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [createMenu, setCreateMenu] = useState<PopoverPoint | null>(null);
+  const [pagesOpen, setPagesOpen] = useState(false);
   useEffect(() => onMeta({ fileName, dirty }), [fileName, dirty, onMeta]);
 
+  const draftSnapshot = useRef({ canvas, fileName, saved, selection, form, formDirty, inlineField, fileBindingId });
+  draftSnapshot.current = { canvas, fileName, saved, selection, form, formDirty, inlineField, fileBindingId };
+  const draftWriter = useRef<ReturnType<typeof createDraftWriter<typeof draftSnapshot.current>> | null>(null);
   useEffect(() => {
-    try { sessionStorage.setItem(draftKey, JSON.stringify({ canvas, fileName, saved, selection, form, formDirty, inlineField, inlineBaseline })); }
-    catch { setNotice('浏览器无法保存临时草稿，请及时保存或下载文件。'); }
-  }, [canvas, fileName, saved, selection, form, formDirty, inlineField, inlineBaseline, draftKey]);
+    if (recoveryError) return;
+    const failed = (err: unknown) => setNotice(`工作区恢复记录未保存：${message(err)}`);
+    const writer = createDraftWriter<typeof draftSnapshot.current>(value => persistDraft(draftKey, value), { onError: failed });
+    draftWriter.current = writer;
+    writer.schedule(() => draftSnapshot.current);
+    const flush = () => { void writer.flush().catch(failed); };
+    const visibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush); document.addEventListener('visibilitychange', visibility);
+    return () => {
+      window.removeEventListener('pagehide', flush); document.removeEventListener('visibilitychange', visibility);
+      if (draftWriter.current === writer) draftWriter.current = null;
+      void writer.dispose({ flush: true }).catch(failed);
+    };
+  }, [draftKey, recoveryError]);
+  useEffect(() => {
+    draftWriter.current?.schedule(() => draftSnapshot.current);
+  }, [canvas, fileName, saved, selection, form, formDirty, inlineField, fileBindingId]);
+  useEffect(() => {
+    let active = true;
+    const revision = bindingRevision.current;
+    const candidate = getRestoredFileBinding(draftKey);
+    if (!candidate) return;
+    // Both records carry the same generation. A crash between writes must
+    // never attach a different file to an older recovered draft.
+    try {
+      if (!initial.fileBindingId || candidate.bindingId !== initial.fileBindingId
+        || candidate.handle.name !== initial.fileName || serializeCanvas(parseCanvas(candidate.snapshot)) !== initial.saved) {
+        setNotice('草稿已恢复；文件关联记录不匹配，请重新选择文件或另存为。'); return;
+      }
+    } catch { setNotice('草稿已恢复；文件关联记录无法核对，请另存为。'); return; }
+    void recoverFileBinding(candidate).then(result => {
+      if (!active || revision !== bindingRevision.current) return;
+      if (result.status === 'granted') { file.current = result.binding; setNotice('草稿和文件关联已恢复；保存仍会检查外部修改。'); }
+      else { setPendingBinding(candidate); setNotice('草稿已恢复；点击重新授权后可继续保存原文件。'); }
+    }).catch(err => { if (active && revision === bindingRevision.current) setNotice(`草稿已恢复；文件关联恢复失败：${message(err)}`); });
+    return () => { active = false; };
+  }, [draftKey]);
+  function rememberBinding(binding: Omit<FileBinding, 'bindingId'> | null) {
+    bindingRevision.current++;
+    const bindingId = crypto.randomUUID();
+    const next = binding ? { ...binding, bindingId } : null;
+    file.current = next; setPendingBinding(null); setFileBindingId(bindingId);
+    void persistFileBinding(draftKey, next).catch(err => setNotice(`文件关联未持久保存：${message(err)}`));
+  }
+  async function authorizeFile() {
+    if (!pendingBinding || busy) return;
+    const candidate = pendingBinding, revision = bindingRevision.current;
+    // requestPermission must run directly in this click's user activation.
+    const operation = recoverFileBinding(candidate, true);
+    setBusy(true);
+    try {
+      const result = await operation;
+      if (revision !== bindingRevision.current) return;
+      if (result.status === 'granted') { file.current = result.binding; setPendingBinding(null); setNotice('文件已重新授权；保存前仍会检查外部修改。'); }
+      else setError('文件写入权限尚未授予；可再次授权或另存为。');
+    } catch (err) { setError(message(err)); } finally { setBusy(false); }
+  }
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => {
+      void draftWriter.current?.flush().catch(() => {});
       if (dirty) { event.preventDefault(); event.returnValue = ''; }
     };
     window.addEventListener('beforeunload', beforeUnload);
@@ -256,10 +305,12 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     if (detailsAnchor) details.current?.querySelector<HTMLElement>('.ps-inspector-heading')?.focus();
   }, [detailsAnchor]);
 
+  const liveGesture = useRef<{ key: string; time: number } | null>(null);
+  const fieldErrors = useRef<Record<string, string>>({});
   const wheelGesture = useRef<{ key: string; time: number } | null>(null);
   const commit = useCallback((next: JSONCanvasDocument) => {
-    wheelGesture.current = null;
     if (JSON.stringify(next) === JSON.stringify(current.current)) return;
+    wheelGesture.current = null; liveGesture.current = null;
     serializeCanvas(next); // Validate before replacing the in-memory document.
     const previous = current.current;
     setPast(items => [...items.slice(-49), previous]);
@@ -268,6 +319,14 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     setCanvas(next);
     setError('');
   }, []);
+  const commitContinuous = useCallback((next: JSONCanvasDocument, key: string) => {
+    if (JSON.stringify(next) === JSON.stringify(current.current)) return;
+    const now = Date.now();
+    if (liveGesture.current?.key === key && now - liveGesture.current.time < 1100) {
+      serializeCanvas(next); current.current = next; setCanvas(next); setFuture([]);
+    } else commit(next);
+    liveGesture.current = { key, time: now };
+  }, [commit]);
   const startInteraction = useCallback(() => {
     interacting.current = true;
     pendingInitialFit.current = false;
@@ -289,7 +348,10 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     if (!persist || interacting.current || nextHeight === node.height) return;
     try {
       let next = patchNode(current.current, node.id, { height: nextHeight });
-      if (next.paperstreamLayout === 'vertical') next = layoutVertical(next);
+      if (next.paperstreamLayout === 'vertical') {
+        const manual = next.edges.some(edge => { const geometry = readEdgeRouting(edge); return Boolean(geometry.labelPosition || geometry.waypoints.length); });
+        next = manual ? { ...next, paperstreamLayout: 'manual' } : layoutVertical(next);
+      }
       current.current = next;
       setCanvas(next);
     } catch (err) { setError(message(err)); }
@@ -355,21 +417,30 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     height: Math.max(node.height ?? node.data.raw.height, contentHeights[node.id] ?? 0),
   })), [nodes, contentHeights]);
   const labelPositions = useMemo(() => {
+    const fixed = new Map<string, { x: number; y: number }>();
+    const obstacles = [...visibleCardBounds];
     const labels = canvas.edges.flatMap(edge => {
       if (!edge.label || !visible.has(edge.fromNode) || !visible.has(edge.toNode)) return [];
       const measurement = labelMeasurements.get(edge.id);
+      const position = readEdgeRouting(edge).labelPosition;
+      if (position) {
+        fixed.set(edge.id, position);
+        if (measurement) obstacles.push({ x: position.x - measurement.width / 2, y: position.y - measurement.height / 2, width: measurement.width, height: measurement.height });
+        return [];
+      }
       return measurement?.text === edge.label ? [measurement] : [];
     });
-    return layoutEdgeLabels(labels, visibleCardBounds);
+    return new Map([...layoutEdgeLabels(labels, obstacles), ...fixed]);
   }, [canvas.edges, visible, visibleCardBounds, labelMeasurements]);
   const contentBounds = useMemo(() => getContentBounds([
     ...visibleCardBounds,
+    ...canvas.edges.filter(edge => visible.has(edge.fromNode) && visible.has(edge.toNode)).flatMap(edge => readEdgeRouting(edge).waypoints.map(point => ({ ...point, width: 1, height: 1 }))),
     ...[...labelPositions].flatMap(([id, position]) => {
       const label = labelMeasurements.get(id);
       return label ? [{ x: position.x - label.width / 2, y: position.y - label.height / 2,
         width: label.width, height: label.height }] : [];
     }),
-  ]), [visibleCardBounds, labelPositions, labelMeasurements]);
+  ]), [canvas.edges, visible, visibleCardBounds, labelPositions, labelMeasurements]);
   const fitContent = useCallback(() => {
     pendingInitialFit.current = false;
     if (contentBounds) void flow.fitBounds(contentBounds, { padding: 0.15, duration: 0 });
@@ -396,18 +467,18 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     id: edge.id, source: edge.fromNode, target: edge.toNode,
     sourceHandle: edge.fromSide ?? 'bottom', targetHandle: edge.toSide ?? 'top',
     label: edge.label, type: 'relation', animated: false,
-    data: { position: labelPositions.get(edge.id), busy, onMeasure: measureLabel, onSelect: selectEdgeLabel,
+    data: { raw: edge, onPatch: (id, patch) => { try { commit({ ...patchEdge(current.current, id, patch), paperstreamLayout: 'manual' }); } catch (err) { setError(message(err)); } }, position: labelPositions.get(edge.id), busy, onMeasure: measureLabel, onSelect: selectEdgeLabel,
       editing: selection?.kind === 'edge' && selection.id === edge.id && inlineField === 'relation',
       arrowShape: edgeSettings(edge).arrowShape, lineStyle: edgeSettings(edge).lineStyle,
       draft: form.relation ?? '', onEdit: () => actions.edit({ kind: 'edge', id: edge.id }, 'relation'),
       onDetails: anchor => actions.details({ kind: 'edge', id: edge.id }, anchor),
-      onChange: value => actions.field('relation', value), onApply: actions.apply, onCancel: actions.cancel },
+      onChange: value => actions.field('relation', value), onFinish: actions.finish },
     markerStart: edge.fromEnd === 'arrow' ? { type: MarkerType.ArrowClosed } : undefined,
     markerEnd: edge.toEnd !== 'none' ? { type: MarkerType.ArrowClosed } : undefined,
     style: { stroke: color(edge.color) ?? '#70877e', strokeWidth: readEdgeStyle(edge).strokeWidth, strokeDasharray: edgeSettings(edge).lineStyle === 'dashed' ? '8 5' : edgeSettings(edge).lineStyle === 'dotted' ? '2 5' : undefined },
     selected: selection?.kind === 'edge' && selection.id === edge.id,
     hidden: !visible.has(edge.fromNode) || !visible.has(edge.toNode),
-  })), [canvas, visible, selection, labelPositions, busy, measureLabel, selectEdgeLabel, actions, inlineField, form.relation]);
+  })), [canvas, visible, selection, labelPositions, busy, measureLabel, selectEdgeLabel, actions, inlineField, form.relation, commit]);
   const onNodesChange: OnNodesChange<CardNode> = useCallback(changes => {
     // Deletion is explicit in the inspector; filtering never mutates stored nodes.
     setNodes(items => applyNodeChanges(changes.filter(change => change.type !== 'remove' && change.type !== 'select'), items));
@@ -421,14 +492,14 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
           next = patchNode(next, change.id, { x: Math.round(change.position.x), y: Math.round(change.position.y) });
         }
       }
-      commit(next);
+      if (next !== current.current) commit({ ...next, paperstreamLayout: 'manual' });
     } catch (err) { setError(message(err)); }
   }, [busy, commit]);
   // Explicit card/edge actions own selection. Mirroring React Flow's selection
   // observer back into this state replays stale controlled nodes while switching
   // to a label or a new form, and can silently replace the current form.
 
-  function discardForm() { return !formDirty || window.confirm('还有未应用的文字或详情修改。放弃这些修改吗？'); }
+  function discardForm() { if (formDirty) { setError(Object.values(fieldErrors.current)[0] || '输入格式尚不完整；有效修改已保留。'); return false; } return true; }
   function valuesFor(next: Selection): FormValues {
     if (next?.kind === 'node') {
       const node = current.current.nodes.find(item => item.id === next.id)!;
@@ -440,7 +511,6 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
       const edge = current.current.edges.find(item => item.id === next.id)!;
       return { relation: edge.label ?? '', strokeWidth: String(readEdgeStyle(edge).strokeWidth), direction: readEdgeDirection(edge), ...edgeSettings(edge) };
     }
-    if (next?.kind === 'connection') return { relation: '', source: next.source, target: next.target, strokeWidth: '1.8', direction: 'forward' };
     return { alias: '', takeaway: '', name: '', url: '', year: '', strokeWidth: '1', heightMode: 'auto' };
   }
   function select(next: Selection, alreadyConfirmed = false) {
@@ -449,8 +519,8 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     if (JSON.stringify(next) === JSON.stringify(selectionRef.current)) return true;
     if (busy || (!alreadyConfirmed && !discardForm())) return false;
     changeSelection(next);
-    setFormDirty(false);
-    setInlineField(null); setInlineBaseline(null); setDetailsAnchor(null);
+    setFormDirty(false); fieldErrors.current = {}; liveGesture.current = null;
+    setInlineField(null); setDetailsAnchor(null);
     setError('');
     setForm(valuesFor(next));
     return true;
@@ -463,90 +533,52 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   }
   function showDetails(next: Selection, anchor = defaultAnchor()) {
     if (busy || !select(next)) return;
-    setInlineField(null); setInlineBaseline(null); setDetailsAnchor(anchor);
+    setInlineField(null); setDetailsAnchor(anchor);
   }
   function startInline(next: Selection, key: InlineField) {
     const sameSelection = JSON.stringify(next) === JSON.stringify(selectionRef.current);
     if (sameSelection && inlineField === key) return;
     if (busy || !select(next)) return;
-    setInlineBaseline({ value: sameSelection ? form[key] ?? '' : valuesFor(next)[key] ?? '', wasDirty: sameSelection && formDirty });
     setDetailsAnchor(null); setInlineField(key);
   }
-  function cancelInline() {
-    if (!inlineField) return;
-    const stored = valuesFor(selectionRef.current);
-    const value = inlineBaseline?.value ?? stored[inlineField] ?? '';
-    const wasDirty = inlineBaseline?.wasDirty ?? Object.keys(form).some(key => key !== inlineField && form[key] !== stored[key]);
-    setForm(values => ({ ...values, [inlineField]: value })); setFormDirty(wasDirty);
-    setInlineField(null); setInlineBaseline(null); setError('');
-    // Earlier fields may already have a draft. Make those edits visible after
-    // cancelling only this field, instead of silently discarding them.
-    if (wasDirty) setDetailsAnchor(defaultAnchor());
+  function finishInline() {
+    liveGesture.current = null;
+    setInlineField(null);
+    if (Object.keys(fieldErrors.current).length) setDetailsAnchor(defaultAnchor());
   }
   function closeDetails() {
     if (busy || !discardForm()) return;
-    setForm(valuesFor(selectionRef.current)); setFormDirty(false); setInlineField(null); setInlineBaseline(null); setError('');
-    setDetailsAnchor(null);
+    liveGesture.current = null; setInlineField(null); setDetailsAnchor(null);
   }
   function field(key: string, value: string) {
+    if (busy) return;
+    const selected = selectionRef.current;
     setForm(values => ({ ...values, [key]: value }));
-    setFormDirty(true);
-  }
-  function apply() {
-    if (!selection || busy) return;
+    if (!selected || (selected.kind !== 'node' && selected.kind !== 'edge')) return;
     try {
-      let next = current.current;
-      if (selection.kind === 'new' || (selection.kind === 'node' && readPaper(canvas.nodes.find(n => n.id === selection.id)!))) {
-        const fields: PaperFields = { alias: form.alias, takeaway: form.takeaway, name: form.name || null, url: form.url || null,
-          year: form.year ? Number(form.year) : null };
-        if (selection.kind === 'new') {
-          const position = flow.screenToFlowPosition({ x: window.innerWidth * 0.4, y: window.innerHeight * 0.4 });
-          const node = updateNodeStyle(createPaperNode(fields, { x: Math.round(position.x), y: Math.round(position.y) }), {
-            strokeWidth: Number(form.strokeWidth ?? 1), heightMode: form.heightMode === 'manual' ? 'manual' : 'auto',
-          });
-          next = addNode(next, node);
-          changeSelection({ kind: 'node', id: node.id });
-          setFocusId(null);
-        } else {
-          next = updatePaper(next, selection.id, fields);
-          const node = next.nodes.find(item => item.id === selection.id)!;
-          const previousStyle = readNodeStyle(node);
-          const { id: nodeId, ...nodePatch } = updateNodeStyle(node, {
-            ...(form.strokeWidth !== undefined && Number(form.strokeWidth) !== previousStyle.strokeWidth ? { strokeWidth: Number(form.strokeWidth) } : {}),
-            ...(form.heightMode !== undefined && form.heightMode !== previousStyle.heightMode ? { heightMode: form.heightMode === 'manual' ? 'manual' as const : 'auto' as const } : {}),
-          });
-          next = patchNode(next, nodeId, nodePatch);
-        }
-      } else if (selection.kind === 'edge') {
-        const edge = next.edges.find(item => item.id === selection.id)!;
-        const { id: edgeId, ...edgePatch } = updateEdgeStyle(edge,
-          form.strokeWidth !== undefined && Number(form.strokeWidth) !== readEdgeStyle(edge).strokeWidth ? { strokeWidth: Number(form.strokeWidth) } : {});
-        next = patchEdge(next, edgeId, { ...edgePatch, ...edgeStylePatch({ ...edgePatch, id: edgeId } as CanvasEdge, form), label: form.relation,
-          ...(form.direction !== undefined && form.direction !== readEdgeDirection(edge) ? directionPatch(form.direction as EdgeDirection) : {}) });
-      } else if (selection.kind === 'connection') {
-        const edge = updateEdgeStyle(createEdge(form.source, form.target, form.relation), { strokeWidth: Number(form.strokeWidth ?? 1.8) });
-        if (selection.fromSide) edge.fromSide = selection.fromSide;
-        if (selection.toSide) edge.toSide = selection.toSide;
-        Object.assign(edge, directionPatch((form.direction ?? 'forward') as EdgeDirection));
-        next = addEdge(next, edge);
-        changeSelection({ kind: 'edge', id: edge.id });
-      } else if (selection.kind === 'node') {
-        next = patchNode(next, selection.id, { text: form.text, ...(form.label !== undefined ? { label: form.label } : {}) });
-        const node = next.nodes.find(item => item.id === selection.id)!;
-        if (form.heightMode !== undefined || form.strokeWidth !== undefined) {
-          const { id, ...styled } = updateNodeStyle(node, {
-            ...(form.heightMode !== undefined ? { heightMode: form.heightMode === 'manual' ? 'manual' as const : 'auto' as const } : {}),
-            ...(form.strokeWidth !== undefined ? { strokeWidth: Number(form.strokeWidth) } : {}),
-          });
-          next = patchNode(next, id, styled);
-        }
-      }
-      commit(next);
-      setFormDirty(false); setInlineField(null); setInlineBaseline(null); setDetailsAnchor(null);
-      setNotice('更改已应用到画布，请保存文件。');
-    } catch (err) { setError(message(err)); }
+      const next = editField(current.current, selected, key, value);
+      commitContinuous(next, `${selected.kind}:${selected.id}:${key}`);
+      delete fieldErrors.current[key];
+      setFormDirty(Object.keys(fieldErrors.current).length > 0);
+      setError(Object.values(fieldErrors.current)[0] ?? '');
+    } catch (err) {
+      fieldErrors.current[key] = message(err); setFormDirty(true); setError(message(err));
+    }
   }
-  actionsRef.current = { edit: startInline, details: showDetails, field, apply, cancel: cancelInline, openUrl: url => { if (openExternal) void openExternal(url).then(() => setNotice('已在系统默认浏览器打开原文。')).catch(err => setError(message(err))); else window.open(url, '_blank', 'noopener,noreferrer'); }, patch: (id, patch) => { if (!busy) { try { commit(patchNode(current.current, id, patch)); } catch (err) { setError(message(err)); } } } };
+  // Existing recovery drafts may predate immediate editing. Fold valid values
+  // into the document once; malformed inputs remain visible and recoverable.
+  useEffect(() => {
+    if (!initial.formDirty || !initial.selection || (initial.selection.kind !== 'node' && initial.selection.kind !== 'edge')) return;
+    let next = current.current;
+    const supported = new Set(Object.keys(valuesFor(initial.selection)));
+    for (const [key, value] of Object.entries(initial.form)) {
+      if (!supported.has(key)) continue;
+      try { next = editField(next, initial.selection, key, value); }
+      catch (err) { fieldErrors.current[key] = message(err); }
+    }
+    commit(next); setFormDirty(Object.keys(fieldErrors.current).length > 0); setError(Object.values(fieldErrors.current)[0] ?? '');
+  }, []);
+  actionsRef.current = { edit: startInline, details: showDetails, field, finish: finishInline, openUrl: url => { if (openExternal) void openExternal(url).then(() => setNotice('已在系统默认浏览器打开原文。')).catch(err => setError(message(err))); else window.open(url, '_blank', 'noopener,noreferrer'); }, patch: (id, patch) => { if (!busy) { try { commit(patchNode(current.current, id, patch)); } catch (err) { setError(message(err)); } } } };
   function removeSelected() {
     if (!selection || busy || !discardForm()) return;
     try {
@@ -558,26 +590,29 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
         if (!window.confirm('删除这条关系？')) return;
         commit(removeEdge(canvas, selection.id));
       }
-      changeSelection(null); setFormDirty(false); setInlineField(null); setInlineBaseline(null); setDetailsAnchor(null);
+      changeSelection(null); setFormDirty(false); setInlineField(null); setDetailsAnchor(null);
     } catch (err) { setError(message(err)); }
   }
   function travel(back: boolean) {
-    if (!discardForm() || busy) return;
+    if (busy) return;
+    wheelGesture.current = null; liveGesture.current = null;
+    if (formDirty) { fieldErrors.current = {}; setFormDirty(false); setForm(valuesFor(selectionRef.current)); setError(''); }
     const list = back ? past : future;
     if (!list.length) return;
     const next = list[list.length - 1];
     if (back) { setPast(list.slice(0, -1)); setFuture(items => [...items, canvas]); }
     else { setFuture(list.slice(0, -1)); setPast(items => [...items, canvas]); }
-    current.current = next; setCanvas(next); changeSelection(null); setFormDirty(false); setInlineField(null); setInlineBaseline(null); setDetailsAnchor(null); setError('');
+    current.current = next; setCanvas(next); changeSelection(null); setFormDirty(false); setInlineField(null); setDetailsAnchor(null); setError('');
   }
   function replace(text: string, name: string, handle: LocalFileHandle | null) {
     const next = parseCanvas(text);
+    setRecoveryError('');
     interacting.current = false;
     pendingInitialFit.current = true;
     setContentHeights({});
     current.current = next; setCanvas(next); setSaved(serializeCanvas(next)); setFileName(name);
-    file.current = handle ? { handle, snapshot: text } : null;
-    setPast([]); setFuture([]); changeSelection(null); setForm({}); setFormDirty(false); setInlineField(null); setInlineBaseline(null); setDetailsAnchor(null); setFocusId(null);
+    rememberBinding(handle ? { handle, snapshot: text } : null);
+    setPast([]); setFuture([]); changeSelection(null); setForm({}); setFormDirty(false); setInlineField(null); setDetailsAnchor(null); setFocusId(null);
     setError(''); setNotice(handle ? '已打开文件；保存前会检查外部修改。' : '已打开文件；更改后可下载副本。');
   }
   async function open() {
@@ -606,7 +641,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
         target = { handle, snapshot: await (await handle.getFile()).text() };
       }
       await writeFile(target.handle, target.snapshot, text);
-      file.current = { handle: target.handle, snapshot: text };
+      rememberBinding({ handle: target.handle, snapshot: text });
       setFileName(target.handle.name); setSaved(text); setNotice('已保存到文件。');
     } catch (err) { if (!(err instanceof DOMException && err.name === 'AbortError')) setError(message(err)); }
     finally { setBusy(false); }
@@ -629,9 +664,11 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     const node: CanvasNode = kind === 'paper' ? createPaperNode({ alias: '新论文', takeaway: '双击填写你的认识' }, placement)
       : kind === 'relation' ? createRelationNode('共享关系', { ...placement, width: 220, height: 100 })
       : { id: crypto.randomUUID().replaceAll('-', ''), type: 'text', ...placement, label: kind === 'page' ? '插页' : 'Note', text: '- 在这里记录想法', paperstreamCard: { kind } };
-    const next = addNode(current.current, node); commit(next.paperstreamLayout === 'vertical' ? layoutVertical(next) : next); setFocusId(null); setCreateMenu(null);
+    let next = addNode(current.current, node);
+    if (kind === 'page') next = createPresentationPage(next, { title: node.label || '插页', nodeIds: [node.id] });
+    commit(next.paperstreamLayout === 'vertical' ? layoutVertical(next) : next); setFocusId(null); setCreateMenu(null);
     select({ kind: 'node', id: node.id }, true);
-    if (kind === 'paper') { setInlineBaseline({ value: '新论文', wasDirty: false }); setInlineField('alias'); setDetailsAnchor(null); }
+    if (kind === 'paper') { setInlineField('alias'); setDetailsAnchor(null); }
     else showDetails({ kind: 'node', id: node.id }, anchor);
   }
   function quickConnect(source: string, target: string, fromSide?: string | null, toSide?: string | null) {
@@ -645,6 +682,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   useEffect(() => {
     const element = workspace.current; if (!element) return;
     const wheel = (event: WheelEvent) => {
+      if ((event.target as Element).closest('.ps-pages-panel, .ps-presentation-screen')) return;
       const selected = selectionRef.current;
       const weightGesture = wheelIntent(event, selected?.kind === 'node' || selected?.kind === 'edge') === 'weight';
       const zoomGesture = !weightGesture;
@@ -673,21 +711,24 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     element.addEventListener('wheel', wheel, { passive: false, capture: true });
     return () => element.removeEventListener('wheel', wheel, true);
   }, [flow, busy, inlineField, formDirty, commit]);
+  const hasManualRelations = canvas.edges.some(edge => { const route = readEdgeRouting(edge); return Boolean(route.labelPosition || route.waypoints.length); });
   const selectedNode = selection?.kind === 'node' ? canvas.nodes.find(node => node.id === selection.id) : undefined;
   const paper = selectedNode ? readPaper(selectedNode) : null;
-  const paperForm = selection?.kind === 'new' || Boolean(paper);
-  const relationForm = selection?.kind === 'edge' || selection?.kind === 'connection';
-  const editable = paperForm || relationForm || selectedNode?.type === 'text';
+  const paperForm = Boolean(paper);
+  const relationForm = selection?.kind === 'edge';
 
   return <div className="paperstream-editor" aria-busy={busy} onKeyDown={event => {
     if (event.key === 'Escape' && detailsAnchor && !event.defaultPrevented) { event.preventDefault(); closeDetails(); }
   }}>
+    {recoveryError && <div role="alert" className="ps-workspace-warning">{recoveryError}</div>}
     <header className="ps-header ps-compact-header"><details className="ps-file-menu"><summary aria-label="文件与画布操作">⋯</summary><div className="ps-menu-items" onClick={event => { if ((event.target as Element).closest('button')) event.currentTarget.closest('details')?.removeAttribute('open'); }}>
         <button disabled={busy} onClick={() => void open()}>打开文件…</button>
         <button disabled={busy || formDirty} onClick={() => void save()}>保存</button>
         <button disabled={busy || formDirty} onClick={() => void save(true)}>另存为…</button>
         {(['png', 'svg', 'pptx'] as const).map(format => <button key={format} disabled={busy || formDirty || !canvas.nodes.length} onClick={() => void exportDocument(format)}>导出 {format.toUpperCase()}</button>)}
         <button disabled={busy || !file.current} onClick={() => void reloadFile()}>重新读取文件</button>
+        <button disabled={busy || formDirty} onClick={() => setPagesOpen(value => !value)}>演示页面…</button>
+        {pendingBinding && <button disabled={busy} onClick={() => void authorizeFile()}>重新授权原文件…</button>}
       </div></details></header>
     <div className="ps-workspace" ref={workspace}>
       <main className="ps-canvas" aria-label="论文关系画布" onDoubleClickCapture={event => {
@@ -752,11 +793,12 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
           <button onClick={() => insertCard('paper', createMenu)}>＋ 论文</button><button onClick={() => insertCard('note', createMenu)}>＋ Note</button><button onClick={() => insertCard('page', createMenu)}>＋ 插页</button><button onClick={() => insertCard('relation', createMenu)}>＋ 共享关系</button>
         </div>}
       </main>
+      {pagesOpen && <PagePanel document={canvas} onChange={next => { try { commit(next); } catch (err) { setError(message(err)); } }} onClose={() => setPagesOpen(false)} selectedNodeIds={selection?.kind === 'node' ? [selection.id] : []} onFocus={ids => { setFocusId(null); void flow.fitView({ nodes: ids.map(id => ({ id })), maxZoom: 1, duration: 0 }); }} />}
       {detailsAnchor && selection && <aside ref={details} className="ps-inspector" role="dialog" aria-label="详情编辑" aria-modal="false"
         style={{ left: detailsPosition.x, top: detailsPosition.y, width: Math.min(340, Math.max(0, workspaceSize.width - 24)), maxHeight: Math.max(0, workspaceSize.height - 24) }}>
         <div className="ps-inspector-heading" tabIndex={-1}><span>{paperForm ? '论文详情' : relationForm ? '关系详情' : '卡片详情'}</span>
           <button aria-label="关闭详情" onClick={closeDetails}>×</button></div>
-        <form onSubmit={event => { event.preventDefault(); apply(); }}>
+        <form onSubmit={event => { event.preventDefault(); }}>
           <fieldset disabled={busy}>
             {paperForm && <>
               <div className="ps-appearance-fields">
@@ -768,18 +810,18 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
                         onChange={e => field('heightMode', e.target.value)} /><span>{label}</span></label>)}
                   </div>
                 </div>
-                <label>边框粗细（px）<input type="number" min="0.5" max="8" step="0.1" required
+                <label>边框粗细（px）<input aria-invalid={Boolean(fieldErrors.current.strokeWidth)} type="number" min="0.5" max="8" step="0.1" required
                   value={form.strokeWidth ?? (selectedNode ? readNodeStyle(selectedNode).strokeWidth : 1)} onChange={e => field('strokeWidth', e.target.value)} /></label>
               </div>
               <p className="ps-muted ps-appearance-hint">自动模式随文字增减高度；拖动卡片边角后保留手动尺寸。</p>
-              <label>简称 · alias<input required value={form.alias ?? ''} onChange={e => field('alias', e.target.value)} placeholder="例如 ResNet" /></label>
-              <label>核心认识 · takeaway<textarea required rows={5} value={form.takeaway ?? ''} onChange={e => field('takeaway', e.target.value)} placeholder="这篇论文最值得记住的是什么？" /></label>
+              <label>简称 · alias<input value={form.alias ?? ''} onChange={e => field('alias', e.target.value)} placeholder="例如 ResNet" /></label>
+              <label>核心认识 · takeaway<textarea rows={5} value={form.takeaway ?? ''} onChange={e => field('takeaway', e.target.value)} placeholder="这篇论文最值得记住的是什么？" /></label>
               <label>论文原名 · name<textarea rows={3} value={form.name ?? ''} onChange={e => field('name', e.target.value)} placeholder="保留原始标题" /></label>
-              <label>原文链接 · url<input type="url" value={form.url ?? ''} onChange={e => field('url', e.target.value)} placeholder="https://…" /></label>
-              <label>年份 · year<input type="number" min="1" max="9999" step="1" value={form.year ?? ''} onChange={e => field('year', e.target.value)} /></label>
+              <label>原文链接 · url<input aria-invalid={Boolean(fieldErrors.current.url)} type="url" value={form.url ?? ''} onChange={e => field('url', e.target.value)} placeholder="https://…" /></label>
+              <label>年份 · year<input aria-invalid={Boolean(fieldErrors.current.year)} type="number" min="1" max="9999" step="1" value={form.year ?? ''} onChange={e => field('year', e.target.value)} /></label>
               {paper?.url && <a className="ps-link" href={paper.url} target="_blank" rel="noreferrer">打开论文原文 ↗</a>}
             </>}
-            {selection?.kind === 'connection' && <>{(['source', 'target'] as const).map(key => <label key={key}>{key === 'source' ? '从这张卡片' : '指向这张卡片'}<select required value={form[key] ?? ''} onChange={e => field(key, e.target.value)}><option value="">请选择…</option>{canvas.nodes.map(n => <option key={n.id} value={n.id}>{title(n)}</option>)}</select></label>)}</>}
+
             {relationForm && <label>关系说明 · relation<textarea rows={4} value={form.relation ?? ''} onChange={e => field('relation', e.target.value)} placeholder="可留空；双击连线可补充说明" /></label>}
             {relationForm && <div className="ps-choice-group"><span>箭头方向</span>
               <div className="ps-choice-options" role="radiogroup" aria-label="箭头方向">
@@ -790,11 +832,11 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
                     onChange={e => field('direction', e.target.value)} /><span>{label}</span></label>)}
               </div>
             </div>}
-            {relationForm && <label>连线粗细（px）<input type="number" min="0.5" max="8" step="0.1" required
+            {relationForm && <label>连线粗细（px）<input aria-invalid={Boolean(fieldErrors.current.strokeWidth)} type="number" min="0.5" max="8" step="0.1" required
               value={form.strokeWidth ?? (selection?.kind === 'edge' ? readEdgeStyle(canvas.edges.find(edge => edge.id === selection.id)!).strokeWidth : 1.8)} onChange={e => field('strokeWidth', e.target.value)} /></label>}
             {selectedNode && !paper && <>
               <label>卡片高度<select value={form.heightMode ?? 'auto'} onChange={e => field('heightMode', e.target.value)}><option value="auto">自动适应内容</option><option value="manual">手动保留高度</option></select></label>
-              <label>边框粗细（px）<input type="number" min="0.5" max="8" step="0.1" value={form.strokeWidth ?? 1} onChange={e => field('strokeWidth', e.target.value)} /></label>
+              <label>边框粗细（px）<input aria-invalid={Boolean(fieldErrors.current.strokeWidth)} type="number" min="0.5" max="8" step="0.1" value={form.strokeWidth ?? 1} onChange={e => field('strokeWidth', e.target.value)} /></label>
               <p className="ps-muted">这是一张{selectedNode.type === 'text' ? '备注' : selectedNode.type === 'file' ? '文件' : selectedNode.type === 'link' ? '链接' : '分组'}卡片。</p>
               {selectedNode.type === 'text' && <label>标题<input value={form.label ?? ''} onChange={e => field('label', e.target.value)} /></label>}
               {selectedNode.type === 'text' && <label>内容<textarea rows={12} value={form.text ?? ''} onChange={e => field('text', e.target.value)} /></label>}
@@ -805,12 +847,23 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
             {selection?.kind === 'edge' && <>
               <label>连线样式<select value={form.lineStyle ?? 'solid'} onChange={e => field('lineStyle', e.target.value)}><option value="solid">实线</option><option value="dashed">虚线</option><option value="dotted">点线</option></select></label>
               <label>箭头形状<select value={form.arrowShape ?? 'triangle'} onChange={e => field('arrowShape', e.target.value)}><option value="triangle">实心箭头</option><option value="open">开放箭头</option><option value="diamond">菱形</option><option value="circle">圆点</option></select></label>
-              <label>关系权重 · 人工标注（1–5）<input type="number" min="1" max="5" step="1" value={form.weight ?? '1'} onChange={e => field('weight', e.target.value)} /></label>
+              <RelationMetadataControls edge={canvas.edges.find(edge => edge.id === selection.id)!} disabled={busy} onPatch={patch => {
+                try {
+                  const next = patchEdge(current.current, selection.id, patch);
+                  const relation = patch.paperstreamRelation as Record<string, unknown> | undefined;
+                  const previous = current.current.edges.find(edge => edge.id === selection.id)!.paperstreamRelation as Record<string, unknown> | undefined;
+                  if (relation && relation.type === previous?.type && relation.evidence !== previous?.evidence) commitContinuous(next, `evidence:${selection.id}`);
+                  else commit(next);
+                  setForm(values => ({ ...values, strokeWidth: String(readEdgeStyle(next.edges.find(edge => edge.id === selection.id)!).strokeWidth) }));
+                } catch (err) { setError(message(err)); }
+              }} />
+              <p className="ps-muted">拖动关系文字定位；选中连线后拖动圆点调整路径，Shift＋双击线段增加折点。</p>
+              <button type="button" onClick={() => { try { const edge = current.current.edges.find(item => item.id === selection.id)!; commit(patchEdge(current.current, edge.id, edgeRoutingPatch(edge, { labelPosition: null }))); } catch (err) { setError(message(err)); } }}>文字自动避让</button>
+              <button type="button" onClick={() => { try { const edge = current.current.edges.find(item => item.id === selection.id)!; commit(patchEdge(current.current, edge.id, edgeRoutingPatch(edge, { waypoints: null }))); } catch (err) { setError(message(err)); } }}>重置连线路径</button>
               <button type="button" onClick={() => { if (!discardForm()) return; try { const promoted = promoteEdgeRelation(current.current, selection.id); commit(promoted.document); select({ kind: 'node', id: promoted.nodeId }, true); setDetailsAnchor(null); } catch (err) { setError(message(err)); } }}>转换为共享关系节点</button>
             </>}
-            {selectedNode && <FigureControls node={selectedNode} busy={busy} onPatchNode={patch => { try { commit(patchNode(current.current, selectedNode.id, patch)); } catch (err) { setError(message(err)); } }} />}
-            {editable && <button className="ps-primary ps-apply" type="submit">应用更改</button>}
-            {formDirty && <p className="ps-muted">应用后再保存文件。</p>}
+            {selectedNode && <FigureControls node={selectedNode} busy={busy} onPatchNode={(patch, field) => { try { const next = patchNode(current.current, selectedNode.id, patch); if (field) commitContinuous(next, `${selectedNode.id}:${field}`); else commit(next); } catch (err) { setError(message(err)); } }} />}
+            {formDirty && <p className="ps-muted" role="status">输入格式尚不完整，有效修改已即时保留。</p>}
             {(selection?.kind === 'node' || selection?.kind === 'edge') && <button type="button" className="ps-danger" onClick={removeSelected}>删除{selection.kind === 'node' ? '卡片' : '关系'}</button>}
           </fieldset>
         </form>
@@ -820,12 +873,14 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
       <div className="ps-status-tools">
         <details className="ps-insert-menu"><summary>＋ 插入</summary><div className="ps-menu-items" onClick={event => { if ((event.target as Element).closest('button')) event.currentTarget.closest('details')?.removeAttribute('open'); }}><button onClick={() => insertCard('paper')}>论文</button><button onClick={() => insertCard('note')}>Note</button><button onClick={() => insertCard('page')}>插页</button><button onClick={() => insertCard('relation')}>共享关系</button></div></details>
         <button disabled={busy || !selectedNode} title="先选起点，再点目标；也可拖动卡片连接点" onClick={() => { if (selectedNode && discardForm()) setConnectSource(selectedNode.id); }}>↗ 连线</button>
+        <button disabled={busy || formDirty} onClick={() => setPagesOpen(value => !value)}>演示</button>
+        {pendingBinding && <button disabled={busy} onClick={() => void authorizeFile()}>授权文件</button>}
         <button disabled={busy || !past.length} onClick={() => travel(true)} title="撤销">↶</button><button disabled={busy || !future.length} onClick={() => travel(false)} title="重做">↷</button>
-        <button disabled={busy || !canvas.nodes.length} onClick={() => { if (discardForm()) { commit({ ...layoutVertical(current.current), paperstreamLayout: 'vertical' }); pendingInitialFit.current = true; } }}>竖排</button>
+        <button disabled={busy || !canvas.nodes.length} onClick={() => { if (discardForm()) { commit(layoutVerticalWithRelations(current.current)); pendingInitialFit.current = true; } }} title={hasManualRelations ? '重新竖排卡片并重置关系文字位置和折点；可以撤销' : '按研究关系竖向排列'}>{hasManualRelations ? '竖排并重置关系' : '竖排'}</button>
         <input className="ps-search" aria-label="搜索卡片" placeholder="搜索…" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const found = canvas.nodes.find(node => title(node).toLowerCase().includes(search.toLowerCase())); if (found && select({ kind: 'node', id: found.id })) void flow.fitView({ nodes: [{ id: found.id }], maxZoom: 1, duration: 0 }); } }} />
         <button disabled={!selectedNode} onClick={() => setFocusId(focusId ? null : selectedNode!.id)}>{focusId ? '全图' : '附近'}</button>
       </div>
-      <span className="ps-status-notice" role={error ? 'alert' : 'status'} title={error || notice}>{busy ? '处理中…' : error || (formDirty ? '编辑尚未应用' : dirty ? '未保存' : file.current ? '已保存' : '未关联文件')}</span>
+      <span className="ps-status-notice" role={error ? 'alert' : 'status'} title={error || notice}>{busy ? '处理中…' : error || (formDirty ? '请检查输入格式' : dirty ? '未保存' : file.current ? '已保存' : '未关联文件')}</span>
       <span className="ps-count">{visible.size}/{canvas.nodes.length} 卡片 · {canvas.edges.length} 边</span>
       <span className="ps-wheel-hint">滚轮{selectedNode || selection?.kind === 'edge' ? '调线重' : '缩放'} · Ctrl 滚轮缩放 · 拖空白平移</span>
     </footer>
@@ -844,13 +899,4 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
 function edgeSettings(edge: CanvasEdge) {
   const style = edge.paperstreamStyle && typeof edge.paperstreamStyle === 'object' ? edge.paperstreamStyle as Record<string, unknown> : {};
   return { lineStyle: typeof style.lineStyle === 'string' ? style.lineStyle : 'solid', arrowShape: typeof style.arrowShape === 'string' ? style.arrowShape : 'triangle', weight: String(style.weight ?? 1) };
-}
-function edgeStylePatch(edge: CanvasEdge, form: FormValues): Partial<CanvasEdge> {
-  const old = edgeSettings(edge); const changed = ['lineStyle', 'arrowShape', 'weight'].filter(key => form[key] !== undefined && form[key] !== old[key as keyof typeof old]);
-  if (!changed.length) return {};
-  if (edge.paperstreamStyle !== undefined && (typeof edge.paperstreamStyle !== 'object' || edge.paperstreamStyle === null || Array.isArray(edge.paperstreamStyle))) throw new Error('无法修改非对象外观数据。');
-  const style = { ...(edge.paperstreamStyle as Record<string, unknown> ?? {}) };
-  for (const key of changed) style[key] = key === 'weight' ? Number(form[key]) : form[key];
-  if (style.weight !== undefined && (!Number.isInteger(style.weight) || Number(style.weight) < 1 || Number(style.weight) > 5)) throw new Error('权重必须是1–5之间的整数。');
-  return { paperstreamStyle: style };
 }

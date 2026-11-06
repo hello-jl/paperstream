@@ -1,3 +1,4 @@
+import { edgeRoutingPatch, readEdgeRouting } from './edge-routing.ts';
 import { CanvasError, validateCanvas } from './canvas.ts';
 import type { JSONCanvasDocument } from './canvas.ts';
 
@@ -72,4 +73,14 @@ export function layoutVertical(document: JSONCanvasDocument, options: VerticalLa
   };
   validateCanvas(next);
   return next;
+}
+
+/** Explicit re-layout resets absolute relation geometry in the same undo step. */
+export function layoutVerticalWithRelations(document: JSONCanvasDocument): JSONCanvasDocument {
+  const edges = document.edges.map(edge => {
+    const geometry = readEdgeRouting(edge);
+    return geometry.labelPosition || geometry.waypoints.length
+      ? { ...edge, ...edgeRoutingPatch(edge, { labelPosition: null, waypoints: null }) } : edge;
+  });
+  return { ...layoutVertical({ ...document, edges }), paperstreamLayout: 'vertical' };
 }

@@ -156,8 +156,8 @@ def _paper_fields(text: str) -> dict | None:
     if type(fields["paperstream"]) is not int or fields["paperstream"] != 1:
         return None
     _json_value(fields)
-    _text(fields.get("alias"), "alias")
-    _text(fields.get("takeaway"), "takeaway", multiline=True)
+    _text(fields.get("alias"), "alias", allow_empty=True)
+    _text(fields.get("takeaway"), "takeaway", multiline=True, allow_empty=True)
     for key in ("name", "url", "year"):
         _optional(fields.get(key), key)
     return fields
@@ -335,8 +335,8 @@ class CanvasGraph:
                  width: int = 320, height: int = 220) -> Node:
         identity = self._new_id(node_id)
         fields = {"paperstream": 1, "name": _optional(name, "name"),
-                  "alias": _text(alias, "alias"),
-                  "takeaway": _text(takeaway, "takeaway", multiline=True),
+                  "alias": _text(alias, "alias", allow_empty=True),
+                  "takeaway": _text(takeaway, "takeaway", multiline=True, allow_empty=True),
                   "url": _optional(url, "url"), "year": _optional(year, "year")}
         existing = self._data.get("nodes", [])
         if x is None:
@@ -360,7 +360,7 @@ class CanvasGraph:
         for key, value in (("alias", alias), ("takeaway", takeaway), ("name", name),
                            ("url", url), ("year", year)):
             if value is not None:
-                fields[key] = (_text(value, key, multiline=key == "takeaway")
+                fields[key] = (_text(value, key, multiline=key == "takeaway", allow_empty=True)
                                if key in {"alias", "takeaway"} else _optional(value, key))
         row["text"] = _paper_text(fields)
         self._replace("nodes", node_id, row)

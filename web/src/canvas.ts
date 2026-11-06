@@ -202,8 +202,8 @@ function validateURL(value: unknown): asserts value is string {
 function validatePaper(value: Record<string, unknown>): void {
   requireCondition(value.paperstream === 1, "Paper card must have paperstream version 1");
   requireJSON(value);
-  requireText(value.alias, "alias", true);
-  requireText(value.takeaway, "takeaway", false);
+  requireText(value.alias, "alias", true, true);
+  requireText(value.takeaway, "takeaway", false, true);
   if (value.name !== undefined && value.name !== null) requireText(value.name, "name", true);
   if (value.url !== undefined && value.url !== null) validateURL(value.url);
   if (value.year !== undefined && value.year !== null) {

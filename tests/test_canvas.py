@@ -24,6 +24,18 @@ class CanvasTests(unittest.TestCase):
         graph.add_edge(first.id, second.id, "简化计算")
         return graph, first, second
 
+    def test_live_editing_can_clear_paper_text_without_losing_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "live.canvas"
+            graph = CanvasGraph.create(path)
+            node = graph.add_node("A", "Notes", year=2020)
+            graph.update_node(node.id, alias="", takeaway="")
+            graph.save()
+            restored = CanvasGraph.load(path).nodes()[0]
+            self.assertEqual(restored.alias, "")
+            self.assertEqual(restored.takeaway, "")
+            self.assertEqual(restored.year, 2020)
+
     def test_empty_relation_creation_and_clearing_preserve_other_edge_fields(self):
         graph, first, second = self.pair()
         added = graph.add_edge(first.id, second.id, "")

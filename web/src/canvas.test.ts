@@ -129,7 +129,6 @@ test("CRLF fences and surrounding whitespace identify papers without rewriting t
 
 test("invalid paper metadata and damaged paper JSON fail closed, ordinary examples remain text", () => {
   for (const text of [
-    '```json\n{"paperstream":1,"alias":"","takeaway":"B"}\n```',
     '```json\n{"paperstream":1,"alias":"A","takeaway":"B","year":true}\n```',
     '```json\n{"paperstream":1, broken}\n```',
   ]) assert.throws(() => parseCanvas(JSON.stringify({ nodes: [textNode("bad", text)] })), CanvasError);
@@ -150,7 +149,7 @@ test("bad paper edits never mutate the original graph", () => {
   const before = serializeCanvas(document);
   deepFreeze(document);
   const patches = [
-    { alias: "  " }, { alias: "Two\nlines" }, { takeaway: "\t" }, { name: "" },
+    { alias: "Two\nlines" }, { name: "" },
     { takeaway: "bare\rcarriage" }, { takeaway: "bad\u0000control" }, { name: "bad\ud800surrogate" },
     { url: "relative/path" }, { url: "ftp://example.org" }, { url: "https://example.org/a b" },
     { url: "https://example.org\\evil" }, { url: "https://example.org:99999" },
