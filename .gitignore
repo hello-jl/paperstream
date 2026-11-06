@@ -1,7 +1,19 @@
+# Python
 __pycache__/
 *.py[cod]
 .venv/
+
+# Dependencies and local DSH runtime / test files
 node_modules/
+.local/
+.pnpm-store/
+
+# Build output
 web/dist/
 dsh/dist/
 *.tsbuildinfo
+
+# Local OS files and package-manager diagnostics
+.DS_Store
+npm-debug.log*
+pnpm-debug.log*

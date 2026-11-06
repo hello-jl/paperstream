@@ -24,3 +24,11 @@
 - 修改读写行为后运行 `python3 -m unittest discover -s tests -v`，重点检查未改内容与保存失败时的文件完整性。
 - Canvas 前端数据检查：`node --experimental-strip-types web/src/canvas.test.ts` 与 `node --experimental-strip-types web/src/files.test.ts`；DSH 注册检查：`node dsh/test/register.test.mjs`。这些均不能替代依赖完整时的 `npm --prefix web run build` 和实际浏览器/DSH 联调。
 - 终端回复含数学记号时遵循用户的 math-unicode 约定；变量与工具名称保持朴实明确。
+
+## Git 提交
+
+- 勤快地 commit：完成一个独立、可验证的小功能或修复后就及时提交，不把多个已完成的功能长期堆在工作区。功能、修复和仓库整理尽量分别提交。
+- 提交前检查 `git diff` 和 `git status`，运行与本次修改相关的测试或构建。界面变更还应在实际 DSH 中验证；尚未验证的范围要如实记录，不能把一次构建成功当作全部功能通过。
+- 使用说明具体结果的提交消息，按明确文件列表暂存；不要顺带提交无关改动。不得覆盖、回退或混入用户尚未完成的工作。
+- 保持 `.gitignore` 简洁，依赖、构建产物、本机 DSH 数据、临时测试文件和凭据不进入版本库；依赖锁文件应提交。
+- 默认只在本地提交。推送、合并和发布按用户授权范围执行，不因要求勤快提交而自动推送。
