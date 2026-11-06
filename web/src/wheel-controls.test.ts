@@ -1,6 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { zoomAt, wheelStroke } from './wheel-controls.ts';
+import { zoomAt, wheelStroke, wheelIntent } from './wheel-controls.ts';
+
+test('ordinary wheel always zooms; only Alt plus a selection changes line weight', () => {
+  for (const selected of [false, true]) {
+    assert.equal(wheelIntent({}, selected), 'zoom');
+    assert.equal(wheelIntent({ ctrlKey: true }, selected), 'zoom');
+    assert.equal(wheelIntent({ metaKey: true, altKey: true }, selected), 'zoom');
+  }
+  assert.equal(wheelIntent({ altKey: true }, false), 'zoom');
+  assert.equal(wheelIntent({ altKey: true }, true), 'weight');
+});
 
 test('Ctrl-wheel retains the same graph point under the pointer for translated negative-coordinate views', () => {
   const original = { x: -210, y: 88, zoom: 0.7 }, pointer = { x: 315, y: 220 };

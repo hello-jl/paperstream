@@ -26,7 +26,7 @@ import { CardBody, FigureControls } from './CardBody';
 import { layoutVertical } from './graph-layout';
 import { createRelationNode, promoteEdgeRelation, isRelationNode } from './graph-relations';
 import { downloadGraph } from './graph-export';
-import { zoomAt, wheelStroke } from './wheel-controls';
+import { zoomAt, wheelStroke, wheelIntent } from './wheel-controls';
 import '@xyflow/react/dist/style.css';
 import './editor.css';
 
@@ -645,16 +645,18 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   useEffect(() => {
     const element = workspace.current; if (!element) return;
     const wheel = (event: WheelEvent) => {
-      if ((event.target as Element).closest('input, textarea, select, .ps-inspector, .ps-create-menu')) return;
-      event.preventDefault(); event.stopPropagation(); if (busy || inlineField) return;
+      const selected = selectionRef.current;
+      const weightGesture = wheelIntent(event, selected?.kind === 'node' || selected?.kind === 'edge') === 'weight';
+      const zoomGesture = !weightGesture;
+      if (!event.ctrlKey && !event.metaKey && (event.target as Element).closest('input, textarea, select, .ps-inspector, .ps-create-menu')) return;
+      event.preventDefault(); event.stopPropagation(); if (busy || (!zoomGesture && inlineField)) return;
       const viewport = flow.getViewport();
-      if (event.ctrlKey || event.metaKey) {
+      if (zoomGesture) {
         const rect = element.getBoundingClientRect();
         const x = event.clientX - rect.left, y = event.clientY - rect.top;
         void flow.setViewport(zoomAt(viewport, event.deltaY, { x, y }));
-      } else if (event.deltaY && (selectionRef.current?.kind === 'node' || selectionRef.current?.kind === 'edge')) {
+      } else if (event.deltaY && weightGesture && (selected?.kind === 'node' || selected?.kind === 'edge')) {
         if (formDirty) return;
-        const selected = selectionRef.current;
         try {
           const item = selected.kind === 'node' ? current.current.nodes.find(n => n.id === selected.id)! : current.current.edges.find(e => e.id === selected.id)!;
           const width = selected.kind === 'node' ? readNodeStyle(item as CanvasNode).strokeWidth : readEdgeStyle(item as CanvasEdge).strokeWidth;
@@ -666,7 +668,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
           else commit(next);
           wheelGesture.current = { key, time: now }; setForm(old => ({ ...old, strokeWidth: String(strokeWidth) }));
         } catch (err) { setError(message(err)); }
-      } else void flow.setViewport({ ...viewport, x: viewport.x - event.deltaX, y: viewport.y - event.deltaY });
+      }
     };
     element.addEventListener('wheel', wheel, { passive: false, capture: true });
     return () => element.removeEventListener('wheel', wheel, true);
@@ -825,7 +827,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
       </div>
       <span className="ps-status-notice" role={error ? 'alert' : 'status'} title={error || notice}>{busy ? '处理中…' : error || (formDirty ? '编辑尚未应用' : dirty ? '未保存' : file.current ? '已保存' : '未关联文件')}</span>
       <span className="ps-count">{visible.size}/{canvas.nodes.length} 卡片 · {canvas.edges.length} 边</span>
-      <span className="ps-wheel-hint">滚轮{selection ? '线重' : '上下'} · Ctrl 滚轮缩放</span>
+      <span className="ps-wheel-hint">滚轮缩放 · 拖空白平移 · Alt 滚轮调线重</span>
     </footer>
     <input ref={input} hidden type="file" accept=".canvas,application/json" onChange={async event => {
       const selected = event.target.files?.[0]; event.target.value = '';
