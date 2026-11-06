@@ -150,7 +150,13 @@
 .ps-card.ps-shared-relation { border-radius: var(--ps-relation-radius); }
 .ps-shared-relation .ps-card-kind, .ps-shared-relation .ps-card-title { display: none; }
 .ps-shared-relation .ps-card-content { padding: var(--ps-card-relation-top) var(--ps-card-padding-x); }
-.ps-shared-relation .ps-card-takeaway { padding-right: var(--ps-shared-action-reserve, 26px); text-align: center; font-weight: 550; }
+.ps-shared-relation .ps-card-takeaway { padding-right: 0; text-align: center; font-size: 12px; line-height: 18px; font-weight: 400; color: var(--ps-ink); }
+.paperstream-editor .ps-shared-relation button.ps-card-settings { top: -28px; right: -2px; opacity: 0; pointer-events: none; background: var(--ps-surface); }
+.ps-shared-relation:hover button.ps-card-settings, .ps-shared-relation:focus-within button.ps-card-settings,
+.react-flow__node.selected .ps-shared-relation button.ps-card-settings { opacity: .85; pointer-events: auto; }
+.ps-attached-lines { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.ps-attached-lines button { text-align: left; white-space: normal; overflow-wrap: anywhere; font-size: 12px; }
+.ps-attached-lines button span { color: var(--ps-muted); }
 .ps-theme-warning { color: #a56e31; font-size: 10px; }
 .ps-status-notice { margin-left: auto; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .ps-wheel-hint { opacity: .65; font-size: 10px; }

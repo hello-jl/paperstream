@@ -146,7 +146,7 @@ export function CardBody({ node, paper, editing, editText, editNote, selected, b
       aria-label="打开论文原文" title="打开论文原文"
       onContextMenu={event => event.stopPropagation()}
       onPointerDown={event => event.stopPropagation()}
-      onClick={event => { event.stopPropagation(); if (onOpenUrl) { event.preventDefault(); onOpenUrl(safeLink); } }}>
+      onClick={event => { event.stopPropagation(); if (onOpenUrl && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) { event.preventDefault(); onOpenUrl(safeLink); } }}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-10 10M10 4H4v16h16v-6" /></svg>
     </a>}
     <div className={`ps-card-title${safeLink ? ' has-open-link' : ''}`}>{!paper && node.type === 'text' && editNote

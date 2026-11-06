@@ -3,6 +3,7 @@ import type { JSONCanvasDocument } from './canvas';
 import { readPaper } from './canvas';
 import { createPresentationPage, movePresentationPage, presentationDocuments, readPresentationPages, removePresentationPage, updatePresentationPage } from './presentation-pages';
 import { downloadGraph, exportGraphSvg } from './graph-export';
+import { useAppearancePreferences } from './appearance-preferences';
 import './presentation-pages.css';
 
 export interface PagePanelProps {
@@ -15,6 +16,7 @@ export interface PagePanelProps {
 
 /** Page membership is separate from the graph: removing a slide never removes research. */
 export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeIds = [] }: PagePanelProps) {
+  const { connectionStyle } = useAppearancePreferences();
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [playing, setPlaying] = useState(false);
@@ -69,7 +71,7 @@ export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeId
       </section>}
       {error && <p className="ps-pages-error" role="alert">{error}</p>}
       <footer><button onClick={() => setPlaying(true)}>▶ 放映</button><button disabled={exporting} onClick={() => {
-        setExporting(true); void downloadGraph(document, 'pptx', typeof document.title === 'string' ? document.title : 'paperstream-pages').catch(cause => setError(String(cause))).finally(() => setExporting(false));
+        setExporting(true); void downloadGraph(document, 'pptx', typeof document.title === 'string' ? document.title : 'paperstream-pages', { connectionStyle }).catch(cause => setError(String(cause))).finally(() => setExporting(false));
       }}>{exporting ? '导出中…' : '导出多页 PPTX'}</button></footer>
     </aside>
     {playing && <PresentationView document={document} startPageId={current?.id} onClose={() => setPlaying(false)} />}
@@ -77,6 +79,7 @@ export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeId
 }
 
 export function PresentationView({ document, startPageId, onClose }: { document: JSONCanvasDocument; startPageId?: string; onClose: () => void }) {
+  const { connectionStyle } = useAppearancePreferences();
   const pages = presentationDocuments(document);
   const [index, setIndex] = useState(() => Math.max(0, pages.findIndex(entry => entry.page.id === startPageId)));
   const screen = useRef<HTMLDivElement>(null);
@@ -90,7 +93,7 @@ export function PresentationView({ document, startPageId, onClose }: { document:
     window.addEventListener('keydown', keyboard, true); screen.current?.focus();
     return () => window.removeEventListener('keydown', keyboard, true);
   }, [pages.length, onClose]);
-  const source = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(exportGraphSvg(current.document))}`;
+  const source = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(exportGraphSvg(current.document, { connectionStyle }))}`;
   return <div ref={screen} className="ps-presentation-screen" role="dialog" aria-label="页面放映" aria-modal="true" tabIndex={-1}>
     <header><strong>{current.page.title || '未命名页面'}</strong><span>{safeIndex + 1} / {pages.length}</span><button onClick={onClose}>退出放映</button></header>
     <img src={source} alt={`${current.page.title || '页面'}：${current.document.nodes.length} 张卡片`} />

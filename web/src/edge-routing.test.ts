@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCanvas, createEdge, createPaperNode, addNode, addEdge, patchEdge, parseCanvas, serializeCanvas } from './canvas.ts';
-import { defaultRoutePoints, edgeRoutingPatch, insertWaypoint, polylinePath, polylineRoute, readEdgeRouting, routeMidpoint } from './edge-routing.ts';
+import { defaultRoutePoints, edgeRoutingPatch, insertWaypoint, isGeneratedEdgeRouting, polylinePath, polylineRoute, readEdgeRouting, routeMidpoint } from './edge-routing.ts';
+import { setEdgeAppearance } from './appearance.ts';
 
 test('manual relation geometry round-trips without changing semantics, styles or unknown metadata', () => {
   const a = createPaperNode({ alias: 'A', takeaway: 'a' }), b = createPaperNode({ alias: 'B', takeaway: 'b' });
@@ -33,4 +34,23 @@ test('waypoint order and graph-space midpoint follow the drawn path rather than 
   assert.deepEqual(insertWaypoint(points, { x: 80, y: 90 }), [{ x: 0, y: 100 }, { x: 80, y: 90 }, { x: 200, y: 100 }]);
   assert.deepEqual(defaultRoutePoints({ x: -10, y: -20 }, { x: -10, y: 80 }), [{ x: -10, y: -20 }, { x: -10, y: 30 }, { x: -10, y: 80 }]);
   assert.deepEqual(routeMidpoint([{ x: 1, y: 2 }, { x: 1, y: 2 }]), { x: 1, y: 2 });
+});
+
+test('explicit routing edits become manual while reads and appearance edits retain generated provenance', () => {
+  const edge = { ...createEdge('a', 'b', 'text'), paperstreamStyle: { routeSource: 'elk',
+    waypoints: [{ x: 20, y: 30 }], labelPosition: { x: 10, y: 40 }, future: { retained: true } } };
+  const before = structuredClone(edge);
+  assert.equal(isGeneratedEdgeRouting(edge), true);
+  readEdgeRouting(edge);
+  assert.deepEqual(edge, before);
+  assert.equal(isGeneratedEdgeRouting(setEdgeAppearance(edge, { strokeWidth: 4 })), true);
+  assert.deepEqual(edgeRoutingPatch(edge, {}), {});
+  for (const update of [{ labelPosition: { x: 50, y: 70 } }, { waypoints: [{ x: 100, y: 200 }] }, { labelPosition: null }, { waypoints: null }]) {
+    const edited = { ...edge, ...edgeRoutingPatch(edge, update) };
+    assert.equal(isGeneratedEdgeRouting(edited), false);
+    assert.deepEqual((edited.paperstreamStyle as Record<string, unknown>).future, { retained: true });
+  }
+  const opaque = { ...edge, paperstreamStyle: { ...edge.paperstreamStyle, routeSource: 'vendor-layout' } };
+  assert.equal(isGeneratedEdgeRouting(opaque), false);
+  assert.equal((edgeRoutingPatch(opaque, { waypoints: [] }).paperstreamStyle as Record<string, unknown>).routeSource, 'vendor-layout');
 });

@@ -8,11 +8,12 @@ import { promisify } from 'node:util'
 
 // Uses the same webServer route registration and connection trust fence as
 // DSH 0.2.2-rc.1's official host-open-in-app plugin. Canvas files remain local
-// browser documents: this route stores only a three-value theme preference.
+// browser documents: this route stores only global appearance preferences.
 export const name = 'paperstream'
 export const inject = ['webServer', 'connection']
 export const PREFERENCES_PATH = '/paperstream/preferences'
 export const THEMES = ['sage', 'paper', 'night']
+export const CONNECTION_STYLES = ['orthogonal', 'rounded', 'curved']
 export const OPEN_URL_PATH = '/paperstream/open-url'
 const execFileAsync = promisify(execFile)
 
@@ -28,6 +29,26 @@ function themeValue(value) {
   return value
 }
 
+function connectionStyleValue(value) {
+  if (!CONNECTION_STYLES.includes(value)) throw new TypeError('Unknown Paperstream connection style')
+  return value
+}
+
+function preferencePatch(value) {
+  // Keep the old store.save(theme) API and { theme } HTTP requests working.
+  const patch = typeof value === 'string' ? { theme: value } : value
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)
+    || !Object.keys(patch).length || Object.keys(patch).some(key => !['theme', 'connectionStyle'].includes(key))) {
+    throw new TypeError('Expected supported appearance preferences')
+  }
+  if (Object.hasOwn(patch, 'theme')) themeValue(patch.theme)
+  if (Object.hasOwn(patch, 'connectionStyle')) connectionStyleValue(patch.connectionStyle)
+  return { ...patch }
+}
+function publicPreferences(record) {
+  return { theme: record.theme ?? 'sage', connectionStyle: record.connectionStyle ?? 'rounded' }
+}
+
 export function createPreferencesStore(filePath = preferencesFilePath()) {
   let writes = Promise.resolve()
   async function readRecord() {
@@ -35,29 +56,30 @@ export function createPreferencesStore(filePath = preferencesFilePath()) {
     try { source = await readFile(filePath, 'utf8') }
     catch (error) { if (error.code === 'ENOENT') return {}; throw error }
     const record = JSON.parse(source)
-    if (!record || typeof record !== 'object' || Array.isArray(record)) throw new TypeError('Invalid theme preferences')
+    if (!record || typeof record !== 'object' || Array.isArray(record)) throw new TypeError('Invalid appearance preferences')
     if (Object.hasOwn(record, 'theme')) themeValue(record.theme)
+    if (Object.hasOwn(record, 'connectionStyle')) connectionStyleValue(record.connectionStyle)
     return record
   }
   return {
     async load() {
       await writes
       const record = await readRecord()
-      return { theme: record.theme ?? 'sage' }
+      return publicPreferences(record)
     },
-    save(theme) {
-      themeValue(theme)
+    save(value) {
+      const patch = preferencePatch(value)
       const operation = writes.then(async () => {
-        const record = await readRecord()
+        const record = { ...await readRecord(), ...patch }
         await mkdir(dirname(filePath), { recursive: true })
         const temporary = `${filePath}.${randomUUID()}.tmp`
         try {
-          await writeFile(temporary, JSON.stringify({ ...record, theme }, null, 2) + '\n', { flag: 'wx', mode: 0o600 })
+          await writeFile(temporary, JSON.stringify(record, null, 2) + '\n', { flag: 'wx', mode: 0o600 })
           await rename(temporary, filePath)
         } finally {
           await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error })
         }
-        return { theme }
+        return publicPreferences(record)
       })
       // One failed write must not poison later attempts, but its caller still
       // receives the rejection and no successful UI sync is announced.
@@ -98,13 +120,15 @@ export function registerHostPreferences(ctx, store = createPreferencesStore()) {
       let body
       try { body = JSON.parse(Buffer.concat(chunks, size).toString('utf8')) }
       catch { sendJson(res, 400, { error: 'Invalid JSON' }); return }
-      if (!body || typeof body !== 'object' || Array.isArray(body)
-        || Object.keys(body).length !== 1 || !THEMES.includes(body.theme)) {
-        sendJson(res, 400, { error: 'Expected one supported theme' }); return
-      }
-      sendJson(res, 200, await store.save(body.theme))
+      let patch
+      try {
+        // Unlike the legacy store API, HTTP always requires a JSON object.
+        if (typeof body === 'string') throw new TypeError('Expected object')
+        patch = preferencePatch(body)
+      } catch { sendJson(res, 400, { error: 'Expected supported appearance preferences' }); return }
+      sendJson(res, 200, await store.save(patch))
     } catch {
-      sendJson(res, 500, { error: 'Paperstream theme preference could not be synchronized' })
+      sendJson(res, 500, { error: 'Paperstream appearance preferences could not be synchronized' })
     }
   } })
 }
@@ -175,6 +199,6 @@ export function registerHostOpenUrl(ctx, open = openUrlInDefaultBrowser) {
 }
 
 export function apply(ctx) {
-  ctx.effect(() => registerHostPreferences(ctx), 'paperstream: local theme preferences')
+  ctx.effect(() => registerHostPreferences(ctx), 'paperstream: local appearance preferences')
   ctx.effect(() => registerHostOpenUrl(ctx), 'paperstream: local default-browser URL opening')
 }

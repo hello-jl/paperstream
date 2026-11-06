@@ -18,17 +18,17 @@ test('preferences live in one DSH home and persist across store instances withou
   assert.equal(preferencesFilePath({ DSH_HOME: ' ' }, '/tmp/home'), '/tmp/home/.dsh/paperstream/preferences.json')
   assert.equal(preferencesFilePath({ DSH_HOME: '~/shared-dsh' }, '/tmp/home'), '/tmp/home/shared-dsh/paperstream/preferences.json')
   const { path, store } = await fixture(t)
-  assert.deepEqual(await store.load(), { theme: 'sage' })
+  assert.deepEqual(await store.load(), { theme: 'sage', connectionStyle: 'rounded' })
   await writeFile(path, JSON.stringify({ future: { retained: true }, theme: 'paper' }))
   await Promise.all([store.save('night'), store.save('sage'), store.save('paper')])
-  assert.deepEqual(await createPreferencesStore(path).load(), { theme: 'paper' })
+  assert.deepEqual(await createPreferencesStore(path).load(), { theme: 'paper', connectionStyle: 'rounded' })
   assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), { future: { retained: true }, theme: 'paper' })
   assert.throws(() => store.save('unsupported'), TypeError)
 })
 
 test('malformed stored preferences fail closed and are not overwritten', async t => {
   const { path, store } = await fixture(t)
-  for (const source of ['{broken', 'null', '{"theme":"unsupported"}']) {
+  for (const source of ['{broken', 'null', '{"theme":"unsupported"}', '{"connectionStyle":"unsupported"}']) {
     await writeFile(path, source)
     await assert.rejects(store.load())
     await assert.rejects(store.save('night'))
@@ -63,16 +63,40 @@ test('the host connection fence runs before any preference read or write and rou
 test('authenticated requests validate method, media type, bounded body and theme before durable writes', async t => {
   const { store } = await fixture(t), harness = routeHarness(store)
   const initial = await call(harness, 'GET')
-  assert.equal(initial.statusCode, 200); assert.deepEqual(JSON.parse(initial.body), { theme: 'sage' })
+  assert.equal(initial.statusCode, 200); assert.deepEqual(JSON.parse(initial.body), { theme: 'sage', connectionStyle: 'rounded' })
   assert.equal(initial.headers['cache-control'], 'no-store')
   assert.equal((await call(harness, 'POST', '{}')).statusCode, 405)
   assert.equal((await call(harness, 'PUT', '{}', 'text/plain')).statusCode, 415)
   assert.equal((await call(harness, 'PUT', 'x'.repeat(4097))).statusCode, 413)
-  for (const body of ['broken', '{}', '{"theme":"unknown"}', '{"theme":"night","path":"ignored"}']) {
+  for (const body of ['broken', '{}', '{"theme":"unknown"}', '{"theme":"night","path":"ignored"}', '"night"', '{"connectionStyle":"diagonal"}', '{"connectionStyle":null}', '{"theme":"sage","connectionStyle":"diagonal"}']) {
     assert.equal((await call(harness, 'PUT', body)).statusCode, 400)
   }
-  assert.deepEqual(await store.load(), { theme: 'sage' })
+  assert.deepEqual(await store.load(), { theme: 'sage', connectionStyle: 'rounded' })
   const saved = await call(harness, 'PUT', '{"theme":"night"}')
-  assert.equal(saved.statusCode, 200); assert.deepEqual(JSON.parse(saved.body), { theme: 'night' })
-  assert.deepEqual(await store.load(), { theme: 'night' })
+  assert.equal(saved.statusCode, 200); assert.deepEqual(JSON.parse(saved.body), { theme: 'night', connectionStyle: 'rounded' })
+  assert.deepEqual(await store.load(), { theme: 'night', connectionStyle: 'rounded' })
+})
+
+
+test('appearance updates preserve unknown fields and legacy theme saves preserve the chosen path', async t => {
+  const { path, store } = await fixture(t)
+  await writeFile(path, JSON.stringify({ theme: 'paper', future: { retained: true } }))
+  assert.deepEqual(await store.save({ connectionStyle: 'curved' }), { theme: 'paper', connectionStyle: 'curved' })
+  await store.save('night')
+  assert.deepEqual(await createPreferencesStore(path).load(), { theme: 'night', connectionStyle: 'curved' })
+  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), { theme: 'night', future: { retained: true }, connectionStyle: 'curved' })
+  await Promise.all([store.save({ connectionStyle: 'orthogonal' }), store.save({ theme: 'sage' })])
+  assert.deepEqual(await store.load(), { theme: 'sage', connectionStyle: 'orthogonal' })
+  for (const value of [{}, { connectionStyle: 'invalid' }, { theme: 'night', extra: true }]) assert.throws(() => store.save(value), TypeError)
+})
+
+test('authenticated appearance requests save both settings and permit partial legacy updates', async t => {
+  const { store } = await fixture(t), harness = routeHarness(store)
+  const saved = await call(harness, 'PUT', '{"theme":"paper","connectionStyle":"curved"}')
+  assert.equal(saved.statusCode, 200)
+  assert.deepEqual(JSON.parse(saved.body), { theme: 'paper', connectionStyle: 'curved' })
+  await call(harness, 'PUT', '{"theme":"night"}')
+  assert.deepEqual(await store.load(), { theme: 'night', connectionStyle: 'curved' })
+  await call(harness, 'PUT', '{"connectionStyle":"orthogonal"}')
+  assert.deepEqual(await store.load(), { theme: 'night', connectionStyle: 'orthogonal' })
 })

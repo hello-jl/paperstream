@@ -4,14 +4,17 @@ import { readPaper, serializeCanvas } from './canvas.ts';
 import type { CanvasEdge, CanvasNode, JSONCanvasDocument } from './canvas.ts';
 import { getNodeStrokeWidth, getEdgeStrokeWidth } from './appearance.ts';
 import { figureCaption, getCardKind, MAX_FIGURE_BYTES, readFigures } from './card-media.ts';
-import { isRelationNode } from './graph-relations.ts';
+import { isRelationNode, relationEdgeSides } from './graph-relations.ts';
 import { getContentBounds, layoutEdgeLabels } from './edge-label-layout.ts';
 import type { Point, Rect } from './edge-label-layout.ts';
 import { presentationDocuments } from './presentation-pages.ts';
-import { readEdgeRouting, polylineRoute } from './edge-routing.ts';
+import { readEdgeRouting } from './edge-routing.ts';
+import { buildConnectionPath, connectionMidpoint, sampleConnectionPath } from './connection-path.ts';
+import type { ConnectionPath, ConnectionStyle } from './connection-path.ts';
 
 export type GraphExportFormat = 'svg' | 'png' | 'pptx';
 export interface GraphExportOptions {
+  connectionStyle?: ConnectionStyle;
   background?: string;
   foreground?: string;
   muted?: string;
@@ -23,7 +26,7 @@ export interface GraphExportOptions {
 interface TextBlock extends Rect { lines: string[]; fontSize: number; lineHeight: number; bold?: boolean; align?: 'center' | 'right'; color: string; }
 interface Figure { x: number; y: number; width: number; height: number; src: string; mime: string; bytes: Uint8Array; }
 interface ExportNode extends Rect { id: string; radius: number; border: string; strokeWidth: number; kind?: TextBlock; title?: TextBlock; body: TextBlock; year?: TextBlock; figures: Figure[]; captions: TextBlock[]; url?: string; group: boolean; }
-interface ExportEdge { id: string; points: Point[]; color: string; strokeWidth: number; dash: string; shape: string; start: boolean; end: boolean; label?: TextBlock; }
+interface ExportEdge extends ConnectionPath { id: string; color: string; strokeWidth: number; dash: string; shape: string; start: boolean; end: boolean; label?: TextBlock; }
 export interface ExportScene { bounds: Rect; nodes: ExportNode[]; edges: ExportEdge[]; background: string; cardBackground: string; }
 const PALETTE: Record<string, string> = { '1': '#c44848', '2': '#bb722f', '3': '#a58c25', '4': '#3e886c', '5': '#388c9d', '6': '#8b6cb2' };
 const xml = (value: unknown) => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]!));
@@ -83,12 +86,6 @@ function anchor(node: Rect, side: CanvasEdge['fromSide']): Point {
   if (side === 'left') return { x: node.x, y: node.y + node.height / 2 };
   return { x: node.x + node.width / 2, y: node.y + node.height };
 }
-function route(source: Point, target: Point, side: CanvasEdge['fromSide']): Point[] {
-  return side === 'left' || side === 'right'
-    ? [source, { x: (source.x + target.x) / 2, y: source.y }, { x: (source.x + target.x) / 2, y: target.y }, target]
-    : [source, { x: source.x, y: (source.y + target.y) / 2 }, { x: target.x, y: (source.y + target.y) / 2 }, target];
-}
-
 export function buildExportScene(document: JSONCanvasDocument, options: GraphExportOptions = {}): ExportScene {
   serializeCanvas(document);
   const ink = safeColor(options.foreground, '#263d34'), muted = safeColor(options.muted, '#617369');
@@ -107,7 +104,7 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
     const titleWidth = Math.max(1, contentWidth - (linked ? CARD_LAYOUT.linkedTitleReserve : CARD_LAYOUT.titleReserve));
     const titleBlock = relation ? undefined : { ...textBlock(heading, contentX, cursorY, titleWidth, CARD_LAYOUT.titleSize, CARD_LAYOUT.titleLine, ink), bold: true };
     if (titleBlock?.height) cursorY += titleBlock.height + CARD_LAYOUT.gap;
-    const bodyBlock = textBlock(body, contentX, cursorY, Math.max(1, contentWidth - (relation ? CARD_LAYOUT.sharedActionReserve : 0)), CARD_LAYOUT.bodySize, CARD_LAYOUT.bodyLine, muted);
+    const bodyBlock = textBlock(body, contentX, cursorY, Math.max(1, contentWidth - (relation ? CARD_LAYOUT.sharedActionReserve : 0)), relation ? CARD_LAYOUT.relationBodySize : CARD_LAYOUT.bodySize, relation ? CARD_LAYOUT.relationBodyLine : CARD_LAYOUT.bodyLine, muted);
     if (relation) { bodyBlock.align = 'center'; bodyBlock.bold = true; }
     cursorY += bodyBlock.height;
     const figures: Figure[] = [], captions: TextBlock[] = [];
@@ -141,11 +138,12 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
   const nodeMap = new Map(nodes.map(node => [node.id, node]));
   const edges: ExportEdge[] = document.edges.map(edge => {
     const source = nodeMap.get(edge.fromNode)!, target = nodeMap.get(edge.toNode)!;
-    const routing = readEdgeRouting(edge), start = anchor(source, edge.fromSide ?? 'bottom'), end = anchor(target, edge.toSide ?? 'top');
-    const points = routing.waypoints.length ? polylineRoute(start, end, routing.waypoints) : route(start, end, edge.fromSide ?? 'bottom');
+    const routing = readEdgeRouting(edge), sides = relationEdgeSides(document, edge);
+    const geometry = buildConnectionPath({ source: anchor(source, sides.fromSide), target: anchor(target, sides.toSide),
+      sourceSide: sides.fromSide, targetSide: sides.toSide, waypoints: routing.waypoints, style: options.connectionStyle });
     const style = record(edge.paperstreamStyle);
     const lines = edge.label ? wrapExportText(edge.label, 220, 12) : [];
-    return { id: edge.id, points, color: safeColor(edge.color, '#70877e'), strokeWidth: getEdgeStrokeWidth(edge),
+    return { id: edge.id, ...geometry, color: safeColor(edge.color, '#70877e'), strokeWidth: getEdgeStrokeWidth(edge),
       dash: style.lineStyle === 'dashed' ? '7 5' : style.lineStyle === 'dotted' ? '2 4' : '',
       shape: typeof style.arrowShape === 'string' ? style.arrowShape : 'triangle', start: edge.fromEnd === 'arrow', end: edge.toEnd !== 'none',
       label: lines.length ? { x: 0, y: 0, width: Math.max(...lines.map(line => measureText(line, 12)), 8) + 20,
@@ -160,19 +158,23 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
     width: edge.label.width, height: edge.label.lines.length * 18 + 12,
   }] : []);
   const placements = layoutEdgeLabels(edges.flatMap(edge => edge.label && !manual.has(edge.id) ? [{ id: edge.id, width: edge.label.width,
-    height: edge.label.lines.length * 18 + 12, anchor: { x: (edge.points[0].x + edge.points.at(-1)!.x) / 2, y: (edge.points[0].y + edge.points.at(-1)!.y) / 2 }, pathPoints: edge.points }] : []), [...nodes, ...nodes.flatMap(nodeContentRects), ...manualObstacles]);
+    height: edge.label.lines.length * 18 + 12, anchor: connectionMidpoint(edge), pathPoints: sampleConnectionPath(edge) }] : []), [...nodes, ...nodes.flatMap(nodeContentRects), ...manualObstacles]);
   for (const edge of edges) if (edge.label) {
     const center = manual.get(edge.id) ?? placements.get(edge.id)!;
     edge.label.x = center.x - edge.label.width / 2;
     edge.label.y = center.y - (edge.label.lines.length * 18 + 12) / 2;
+    const original = document.edges.find(value => value.id === edge.id)!, sides = relationEdgeSides(document, original);
+    Object.assign(edge, buildConnectionPath({ source: edge.points[0], target: edge.points.at(-1)!, sourceSide: sides.fromSide,
+      targetSide: sides.toSide, waypoints: readEdgeRouting(original).waypoints, labelPosition: center, style: options.connectionStyle }));
   }
   const content = getContentBounds([...nodes.map(node => ({ x: node.x - node.strokeWidth / 2, y: node.y - node.strokeWidth / 2,
     width: node.width + node.strokeWidth, height: node.height + node.strokeWidth })), ...nodes.flatMap(nodeContentRects),
     ...edges.flatMap(edge => edge.label ? [{ x: edge.label.x - .5, y: edge.label.y - .5, width: edge.label.width + 1, height: edge.label.height + 13 }] : []),
-    ...edges.flatMap(edge => edge.points.map(point => {
+    ...edges.map(edge => {
       const inset = Math.max(edge.strokeWidth / 2, edge.start || edge.end ? 9 : 0);
-      return { x: point.x - inset, y: point.y - inset, width: inset * 2, height: inset * 2 };
-    }))]) ?? { x: 0, y: 0, width: 800, height: 450 };
+      return { x: edge.bounds.x - inset, y: edge.bounds.y - inset,
+        width: edge.bounds.width + inset * 2, height: edge.bounds.height + inset * 2 };
+    })]) ?? { x: 0, y: 0, width: 800, height: 450 };
   const padding = Math.min(200, Math.max(0, options.padding ?? 32));
   return { bounds: { x: content.x - padding, y: content.y - padding, width: content.width + padding * 2, height: content.height + padding * 2 }, nodes, edges,
     background: safeColor(options.background, '#f6f8f4'), cardBackground: safeColor(options.cardBackground, '#ffffff') };
@@ -185,7 +187,7 @@ function svgText(block: TextBlock, offsetY = 0): string {
 export function exportGraphSvg(document: JSONCanvasDocument, options: GraphExportOptions = {}): string {
   const scene = buildExportScene(document, options), b = scene.bounds;
   const markers = scene.edges.map((edge, index) => `<marker id="arrow-${index}" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse" markerUnits="userSpaceOnUse">${edge.shape === 'circle' ? `<circle cx="6" cy="6" r="4" fill="${edge.color}"/>` : edge.shape === 'diamond' ? `<path d="M1 6 6 1 11 6 6 11Z" fill="${edge.color}"/>` : `<path d="M1 1 11 6 1 11${edge.shape === 'open' ? '' : 'Z'}" fill="${edge.shape === 'open' ? 'none' : edge.color}" stroke="${edge.color}"/>`}</marker>`).join('');
-  const edgeMarkup = scene.edges.map((edge, index) => `<path d="M ${edge.points.map(p => `${p.x} ${p.y}`).join(' L ')}" fill="none" stroke="${edge.color}" stroke-width="${edge.strokeWidth}"${edge.dash ? ` stroke-dasharray="${edge.dash}"` : ''}${edge.start ? ` marker-start="url(#arrow-${index})"` : ''}${edge.end ? ` marker-end="url(#arrow-${index})"` : ''}/>`).join('');
+  const edgeMarkup = scene.edges.map((edge, index) => `<path d="${edge.path}" fill="none" stroke="${edge.color}" stroke-width="${edge.strokeWidth}"${edge.dash ? ` stroke-dasharray="${edge.dash}"` : ''}${edge.start ? ` marker-start="url(#arrow-${index})"` : ''}${edge.end ? ` marker-end="url(#arrow-${index})"` : ''}/>`).join('');
   const nodeMarkup = scene.nodes.map(node => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="${node.radius}" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${node.kind ? svgText(node.kind) : ''}${node.title ? svgText(node.title) : ''}${svgText(node.body)}${node.figures.map(fig => `<image x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" preserveAspectRatio="xMidYMid meet" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
   const labels = scene.edges.flatMap(edge => edge.label ? [`<g data-edge-id="${xml(edge.id)}"><rect x="${edge.label.x}" y="${edge.label.y}" width="${edge.label.width}" height="${edge.label.lines.length * 18 + 12}" rx="${CARD_LAYOUT.labelRadius}" fill="${scene.cardBackground}" stroke="#cad8ce"/>${svgText({ ...edge.label, x: edge.label.x + 10, width: edge.label.width - 20 }, 5)}</g>`] : []).join('');
   return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(b.width)}" height="${Math.ceil(b.height)}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" role="img" aria-label="Paperstream research graph"><defs>${markers}</defs><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="${scene.background}"/><g font-family="Arial, Microsoft YaHei, sans-serif">${edgeMarkup}${nodeMarkup}${labels}</g></svg>`;
@@ -241,19 +243,21 @@ function singleSlideEntries(document: JSONCanvasDocument, options: GraphExportOp
   // Card backgrounds come first, edges behind textual content but remain editable.
   const cards = scene.nodes.map(node => { const id = ++shapeId; nodeIds.set(node.id, id); return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Card ${xml(node.id)}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${transform(node)}<a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${rgb(scene.cardBackground)}"/></a:solidFill><a:ln w="${length(node.strokeWidth)}"><a:solidFill><a:srgbClr val="${rgb(node.border)}"/></a:solidFill>${node.group ? '<a:prstDash val="dash"/>' : ''}</a:ln></p:spPr></p:sp>`; }).join('');
   const connections = scene.edges.map(edge => {
-    const id = ++shapeId, source = edge.points[0], target = edge.points.at(-1)!;
-    const original = document.edges.find(item => item.id === edge.id)!;
+    const id = ++shapeId;
+    const original = document.edges.find(item => item.id === edge.id)!, sides = relationEdgeSides(document, original);
     const sites = { top: 0, left: 1, bottom: 2, right: 3 };
-    const attachments = `<a:stCxn id="${nodeIds.get(original.fromNode)}" idx="${sites[original.fromSide ?? 'bottom']}"/><a:endCxn id="${nodeIds.get(original.toNode)}" idx="${sites[original.toSide ?? 'top']}"/>`;
-    const custom = readEdgeRouting(original).waypoints.length > 0;
-    const routePoints = custom ? edge.points : [source, target];
-    const left = Math.min(...routePoints.map(point => point.x)), top = Math.min(...routePoints.map(point => point.y));
-    const width = Math.max(...routePoints.map(point => point.x)) - left, height = Math.max(...routePoints.map(point => point.y)) - top;
-    const geometry = custom
-      ? `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/><a:pathLst><a:path w="${length(width)}" h="${length(height)}" fill="none" stroke="1" extrusionOk="0">${edge.points.map((point, index) => `<a:${index ? 'lnTo' : 'moveTo'}><a:pt x="${n((point.x - left) * scale)}" y="${n((point.y - top) * scale)}"/></a:${index ? 'lnTo' : 'moveTo'}>`).join('')}</a:path></a:pathLst></a:custGeom>`
-      : '<a:prstGeom prst="bentConnector3"><a:avLst/></a:prstGeom>';
+    const attachments = `<a:stCxn id="${nodeIds.get(original.fromNode)}" idx="${sites[sides.fromSide ?? 'bottom']}"/><a:endCxn id="${nodeIds.get(original.toNode)}" idx="${sites[sides.toSide ?? 'top']}"/>`;
+    const { x: left, y: top, width, height } = edge.bounds;
+    const pointXml = (point: Point) => `<a:pt x="${n((point.x - left) * scale)}" y="${n((point.y - top) * scale)}"/>`;
+    const commands = edge.commands.map(command => {
+      if (command.kind === 'Q') return `<a:quadBezTo>${pointXml(command.control)}${pointXml(command.point)}</a:quadBezTo>`;
+      if (command.kind === 'C') return `<a:cubicBezTo>${pointXml(command.control1)}${pointXml(command.control2)}${pointXml(command.point)}</a:cubicBezTo>`;
+      const tag = command.kind === 'M' ? 'moveTo' : 'lnTo';
+      return `<a:${tag}>${pointXml(command.point)}</a:${tag}>`;
+    }).join('');
+    const geometry = `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/><a:pathLst><a:path w="${length(width)}" h="${length(height)}" fill="none" stroke="1" extrusionOk="0">${commands}</a:path></a:pathLst></a:custGeom>`;
     const arrow = edge.shape === 'open' ? 'arrow' : edge.shape === 'diamond' ? 'diamond' : edge.shape === 'circle' ? 'oval' : 'triangle';
-    return `<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="${id}" name="Connection ${xml(edge.id)}"/><p:cNvCxnSpPr>${attachments}</p:cNvCxnSpPr><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm${!custom && source.x > target.x ? ' flipH="1"' : ''}${!custom && source.y > target.y ? ' flipV="1"' : ''}><a:off x="${x(left)}" y="${y(top)}"/><a:ext cx="${length(width)}" cy="${length(height)}"/></a:xfrm>${geometry}<a:ln w="${length(edge.strokeWidth)}"><a:solidFill><a:srgbClr val="${rgb(edge.color)}"/></a:solidFill>${edge.dash ? `<a:prstDash val="${edge.dash === '2 4' ? 'dot' : 'dash'}"/>` : ''}<a:headEnd type="${edge.start ? arrow : 'none'}" w="med" len="med"/><a:tailEnd type="${edge.end ? arrow : 'none'}" w="med" len="med"/></a:ln></p:spPr><p:style><a:lnRef idx="0"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="0"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></p:style></p:cxnSp>`;
+    return `<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="${id}" name="Connection ${xml(edge.id)}"/><p:cNvCxnSpPr>${attachments}</p:cNvCxnSpPr><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm><a:off x="${x(left)}" y="${y(top)}"/><a:ext cx="${length(width)}" cy="${length(height)}"/></a:xfrm>${geometry}<a:ln w="${length(edge.strokeWidth)}"><a:solidFill><a:srgbClr val="${rgb(edge.color)}"/></a:solidFill>${edge.dash ? `<a:prstDash val="${edge.dash === '2 4' ? 'dot' : 'dash'}"/>` : ''}<a:headEnd type="${edge.start ? arrow : 'none'}" w="med" len="med"/><a:tailEnd type="${edge.end ? arrow : 'none'}" w="med" len="med"/></a:ln></p:spPr><p:style><a:lnRef idx="0"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="0"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></p:style></p:cxnSp>`;
   }).join('');
   const contents = scene.nodes.map(node => {
     const images = node.figures.map(figure => {
@@ -263,7 +267,12 @@ function singleSlideEntries(document: JSONCanvasDocument, options: GraphExportOp
     }).join('');
     return (node.kind ? textShape(node.kind, `Kind ${node.id}`) : '') + (node.title ? textShape(node.title, `Title ${node.id}`, node.url) : '') + textShape(node.body, `Takeaway ${node.id}`) + images + node.captions.map((caption, i) => textShape(caption, `Caption ${node.id} ${i}`)).join('') + (node.year ? textShape(node.year, `Year ${node.id}`) : '');
   }).join('');
-  const labels = scene.edges.map(edge => edge.label ? textShape({ ...edge.label, x: edge.label.x + 10, y: edge.label.y + 6, width: edge.label.width - 20 }, `Relation ${edge.id}`) : '').join('');
+  const labels = scene.edges.map(edge => {
+    if (!edge.label) return '';
+    const id = ++shapeId, rect = { ...edge.label, height: edge.label.height + 12 };
+    const background = `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="Relation box ${xml(edge.id)}"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr>${transform(rect)}<a:prstGeom prst="roundRect"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="${rgb(scene.cardBackground)}"/></a:solidFill><a:ln w="${length(1)}"><a:solidFill><a:srgbClr val="CAD8CE"/></a:solidFill></a:ln></p:spPr></p:sp>`;
+    return background + textShape({ ...edge.label, x: edge.label.x + 10, y: edge.label.y + 6, width: edge.label.width - 20 }, `Relation ${edge.id}`);
+  }).join('');
   const slide = xmlDoc(`<p:sld xmlns:a="${NS_A}" xmlns:r="${NS_R}" xmlns:p="${NS_P}"><p:cSld name="Paperstream graph"><p:bg><p:bgPr><a:solidFill><a:srgbClr val="${rgb(scene.background)}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>${groupShape}${connections}${cards}${contents}${labels}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`);
   const xmlEntries: Array<[string, string]> = [
     ['[Content_Types].xml', xmlDoc('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="webp" ContentType="image/webp"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/></Types>')],

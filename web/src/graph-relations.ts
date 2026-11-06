@@ -1,7 +1,8 @@
 import { addNode, CanvasError, createEdge, validateCanvas } from './canvas.ts';
 import type { CanvasEdge, CanvasNode, JSONCanvasDocument, NodePlacement } from './canvas.ts';
-import { defaultRoutePoints, edgeRoutingPatch, readEdgeRouting, routeMidpoint } from './edge-routing.ts';
+import { defaultRoutePoints, edgeRoutingPatch, isGeneratedEdgeRouting, readEdgeRouting, routeMidpoint } from './edge-routing.ts';
 import type { Point } from './edge-label-layout.ts';
+import { CARD_LAYOUT } from './card-layout.ts';
 
 function anchor(node: CanvasNode, side: CanvasEdge['fromSide']): Point {
   if (side === 'left') return { x: node.x, y: node.y + node.height / 2 };
@@ -37,10 +38,10 @@ export function isRelationNode(node: CanvasNode): boolean {
 /** A compact initial textbox; measured content may grow it later without truncation. */
 export function relationTextSize(text: string): { width: number; height: number } {
   const lines = text.split('\n');
-  const widths = lines.map(line => [...line].reduce((sum, char) => sum + (/[^\u0000-\u00ff]/.test(char) ? 13 : 7), 0));
-  const width = Math.min(280, Math.max(96, Math.max(...widths) + 48));
-  const rows = widths.reduce((sum, value) => sum + Math.max(1, Math.ceil(value / (width - 32))), 0);
-  return { width, height: Math.max(44, rows * 22 + 24) };
+  const widths = lines.map(line => [...line].reduce((sum, char) => sum + CARD_LAYOUT.relationBodySize * (/[^\u0000-\u00ff]/.test(char) ? 1 : .55), 0));
+  const width = Math.min(280, Math.max(96, Math.ceil(Math.max(...widths) + CARD_LAYOUT.paddingX * 2)));
+  const rows = widths.reduce((sum, value) => sum + Math.max(1, Math.ceil(value / (width - CARD_LAYOUT.paddingX * 2))), 0);
+  return { width, height: Math.max(44, rows * CARD_LAYOUT.relationBodyLine + CARD_LAYOUT.relationPaddingTop * 2 + 3) };
 }
 
 function neighborIds(document: JSONCanvasDocument, id: string): Set<string> {
@@ -71,12 +72,29 @@ export function followRelationPositions(previous: JSONCanvasDocument, next: JSON
     }, { x: 0, y: 0 });
     if (!delta.x && !delta.y) return node;
     changed = true;
-    return { ...node, x: node.x + delta.x / neighbors.length, y: node.y + delta.y / neighbors.length };
+    return { ...node, x: Math.round(node.x + delta.x / neighbors.length), y: Math.round(node.y + delta.y / neighbors.length) };
   });
+  // Edge labels follow the final endpoints, including shared labels moved above.
+  const followedNodes = new Map(nodes.map(node => [node.id, node]));
   const oldEdges = new Map(previous.edges.map(edge => [edge.id, edge]));
   const edges = next.edges.map(edge => {
     const old = oldEdges.get(edge.id);
     if (!old) return edge;
+    if (isGeneratedEdgeRouting(edge)) {
+      // ELK bends are absolute coordinates for one completed layout. Once a
+      // card (or its attached shared label) moves/resizes, the affected route
+      // must return to attached automatic drawing instead of looping backward.
+      const geometryChanged = old.fromNode !== edge.fromNode || old.toNode !== edge.toNode
+        || [edge.fromNode, edge.toNode].some(id => {
+          const a = before.get(id), b = followedNodes.get(id);
+          return a && b && (a.x !== b.x || a.y !== b.y || a.width !== b.width || a.height !== b.height);
+        });
+      if (geometryChanged) {
+        changed = true;
+        return { ...edge, ...edgeRoutingPatch(edge, { waypoints: null, labelPosition: null }) };
+      }
+      return edge;
+    }
     const oldPosition = readEdgeRouting(old).labelPosition, position = readEdgeRouting(edge).labelPosition;
     // A direct label drag (or reset) is already the requested position.
     if (!position || !oldPosition || position.x !== oldPosition.x || position.y !== oldPosition.y) return edge;
@@ -85,7 +103,7 @@ export function followRelationPositions(previous: JSONCanvasDocument, next: JSON
       .filter(id => oldEndpoints.has(id) && before.has(id) && after.has(id));
     if (!endpoints.length) return edge;
     const delta = endpoints.reduce((sum, id) => {
-      const a = center(before.get(id)!), b = center(after.get(id)!);
+      const a = center(before.get(id)!), b = center(followedNodes.get(id)!);
       return { x: sum.x + b.x - a.x, y: sum.y + b.y - a.y };
     }, { x: 0, y: 0 });
     if (!delta.x && !delta.y) return edge;
@@ -111,7 +129,7 @@ export function resetAttachedRelationPosition(document: JSONCanvasDocument, id: 
     return { x: sum.x + position.x / neighbors.length, y: sum.y + position.y / neighbors.length };
   }, { x: 0, y: 0 });
   const next = { ...document, nodes: document.nodes.map(item => item.id === id
-    ? { ...item, x: point.x - item.width / 2, y: point.y - item.height / 2 } : item) };
+    ? { ...item, x: Math.round(point.x - item.width / 2), y: Math.round(point.y - item.height / 2) } : item) };
   validateCanvas(next);
   return next;
 }
@@ -150,7 +168,7 @@ export function promoteEdgeRelation(document: JSONCanvasDocument, edgeId: string
   const center = displayedPosition ?? routing.labelPosition ?? routeMidpoint(points);
   const size = relationTextSize(edge.label ?? '');
   const node = createRelationNode(edge.label ?? '', {
-    x: center.x - size.width / 2, y: center.y - size.height / 2,
+    x: Math.round(center.x - size.width / 2), y: Math.round(center.y - size.height / 2),
   });
   // Controls covered by the new card no longer describe exposed line segments.
   const outside = (point: Point) => point.x < node.x || point.x > node.x + node.width

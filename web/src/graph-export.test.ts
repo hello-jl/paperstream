@@ -68,7 +68,7 @@ test('compact shared relations export only centered text inside the original 44p
   assert.equal(exported.kind, undefined);
   assert.equal(exported.body.align, 'center');
   assert.equal(exported.body.y, node.y + 12);
-  assert.equal(exported.body.x + exported.body.width / 2, node.x + node.width / 2 - 13);
+  assert.equal(exported.body.x + exported.body.width / 2, node.x + node.width / 2);
   assert.equal(exported.body.lines.length, 1);
   contains(node, exported.body, 'short relation text');
   assertSceneContainsContent(scene);
@@ -94,7 +94,9 @@ test('long and multiline shared labels expand export bounds without moving cards
     assert.ok(exported.body.lines.length >= 4);
     assert.ok(exported.body.y + exported.body.height > exported.y + exported.height);
     assert.equal(exported.height, 44);
-    assert.deepEqual(scene.edges[0].points, [{ x: -390, y: -308 }, { x: -200, y: -400 }, { x: -100, y: -308 }]);
+    assert.deepEqual(scene.edges[0].points[0], { x: -455, y: -330 }, 'shared labels use the port facing the first waypoint');
+    assert.deepEqual(scene.edges[0].points.at(-1), { x: -100, y: -308 });
+    assert.ok(scene.edges[0].points.some(point => point.x === -200 && point.y === -400));
     assertSceneContainsContent(scene);
     const svg = exportGraphSvg(graph, { padding: 0 });
     const viewBox = /viewBox="([^\"]+)" role="img"/.exec(svg)![1].split(' ').map(Number);
@@ -286,13 +288,17 @@ test('manual relation labels and routing export at their saved positions with ed
   const before = JSON.stringify(graph), scene = buildExportScene(graph), label = scene.edges[0].label!;
   assert.equal(label.x + label.width / 2, 750);
   assert.equal(label.y + (label.lines.length * 18 + 12) / 2, -600);
-  assert.deepEqual(scene.edges[0].points.slice(1, -1), [{ x: 1300, y: -1000 }, { x: 1300, y: 900 }]);
+  const points = scene.edges[0].points;
+  const first = points.findIndex(point => point.x === 1300 && point.y === -1000);
+  assert.ok(first > 0 && points.findIndex(point => point.x === 1300 && point.y === 900) > first);
+  assert.ok(scene.edges[0].commands.some(command => command.point.x === 750 && command.point.y === -600));
   assert.ok(scene.bounds.x + scene.bounds.width > 1300 && scene.bounds.y < -1000 && scene.bounds.y + scene.bounds.height > 900);
   const svg = exportGraphSvg(graph), entries = unzipStored(exportGraphPptx(graph));
-  assert.match(svg, /L 1300 -1000 L 1300 900/);
+  assert.ok(svg.includes(`d="${scene.edges[0].path}"`));
   const slide = new TextDecoder().decode(entries.get('ppt/slides/slide1.xml'));
   assert.match(slide, /<p:cxnSp>/); assert.match(slide, /<a:custGeom>/);
-  assert.equal([...slide.matchAll(/<a:lnTo>/g)].length, 3);
+  assert.equal([...slide.matchAll(/<a:lnTo>/g)].length, scene.edges[0].commands.filter(command => command.kind === 'L').length);
+  assert.match(slide, /name="Relation box /);
   assert.equal(JSON.stringify(graph), before);
 });
 
@@ -311,4 +317,28 @@ test('mixed-language wrapping keeps fitting English words and numbers intact', (
   assert.equal(lines.join('').replaceAll(' ', ''), '中文ImageNet训练152层，结合ReLU和Dropout。');
   assert.ok(wrapExportText('VeryLongUnbrokenIdentifierBeyondLineWidth', 30, 13).length > 1);
   assert.ok(wrapExportText('中文中文中文中文中文', 40, 13).length > 1);
+});
+
+
+test('all export formats share styled label-through paths and retain exact curve bounds', () => {
+  const graph = sample(); graph.nodes[1].x += 400;
+  graph.edges[0].paperstreamStyle = { labelPosition: { x: -700, y: -560 } };
+  const before = JSON.stringify(graph), paths = new Set<string>();
+  for (const connectionStyle of ['orthogonal', 'rounded', 'curved'] as const) {
+    const scene = buildExportScene(graph, { connectionStyle, padding: 0 }), edge = scene.edges[0];
+    paths.add(edge.path);
+    assert.ok(edge.commands.some(command => command.point.x === -700 && command.point.y === -560));
+    contains(scene.bounds, edge.bounds, `${connectionStyle} route bounds`);
+    const svg = exportGraphSvg(graph, { connectionStyle });
+    assert.ok(svg.includes(`d="${edge.path}"`));
+    assert.doesNotMatch(svg, /relation-leader/);
+    const slide = new TextDecoder().decode(unzipStored(exportGraphPptx(graph, { connectionStyle })).get('ppt/slides/slide1.xml'));
+    const curveTag = connectionStyle === 'curved' ? 'cubicBezTo' : connectionStyle === 'rounded' ? 'quadBezTo' : 'lnTo';
+    assert.ok(slide.includes(`<a:${curveTag}>`));
+    assert.match(slide, /name="Relation box /);
+    assert.match(slide, /<a:headEnd type="triangle"/);
+    assert.match(slide, /<a:tailEnd type="triangle"/);
+  }
+  assert.equal(paths.size, 3);
+  assert.equal(JSON.stringify(graph), before);
 });

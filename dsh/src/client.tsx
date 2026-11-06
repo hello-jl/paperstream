@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { PaperstreamEditor } from '../../web/src/Editor'
 import { registerPaperstream } from './register.mjs'
-import { loadTheme, saveTheme, openExternal } from './preferences-client'
+import { loadPreferences, savePreferences, openExternal } from './preferences-client'
 
 // The build embeds the CSS emitted from Editor's imports inside the factory.
 // It is installed through ctx.effect and removed when the plugin unloads.
@@ -18,7 +18,7 @@ function PaperstreamPanel() {
       height: '100%', minHeight: 0, minWidth: 0, boxSizing: 'border-box',
       paddingTop: 'var(--dsh-frame-top-clearance, 0px)',
     },
-  }, createElement(PaperstreamEditor, { draftKey: 'dsh-paperstream-main', loadTheme, saveTheme, openExternal }))
+  }, createElement(PaperstreamEditor, { draftKey: 'dsh-paperstream-main', loadPreferences, savePreferences, openExternal }))
 }
 
 function PaperstreamIcon() {

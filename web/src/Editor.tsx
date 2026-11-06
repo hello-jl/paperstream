@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Background, ConnectionMode, ControlButton, Controls, Handle, MarkerType, NodeResizer,
@@ -24,8 +24,12 @@ import { WorkspaceTabs } from './WorkspaceTabs';
 import type { TabMetadata } from './WorkspaceTabs';
 import { CARD_CSS_VARIABLES } from './card-layout';
 import { CardBody, FigureControls } from './CardBody';
-import { layoutVertical, layoutVerticalWithRelations } from './graph-layout';
-import { createRelationNode, promoteEdgeRelation, isRelationNode } from './graph-relations';
+import { layoutVertical } from './graph-layout';
+import { layoutWithElk } from './elk-layout';
+import { createRelationNode, promoteEdgeRelation, isRelationNode, followRelationPositions, resetAttachedRelationPosition, relationEdgeSides, relationTextSize } from './graph-relations';
+import { useAppearancePreferences } from './appearance-preferences';
+import type { AppearancePreferences } from './appearance-preferences';
+import { readFigures } from './card-media';
 import { downloadGraph } from './graph-export';
 import { zoomAt, wheelStroke, wheelIntent } from './wheel-controls';
 import { editField } from './live-edit';
@@ -79,6 +83,7 @@ function manualRelations(document: JSONCanvasDocument) { return document.edges.s
 
 const PaperCard = memo(function PaperCard({ id, data, selected }: NodeProps<CardNode>) {
   const paper = readPaper(data.raw);
+  const sharedRelation = isRelationNode(data.raw);
   const appearance = readNodeStyle(data.raw);
   const content = useRef<HTMLDivElement>(null);
   const resizing = useRef(false);
@@ -118,7 +123,7 @@ const PaperCard = memo(function PaperCard({ id, data, selected }: NodeProps<Card
         } }}>{(data.draft?.[field] ?? value) || (field === 'alias' ? '未命名论文' : '双击填写要点')}</span>;
   return <div className={`ps-card ${data.raw.type === 'group' ? 'ps-group' : ''}${paper?.year ? ' has-year' : ''}${isRelationNode(data.raw) ? ' ps-shared-relation' : ''}`}
     style={{ borderColor: color(data.raw.color), borderWidth: appearance.strokeWidth, minHeight: minimumHeight }}>
-    <NodeResizer isVisible={selected && !data.busy && !data.editing} minWidth={160} minHeight={minimumHeight}
+    <NodeResizer isVisible={selected && !sharedRelation && !data.busy && !data.editing} minWidth={160} minHeight={minimumHeight}
       onResizeStart={() => { resizing.current = true; data.startInteraction(); }}
       onResizeEnd={(_event, size) => {
         resizing.current = false;
@@ -126,12 +131,12 @@ const PaperCard = memo(function PaperCard({ id, data, selected }: NodeProps<Card
       }} />
     {Object.values(Position).map(side => <Handle key={side} id={side} type="source" position={side} />)}
     <button className="ps-card-settings nodrag nopan" type="button" disabled={data.busy}
-      aria-label={`${title(data.raw)}的详情`} title="论文详情（也可右键）"
+      aria-label={`${title(data.raw)}的详情`} title={sharedRelation ? '关系标签详情（也可右键）' : '内容详情（也可右键）'}
       onPointerDown={event => event.stopPropagation()}
       onClick={event => {
         event.stopPropagation(); const rect = event.currentTarget.getBoundingClientRect();
         data.actions.details({ kind: 'node', id }, { x: rect.right, y: rect.top });
-      }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9.5 3-.5 2.1-1.8 1-2.1-.6-2.5 4.3 1.6 1.5v2L2.6 15l2.5 4.3 2.1-.6 1.8 1 .5 2.3h5l.5-2.3 1.8-1 2.1.6 2.5-4.3-1.6-1.7v-2l1.6-1.5-2.5-4.3-2.1.6-1.8-1-.5-2.1h-5Z" /><circle cx="12" cy="12.5" r="3" /></svg></button>
+      }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6V3Z M14 3v5h4 M9 12h6 M9 16h6" /></svg></button>
     <div className="ps-card-content" ref={content}>
       <CardBody node={data.raw} paper={paper} editing={data.editing} draft={data.draft} editText={editText} editNote={editNote}
         selected={selected} busy={data.busy} onPatchNode={patch => data.actions.patch(id, patch)} onOpenUrl={data.actions.openUrl} />
@@ -151,14 +156,15 @@ function initialState(key: string) {
   }
 }
 
-export interface PaperstreamEditorProps { draftKey?: string; loadTheme?: () => Promise<'sage' | 'paper' | 'night'>; saveTheme?: (theme: 'sage' | 'paper' | 'night') => Promise<void>; openExternal?: (url: string) => Promise<void> }
+export interface PaperstreamEditorProps { draftKey?: string; loadTheme?: () => Promise<'sage' | 'paper' | 'night'>; saveTheme?: (theme: 'sage' | 'paper' | 'night') => Promise<void>; loadPreferences?: () => Promise<AppearancePreferences>; savePreferences?: (value: AppearancePreferences) => Promise<void>; openExternal?: (url: string) => Promise<void> }
 
 /** Both standalone and DSH mount the same editor; persistence stays in .canvas. */
-export function PaperstreamEditor({ draftKey = 'paperstream-browser-draft-v1', loadTheme, saveTheme, openExternal }: PaperstreamEditorProps) {
-  return <WorkspaceTabs draftKey={draftKey} loadTheme={loadTheme} saveTheme={saveTheme}>{(key, onMeta) => <ReactFlowProvider><Editor draftKey={key} onMeta={onMeta} openExternal={openExternal} /></ReactFlowProvider>}</WorkspaceTabs>;
+export function PaperstreamEditor({ draftKey = 'paperstream-browser-draft-v1', loadTheme, saveTheme, loadPreferences, savePreferences, openExternal }: PaperstreamEditorProps) {
+  return <WorkspaceTabs draftKey={draftKey} loadTheme={loadTheme} saveTheme={saveTheme} loadPreferences={loadPreferences} savePreferences={savePreferences}>{(key, onMeta) => <ReactFlowProvider><Editor draftKey={key} onMeta={onMeta} openExternal={openExternal} /></ReactFlowProvider>}</WorkspaceTabs>;
 }
 
 function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: (meta: TabMetadata) => void; openExternal?: (url: string) => Promise<void> }) {
+  const { connectionStyle } = useAppearancePreferences();
   const [initial] = useState(() => initialState(draftKey));
   const [canvas, setCanvas] = useState(initial.canvas);
   const current = useRef(canvas);
@@ -195,6 +201,8 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   const [pendingBinding, setPendingBinding] = useState<FileBinding | null>(null);
   const bindingRevision = useRef(0);
   const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const [notice, setNotice] = useState(initial.restored ? '已恢复本机工作区草稿。' : '打开一张关系图，或新增第一篇论文。');
   const [error, setError] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
@@ -311,7 +319,8 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   const liveGesture = useRef<{ key: string; time: number } | null>(null);
   const fieldErrors = useRef<Record<string, string>>({});
   const wheelGesture = useRef<{ key: string; time: number } | null>(null);
-  const commit = useCallback((next: JSONCanvasDocument) => {
+  const commit = useCallback((next: JSONCanvasDocument, followLabels = true) => {
+    if (followLabels) next = followRelationPositions(current.current, next);
     if (JSON.stringify(next) === JSON.stringify(current.current)) return;
     wheelGesture.current = null; liveGesture.current = null;
     serializeCanvas(next); // Validate before replacing the in-memory document.
@@ -350,11 +359,13 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     const nextHeight = automatic ? height : Math.max(node.height, height);
     if (!persist || interacting.current || nextHeight === node.height) return;
     try {
-      let next = patchNode(current.current, node.id, { height: nextHeight });
+      let next = patchNode(current.current, node.id, { height: nextHeight,
+        ...(isRelationNode(node) ? { y: Math.round(node.y + (node.height - nextHeight) / 2) } : {}) });
       if (next.paperstreamLayout === 'vertical') {
         const manual = manualRelations(next);
         next = manual ? { ...next, paperstreamLayout: 'manual' } : layoutVertical(next);
       }
+      next = followRelationPositions(current.current, next);
       current.current = next;
       setCanvas(next);
     } catch (err) { setError(message(err)); }
@@ -393,11 +404,21 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   // Controlled input values must reach React Flow in this render. Mirroring
   // form into nodes via an effect leaves the textarea one event behind and
   // React can restore an old value between rapidly dispatched keystrokes.
-  const renderedNodes = useMemo(() => nodes.map(node => {
+  const previewDocument = useMemo(() => {
+    const transient = new Map(nodes.map(node => [node.id, node]));
+    return followRelationPositions(canvas, { ...canvas, nodes: canvas.nodes.map(node => {
+      const rendered = transient.get(node.id); return rendered?.data.raw === node
+        ? { ...node, x: Math.round(rendered.position.x), y: Math.round(rendered.position.y) } : node;
+    }) });
+  }, [canvas, nodes]);
+  const renderedNodes = useMemo(() => {
+    const positions = new Map(previewDocument.nodes.map(node => [node.id, { x: node.x, y: node.y }]));
+    return nodes.map(node => {
     const selected = selection?.kind === 'node' && selection.id === node.id;
-    return { ...node, selected, data: { ...node.data,
+    return { ...node, position: positions.get(node.id) ?? node.position, selected, data: { ...node.data,
       editing: selected ? inlineField : null, draft: selected && inlineField ? form : null } };
-  }), [nodes, selection, inlineField, form]);
+    });
+  }, [previewDocument, nodes, selection, inlineField, form]);
   const measureLabel = useCallback((measurement: EdgeLabelMeasurement) => {
     setLabelMeasurements(previous => {
       if (JSON.stringify(previous.get(measurement.id)) === JSON.stringify(measurement)) return previous;
@@ -414,15 +435,14 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     });
   }, [canvas.edges]);
   const selectEdgeLabel = useCallback((id: string) => { selectRef.current({ kind: 'edge', id }); }, []);
-  const visibleCardBounds = useMemo(() => nodes.filter(node => !node.hidden).map(node => ({
-    x: node.position.x, y: node.position.y,
-    width: node.width ?? node.data.raw.width,
-    height: Math.max(node.height ?? node.data.raw.height, contentHeights[node.id] ?? 0),
-  })), [nodes, contentHeights]);
+  const visibleCardBounds = useMemo(() => previewDocument.nodes.filter(node => visible.has(node.id)).map(node => ({
+    x: node.x, y: node.y, width: node.width,
+    height: Math.max(node.height, contentHeights[node.id] ?? 0),
+  })), [previewDocument, visible, contentHeights]);
   const labelPositions = useMemo(() => {
     const fixed = new Map<string, { x: number; y: number }>();
     const obstacles = [...visibleCardBounds];
-    const labels = canvas.edges.flatMap(edge => {
+    const labels = previewDocument.edges.flatMap(edge => {
       if (!edge.label || !visible.has(edge.fromNode) || !visible.has(edge.toNode)) return [];
       const measurement = labelMeasurements.get(edge.id);
       const position = readEdgeRouting(edge).labelPosition;
@@ -434,7 +454,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
       return measurement?.text === edge.label ? [measurement] : [];
     });
     return new Map([...layoutEdgeLabels(labels, obstacles), ...fixed]);
-  }, [canvas.edges, visible, visibleCardBounds, labelMeasurements]);
+  }, [previewDocument.edges, visible, visibleCardBounds, labelMeasurements]);
   const contentBounds = useMemo(() => getContentBounds([
     ...visibleCardBounds,
     ...canvas.edges.filter(edge => visible.has(edge.fromNode) && visible.has(edge.toNode)).flatMap(edge => readEdgeRouting(edge).waypoints.map(point => ({ ...point, width: 1, height: 1 }))),
@@ -466,9 +486,9 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     });
     return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
   }, [canvas, nodes, visible, contentHeights, labelPositions, fitContent]);
-  const edges = useMemo<RelationEdgeModel[]>(() => canvas.edges.map(edge => ({
+  const edges = useMemo<RelationEdgeModel[]>(() => previewDocument.edges.map(edge => ({
     id: edge.id, source: edge.fromNode, target: edge.toNode,
-    sourceHandle: edge.fromSide ?? 'bottom', targetHandle: edge.toSide ?? 'top',
+    sourceHandle: relationEdgeSides(previewDocument, edge).fromSide, targetHandle: relationEdgeSides(previewDocument, edge).toSide,
     label: edge.label, type: 'relation', animated: false,
     data: { raw: edge, onPatch: (id, patch) => { try { commit({ ...patchEdge(current.current, id, patch), paperstreamLayout: 'manual' }); } catch (err) { setError(message(err)); } }, position: labelPositions.get(edge.id), busy, onMeasure: measureLabel, onSelect: selectEdgeLabel,
       editing: selection?.kind === 'edge' && selection.id === edge.id && inlineField === 'relation',
@@ -481,7 +501,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     style: { stroke: color(edge.color) ?? '#70877e', strokeWidth: readEdgeStyle(edge).strokeWidth, strokeDasharray: edgeSettings(edge).lineStyle === 'dashed' ? '8 5' : edgeSettings(edge).lineStyle === 'dotted' ? '2 5' : undefined },
     selected: selection?.kind === 'edge' && selection.id === edge.id,
     hidden: !visible.has(edge.fromNode) || !visible.has(edge.toNode),
-  })), [canvas, visible, selection, labelPositions, busy, measureLabel, selectEdgeLabel, actions, inlineField, form.relation, commit]);
+  })), [previewDocument, visible, selection, labelPositions, busy, measureLabel, selectEdgeLabel, actions, inlineField, form.relation, commit]);
   const onNodesChange: OnNodesChange<CardNode> = useCallback(changes => {
     // Deletion is explicit in the inspector; filtering never mutates stored nodes.
     setNodes(items => applyNodeChanges(changes.filter(change => change.type !== 'remove' && change.type !== 'select'), items));
@@ -559,7 +579,14 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     setForm(values => ({ ...values, [key]: value }));
     if (!selected || (selected.kind !== 'node' && selected.kind !== 'edge')) return;
     try {
-      const next = editField(current.current, selected, key, value);
+      let next = editField(current.current, selected, key, value);
+      if (selected.kind === 'node' && key === 'text') {
+        const node = next.nodes.find(item => item.id === selected.id)!;
+        if (isRelationNode(node) && readNodeStyle(node).heightMode === 'auto') {
+          const { width } = relationTextSize(value);
+          next = patchNode(next, node.id, { width, x: Math.round(node.x + (node.width - width) / 2) });
+        }
+      }
       commitContinuous(next, `${selected.kind}:${selected.id}:${key}`);
       delete fieldErrors.current[key];
       setFormDirty(Object.keys(fieldErrors.current).length > 0);
@@ -582,12 +609,17 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     commit(next); setFormDirty(Object.keys(fieldErrors.current).length > 0); setError(Object.values(fieldErrors.current)[0] ?? '');
   }, []);
   actionsRef.current = { edit: startInline, details: showDetails, field, finish: finishInline, openUrl: url => { if (openExternal) void openExternal(url).then(() => setNotice('已在系统默认浏览器打开原文。')).catch(err => setError(message(err))); else window.open(url, '_blank', 'noopener,noreferrer'); }, patch: (id, patch) => { if (!busy) { try { commit(patchNode(current.current, id, patch)); } catch (err) { setError(message(err)); } } } };
+  function openInspectorLink(event: MouseEvent<HTMLAnchorElement>) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault(); actionsRef.current.openUrl(event.currentTarget.href);
+  }
   function removeSelected() {
     if (!selection || busy || !discardForm()) return;
     try {
       if (selection.kind === 'node') {
         const count = canvas.edges.filter(e => e.fromNode === selection.id || e.toNode === selection.id).length;
-        if (!window.confirm(count ? `删除这张卡片及其 ${count} 条关系？` : '删除这张卡片？')) return;
+        const shared = isRelationNode(canvas.nodes.find(node => node.id === selection.id)!);
+        if (!window.confirm(shared ? `删除这个共享标签${count ? `及其 ${count} 条相连线路` : ''}？` : count ? `删除这张卡片及其 ${count} 条关系？` : '删除这张卡片？')) return;
         commit(removeNode(canvas, selection.id, { cascade: count > 0 }));
       } else if (selection.kind === 'edge') {
         if (!window.confirm('删除这条关系？')) return;
@@ -652,8 +684,21 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   async function exportDocument(format: 'png' | 'svg' | 'pptx') {
     if (busy || formDirty) return;
     setBusy(true); setError('');
-    try { await downloadGraph(current.current, format, fileName); setNotice(`已导出 ${format.toUpperCase()}。`); }
+    try { await downloadGraph(current.current, format, fileName, { connectionStyle }); setNotice(`已导出 ${format.toUpperCase()}。`); }
     catch (err) { setError(message(err)); } finally { setBusy(false); }
+  }
+  async function arrangeGraph() {
+    if (busy || !discardForm() || !current.current.nodes.length) return;
+    const snapshot = current.current;
+    setBusy(true); setError(''); setNotice('正在智能竖排…');
+    try {
+      const next = await layoutWithElk(snapshot, { labelMeasurements });
+      if (!mounted.current) return;
+      if (current.current !== snapshot) { setNotice('画布已变化，未覆盖新修改；可再次智能竖排。'); return; }
+      commit(next, false); pendingInitialFit.current = true;
+      setNotice('已重新排列节点、线路和标签，可撤销。');
+    } catch (err) { if (mounted.current) setError(message(err)); }
+    finally { if (mounted.current) setBusy(false); }
   }
   async function reloadFile() {
     if (!file.current || (dirty && !window.confirm('放弃当前修改并重新读取文件吗？'))) return;
@@ -665,7 +710,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     const point = flow.screenToFlowPosition(anchor);
     const placement = { x: Math.round(point.x), y: Math.round(point.y), width: kind === 'page' ? 480 : 360, height: 180 };
     const node: CanvasNode = kind === 'paper' ? createPaperNode({ alias: '新论文', takeaway: '双击填写你的认识' }, placement)
-      : kind === 'relation' ? createRelationNode('共享关系', { ...placement, width: 220, height: 100 })
+      : kind === 'relation' ? createRelationNode('', { x: placement.x, y: placement.y })
       : { id: crypto.randomUUID().replaceAll('-', ''), type: 'text', ...placement, label: kind === 'page' ? '插页' : 'Note', text: '- 在这里记录想法', paperstreamCard: { kind } };
     let next = addNode(current.current, node);
     if (kind === 'page') next = createPresentationPage(next, { title: node.label || '插页', nodeIds: [node.id] });
@@ -673,6 +718,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
     commit(next); setFocusId(null); setCreateMenu(null);
     select({ kind: 'node', id: node.id }, true);
     if (kind === 'paper') { setInlineField('alias'); setDetailsAnchor(null); }
+    else if (kind === 'relation') { setInlineField('text'); setDetailsAnchor(null); }
     else showDetails({ kind: 'node', id: node.id }, anchor);
   }
   function quickConnect(source: string, target: string, fromSide?: string | null, toSide?: string | null) {
@@ -720,6 +766,9 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   const paper = selectedNode ? readPaper(selectedNode) : null;
   const paperForm = Boolean(paper);
   const relationForm = selection?.kind === 'edge';
+  const sharedRelation = Boolean(selectedNode && isRelationNode(selectedNode));
+  const attachedEdges = sharedRelation ? canvas.edges.filter(edge => edge.fromNode === selectedNode!.id || edge.toNode === selectedNode!.id) : [];
+  const relationCount = canvas.nodes.filter(isRelationNode).length;
 
   return <div className="paperstream-editor" style={CARD_CSS_VARIABLES as CSSProperties} aria-busy={busy} onKeyDown={event => {
     if (event.key === 'Escape' && detailsAnchor && !event.defaultPrevented) { event.preventDefault(); closeDetails(); }
@@ -757,7 +806,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
             }
           }}
           onNodesChange={onNodesChange} connectionMode={ConnectionMode.Loose}
-          nodesDraggable={!busy && !connectSource} nodesConnectable={!busy} deleteKeyCode={null} multiSelectionKeyCode={null}
+          nodeDragThreshold={0} nodesDraggable={!busy && !connectSource} nodesConnectable={!busy} deleteKeyCode={null} multiSelectionKeyCode={null}
           selectionKeyCode={null} panOnScroll={false} zoomOnScroll={false} zoomOnPinch={false} preventScrolling={false}
           elevateNodesOnSelect={false} minZoom={0.1} maxZoom={2}
           onMoveStart={event => { if (event) pendingInitialFit.current = false; }}
@@ -769,7 +818,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
           onPaneClick={() => { select(null); setCreateMenu(null); setConnectSource(null); }}
           onDoubleClick={event => { if ((event.target as Element).closest('.react-flow__pane')) setCreateMenu({ x: event.clientX, y: event.clientY }); }}
           onPaneContextMenu={event => { event.preventDefault(); setCreateMenu({ x: event.clientX, y: event.clientY }); }}
-          onNodeDragStart={startInteraction}
+          onNodeDragStart={(_event, node) => { startInteraction(); select({ kind: 'node', id: node.id }); }}
           onNodeDragStop={(_event, node, dragged) => {
             finishInteraction();
             try {
@@ -794,13 +843,13 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
         {focusId && <div className="ps-view-note">局部视图 · 保存仍包含完整关系图</div>}
         {connectSource && <div className="ps-view-note">点击目标卡片建立连线 <button onClick={() => setConnectSource(null)}>取消</button></div>}
         {createMenu && <div className="ps-create-menu" style={{ left: Math.max(8, Math.min(workspaceSize.width - 170, createMenu.x - (workspace.current?.getBoundingClientRect().left ?? 0))), top: Math.max(8, Math.min(workspaceSize.height - 180, createMenu.y - (workspace.current?.getBoundingClientRect().top ?? 0))) }}>
-          <button onClick={() => insertCard('paper', createMenu)}>＋ 论文</button><button onClick={() => insertCard('note', createMenu)}>＋ Note</button><button onClick={() => insertCard('page', createMenu)}>＋ 插页</button><button onClick={() => insertCard('relation', createMenu)}>＋ 共享关系</button>
+          <button onClick={() => insertCard('paper', createMenu)}>＋ 论文</button><button onClick={() => insertCard('note', createMenu)}>＋ Note</button><button onClick={() => insertCard('page', createMenu)}>＋ 插页</button><button onClick={() => insertCard('relation', createMenu)}>＋ 共享关系标签</button>
         </div>}
       </main>
       {pagesOpen && <PagePanel document={canvas} onChange={(next, field) => { try { if (field) commitContinuous(next, field); else commit(next); } catch (err) { setError(message(err)); } }} onClose={() => setPagesOpen(false)} selectedNodeIds={selection?.kind === 'node' ? [selection.id] : []} onFocus={ids => { setFocusId(null); void flow.fitView({ nodes: ids.map(id => ({ id })), maxZoom: 1, duration: 0 }); }} />}
       {detailsAnchor && selection && <aside ref={details} className="ps-inspector" role="dialog" aria-label="详情编辑" aria-modal="false"
         style={{ left: detailsPosition.x, top: detailsPosition.y, width: Math.min(340, Math.max(0, workspaceSize.width - 24)), maxHeight: Math.max(0, workspaceSize.height - 24) }}>
-        <div className="ps-inspector-heading" tabIndex={-1}><span>{paperForm ? '论文详情' : relationForm ? '关系详情' : '卡片详情'}</span>
+        <div className="ps-inspector-heading" tabIndex={-1}><span>{sharedRelation ? '共享关系标签' : paperForm ? '论文详情' : relationForm ? '关系详情' : '卡片详情'}</span>
           <button aria-label="关闭详情" onClick={closeDetails}>×</button></div>
         <form onSubmit={event => { event.preventDefault(); }}>
           <fieldset disabled={busy}>
@@ -823,7 +872,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
               <label>论文原名 · name<textarea rows={3} value={form.name ?? ''} onChange={e => field('name', e.target.value)} placeholder="保留原始标题" /></label>
               <label>原文链接 · url<input aria-invalid={Boolean(fieldErrors.current.url)} type="url" value={form.url ?? ''} onChange={e => field('url', e.target.value)} placeholder="https://…" /></label>
               <label>年份 · year<input aria-invalid={Boolean(fieldErrors.current.year)} type="number" min="1" max="9999" step="1" value={form.year ?? ''} onChange={e => field('year', e.target.value)} /></label>
-              {paper?.url && <a className="ps-link" href={paper.url} target="_blank" rel="noreferrer">打开论文原文 ↗</a>}
+              {paper?.url && <a className="ps-link" href={paper.url} target="_blank" rel="noreferrer" onClick={openInspectorLink}>打开论文原文 ↗</a>}
             </>}
 
             {relationForm && <label>关系说明 · relation<textarea rows={4} value={form.relation ?? ''} onChange={e => field('relation', e.target.value)} placeholder="可留空；双击连线可补充说明" /></label>}
@@ -838,14 +887,29 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
             </div>}
             {relationForm && <label>连线粗细（px）<input aria-invalid={Boolean(fieldErrors.current.strokeWidth)} type="number" min="0.5" max="8" step="0.1" required
               value={form.strokeWidth ?? (selection?.kind === 'edge' ? readEdgeStyle(canvas.edges.find(edge => edge.id === selection.id)!).strokeWidth : 1.8)} onChange={e => field('strokeWidth', e.target.value)} /></label>}
-            {selectedNode && !paper && <>
+            {sharedRelation && selectedNode && <>
+              <label>关系说明<textarea rows={3} value={form.text ?? ''} onChange={event => field('text', event.target.value)} placeholder="可留空；多个连线共用这段说明" /></label>
+              <p className="ps-muted">文本框随相连的论文移动；拖动可调整位置。双击文字直接编辑。</p>
+              <div className="ps-attached-lines" aria-label="关联线路">
+                {attachedEdges.map(edge => {
+                  const incoming = edge.toNode === selectedNode.id;
+                  const other = canvas.nodes.find(node => node.id === (incoming ? edge.fromNode : edge.toNode))!;
+                  return <button type="button" key={edge.id} onClick={() => showDetails({ kind: 'edge', id: edge.id }, detailsAnchor!)}>
+                    {incoming ? '入线' : '出线'} · {title(other)} <span>详情 →</span>
+                  </button>;
+                })}
+              </div>
+              <button type="button" disabled={!attachedEdges.length} onClick={() => { try { commit(resetAttachedRelationPosition(current.current, selectedNode.id)); } catch (err) { setError(message(err)); } }}>回到连线中央</button>
+              <button type="button" onClick={() => { closeDetails(); setConnectSource(selectedNode.id); }}>连接另一篇论文…</button>
+            </>}
+            {selectedNode && !paper && !sharedRelation && <>
               <label>卡片高度<select value={form.heightMode ?? 'auto'} onChange={e => field('heightMode', e.target.value)}><option value="auto">自动适应内容</option><option value="manual">手动保留高度</option></select></label>
               <label>边框粗细（px）<input aria-invalid={Boolean(fieldErrors.current.strokeWidth)} type="number" min="0.5" max="8" step="0.1" value={form.strokeWidth ?? 1} onChange={e => field('strokeWidth', e.target.value)} /></label>
               <p className="ps-muted">这是一张{selectedNode.type === 'text' ? '备注' : selectedNode.type === 'file' ? '文件' : selectedNode.type === 'link' ? '链接' : '分组'}卡片。</p>
               {selectedNode.type === 'text' && <label>标题<input value={form.label ?? ''} onChange={e => field('label', e.target.value)} /></label>}
               {selectedNode.type === 'text' && <label>内容<textarea rows={12} value={form.text ?? ''} onChange={e => field('text', e.target.value)} /></label>}
               {selectedNode.type === 'file' && <p className="ps-file-path">{selectedNode.file}{selectedNode.subpath}<br /><small>相对文件路径按画布所在目录理解。此版本不内嵌读取附件。</small></p>}
-              {selectedNode.type === 'link' && selectedNode.url && /^https?:\/\//i.test(selectedNode.url) && <a href={selectedNode.url} target="_blank" rel="noreferrer">打开链接 ↗</a>}
+              {selectedNode.type === 'link' && selectedNode.url && /^https?:\/\//i.test(selectedNode.url) && <a href={selectedNode.url} target="_blank" rel="noreferrer" onClick={openInspectorLink}>打开链接 ↗</a>}
               {selectedNode.type === 'group' && <p>{selectedNode.label ?? '分组'}<br /><small>可移动分组框；框内卡片的位置分别保存。</small></p>}
             </>}
             {selection?.kind === 'edge' && <>
@@ -864,28 +928,28 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
               <p className="ps-muted">拖动关系文字定位；选中连线后拖动圆点调整路径，Shift＋双击线段增加折点。</p>
               <button type="button" onClick={() => { try { const edge = current.current.edges.find(item => item.id === selection.id)!; commit(patchEdge(current.current, edge.id, edgeRoutingPatch(edge, { labelPosition: null }))); } catch (err) { setError(message(err)); } }}>文字自动避让</button>
               <button type="button" onClick={() => { try { const edge = current.current.edges.find(item => item.id === selection.id)!; commit(patchEdge(current.current, edge.id, edgeRoutingPatch(edge, { waypoints: null }))); } catch (err) { setError(message(err)); } }}>重置连线路径</button>
-              <button type="button" onClick={() => { if (!discardForm()) return; try { const promoted = promoteEdgeRelation(current.current, selection.id); commit(promoted.document); select({ kind: 'node', id: promoted.nodeId }, true); setDetailsAnchor(null); } catch (err) { setError(message(err)); } }}>转换为共享关系节点</button>
+              <button type="button" onClick={() => { if (!discardForm()) return; try { const promoted = promoteEdgeRelation(current.current, selection.id, labelPositions.get(selection.id)); commit(promoted.document); select({ kind: 'node', id: promoted.nodeId }, true); setDetailsAnchor(null); setNotice('已设为共享标签；其他连线可以接到这个文本框。'); } catch (err) { setError(message(err)); } }}>让多条线共用此标签</button>
             </>}
-            {selectedNode && <FigureControls node={selectedNode} busy={busy} onPatchNode={(patch, field) => { try { const next = patchNode(current.current, selectedNode.id, patch); if (field) commitContinuous(next, `${selectedNode.id}:${field}`); else commit(next); } catch (err) { setError(message(err)); } }} />}
+            {selectedNode && (!sharedRelation || readFigures(selectedNode).length > 0) && <FigureControls node={selectedNode} busy={busy} onPatchNode={(patch, field) => { try { const next = patchNode(current.current, selectedNode.id, patch); if (field) commitContinuous(next, `${selectedNode.id}:${field}`); else commit(next); } catch (err) { setError(message(err)); } }} />}
             {formDirty && <p className="ps-muted" role="status">输入格式尚不完整，有效修改已即时保留。</p>}
-            {(selection?.kind === 'node' || selection?.kind === 'edge') && <button type="button" className="ps-danger" onClick={removeSelected}>删除{selection.kind === 'node' ? '卡片' : '关系'}</button>}
+            {(selection?.kind === 'node' || selection?.kind === 'edge') && <button type="button" className="ps-danger" onClick={removeSelected}>删除{sharedRelation ? '标签及相连线路' : selection.kind === 'node' ? '卡片' : '关系'}</button>}
           </fieldset>
         </form>
       </aside>}
     </div>
     <footer className={`ps-status ${error ? 'has-error' : ''}`}>
       <div className="ps-status-tools">
-        <details className="ps-insert-menu"><summary>＋ 插入</summary><div className="ps-menu-items" onClick={event => { if ((event.target as Element).closest('button')) event.currentTarget.closest('details')?.removeAttribute('open'); }}><button onClick={() => insertCard('paper')}>论文</button><button onClick={() => insertCard('note')}>Note</button><button onClick={() => insertCard('page')}>插页</button><button onClick={() => insertCard('relation')}>共享关系</button></div></details>
+        <details className="ps-insert-menu"><summary>＋ 插入</summary><div className="ps-menu-items" onClick={event => { if ((event.target as Element).closest('button')) event.currentTarget.closest('details')?.removeAttribute('open'); }}><button onClick={() => insertCard('paper')}>论文</button><button onClick={() => insertCard('note')}>Note</button><button onClick={() => insertCard('page')}>插页</button><button onClick={() => insertCard('relation')}>共享关系标签</button></div></details>
         <button disabled={busy || !selectedNode} title="先选起点，再点目标；也可拖动卡片连接点" onClick={() => { if (selectedNode && discardForm()) setConnectSource(selectedNode.id); }}>↗ 连线</button>
         <button disabled={busy || formDirty} onClick={() => setPagesOpen(value => !value)}>演示</button>
         {pendingBinding && <button disabled={busy} onClick={() => void authorizeFile()}>授权文件</button>}
         <button disabled={busy || !past.length} onClick={() => travel(true)} title="撤销">↶</button><button disabled={busy || !future.length} onClick={() => travel(false)} title="重做">↷</button>
-        <button disabled={busy || !canvas.nodes.length} onClick={() => { if (discardForm()) { commit(layoutVerticalWithRelations(current.current)); pendingInitialFit.current = true; } }} title={hasManualRelations ? '重新竖排卡片并重置关系文字位置和折点；可以撤销' : '按研究关系竖向排列'}>{hasManualRelations ? '竖排并重置关系' : '竖排'}</button>
+        <button disabled={busy || !canvas.nodes.length} onClick={() => void arrangeGraph()} title={hasManualRelations ? '重新竖排并计算线路与标签，替换手工位置和折点；可以撤销' : '联合排列卡片、连线路径和关系文字；可以撤销'}>智能竖排</button>
         <input className="ps-search" aria-label="搜索卡片" placeholder="搜索…" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { const found = canvas.nodes.find(node => title(node).toLowerCase().includes(search.toLowerCase())); if (found && select({ kind: 'node', id: found.id })) void flow.fitView({ nodes: [{ id: found.id }], maxZoom: 1, duration: 0 }); } }} />
         <button disabled={!selectedNode} onClick={() => setFocusId(focusId ? null : selectedNode!.id)}>{focusId ? '全图' : '附近'}</button>
       </div>
       <span className="ps-status-notice" role={error ? 'alert' : 'status'} title={error || notice}>{busy ? '处理中…' : error || (formDirty ? '请检查输入格式' : dirty ? '未保存' : file.current ? '已保存' : '未关联文件')}</span>
-      <span className="ps-count">{visible.size}/{canvas.nodes.length} 卡片 · {canvas.edges.length} 边</span>
+      <span className="ps-count">{canvas.nodes.filter(node => visible.has(node.id) && !isRelationNode(node)).length}/{canvas.nodes.length - relationCount} 卡片 · {canvas.edges.length} 边{relationCount > 0 ? ` · ${relationCount} 共享标签` : ''}</span>
       <span className="ps-wheel-hint">滚轮{selectedNode || selection?.kind === 'edge' ? '调线重' : '缩放'} · Ctrl 滚轮缩放 · 拖空白平移</span>
     </footer>
     <input ref={input} hidden type="file" accept=".canvas,application/json" onChange={async event => {

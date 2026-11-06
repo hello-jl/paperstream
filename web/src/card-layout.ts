@@ -1,11 +1,11 @@
 /** Shared geometry for screen cards and portable exports. Values are CSS pixels. */
 export const CARD_LAYOUT = {
-  radius: 16, relationRadius: 12, labelRadius: 9,
+  radius: 16, relationRadius: 9, labelRadius: 9,
   paddingX: 18, paddingTop: 16, gap: 9,
   titleSize: 18, titleLine: 24.3, titleReserve: 26, linkedTitleReserve: 58,
   bodySize: 13, bodyLine: 21.45,
   yearRight: 18, yearBottom: 15, yearSize: 11, yearLine: 17, yearPadding: 42,
-  relationPaddingTop: 12, sharedActionReserve: 26,
+  relationPaddingTop: 12, relationBodySize: 12, relationBodyLine: 18, sharedActionReserve: 0,
 } as const;
 export const CARD_CSS_VARIABLES = {
   '--ps-card-radius': `${CARD_LAYOUT.radius}px`, '--ps-relation-radius': `${CARD_LAYOUT.relationRadius}px`,

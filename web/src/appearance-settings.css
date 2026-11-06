@@ -1,0 +1,23 @@
+.ps-global-settings { position: relative; flex: none; }
+.ps-settings-trigger { display: grid; place-items: center; width: 30px; height: 30px; padding: 6px; border: 0; border-radius: var(--ps-radius-compact); background: transparent; color: var(--ps-muted); cursor: pointer; }
+.ps-settings-trigger:hover, .ps-settings-trigger[aria-expanded=true] { color: var(--ps-ink); background: var(--ps-surface-alt); }
+.ps-settings-trigger svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ps-settings-panel { position: absolute; z-index: 70; top: 37px; right: 0; width: min(292px, calc(100vw - 30px)); padding: 18px; border: 1px solid var(--ps-card-line); border-radius: var(--ps-radius-popover); color: var(--ps-ink); background: var(--ps-surface); box-shadow: 0 12px 36px var(--ps-shadow), 0 2px 6px var(--ps-shadow); }
+.ps-settings-panel > strong { font-size: 14px; font-weight: 650; }
+.ps-settings-help { margin: 4px 0 17px; color: var(--ps-muted); font-size: 11px; }
+.ps-settings-panel fieldset { margin: 0 0 16px; padding: 0; border: 0; min-width: 0; }
+.ps-settings-panel fieldset:last-of-type { margin-bottom: 0; }
+.ps-settings-panel legend { padding: 0; margin-bottom: 7px; color: var(--ps-muted); font-size: 12px; }
+.ps-settings-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.ps-settings-options button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px; border: 1px solid var(--ps-line); border-radius: var(--ps-radius-control); color: var(--ps-muted); background: var(--ps-field); font: inherit; font-size: 12px; cursor: pointer; }
+.ps-settings-options button:hover { background: var(--ps-surface-alt); }
+.ps-settings-options button[aria-pressed=true] { color: var(--ps-accent); border-color: var(--ps-focus); background: var(--ps-selected); }
+.ps-settings-options svg { width: 50px; max-width: 100%; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+.ps-theme-swatch { display: block; width: 26px; height: 22px; margin: 5px 0; border-radius: 5px; border: 1px solid #9baa9b; }
+.ps-theme-swatch.is-sage { background: #eaf2e9; }
+.ps-theme-swatch.is-paper { background: #fafaf8; }
+.ps-theme-swatch.is-night { background: #222d25; }
+.ps-settings-trigger:focus-visible, .ps-settings-panel button:focus-visible { outline: 2px solid var(--ps-focus); outline-offset: 2px; }
+.ps-settings-error { padding-top: 12px; font-size: 11px; color: var(--ps-error); }
+.ps-settings-error p { margin: 0 0 6px; }
+.ps-settings-error button { padding: 4px 8px; border: 1px solid var(--ps-line); border-radius: var(--ps-radius-compact); color: var(--ps-ink); background: var(--ps-field); font: inherit; cursor: pointer; }

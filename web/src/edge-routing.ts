@@ -16,6 +16,11 @@ function isPoint(value: unknown): value is Point {
 }
 function samePoint(a: Point, b: Point): boolean { return a.x === b.x && a.y === b.y; }
 
+/** Only our explicit marker identifies computed geometry; unknown values stay opaque. */
+export function isGeneratedEdgeRouting(edge: CanvasEdge): boolean {
+  return record(edge.paperstreamStyle) && edge.paperstreamStyle.routeSource === 'elk';
+}
+
 /** Unsupported metadata remains untouched; drawing falls back to auto layout. */
 export function readEdgeRouting(edge: CanvasEdge): EdgeRouting {
   const style = record(edge.paperstreamStyle) ? edge.paperstreamStyle : {};
@@ -35,6 +40,9 @@ export function edgeRoutingPatch(edge: CanvasEdge, update: EdgeRoutingUpdate): P
     throw new CanvasError('现有连线外观不是有效对象，无法调整路径；原数据已保留。');
   }
   const style = { ...(record(edge.paperstreamStyle) ? edge.paperstreamStyle : {}) };
+  // A deliberate geometry edit takes ownership of the existing route. Changes
+  // to color, arrows, weight or width use appearance patches and retain origin.
+  if (style.routeSource === 'elk') delete style.routeSource;
   if (labelChanged) {
     if (update.labelPosition === null) delete style.labelPosition;
     else {

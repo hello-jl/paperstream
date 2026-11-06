@@ -1,12 +1,14 @@
 import { memo, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, useReactFlow, useViewport } from '@xyflow/react';
+import { BaseEdge, EdgeLabelRenderer, useReactFlow, useViewport } from '@xyflow/react';
 import type { Edge, EdgeProps } from '@xyflow/react';
 import type { LabelRequest, Point } from './edge-label-layout';
 import type { CanvasEdge } from './canvas';
-import { defaultRoutePoints, edgeRoutingPatch, insertWaypoint, polylinePath, polylineRoute, readEdgeRouting, routeMidpoint } from './edge-routing';
+import { edgeRoutingPatch, insertWaypoint, readEdgeRouting } from './edge-routing';
 import type { EdgeRoutingUpdate } from './edge-routing';
 import { InlineTextEditor } from './InlineTextEditor';
+import { buildConnectionPath, connectionMidpoint, sampleConnectionPath } from './connection-path';
+import { useAppearancePreferences } from './appearance-preferences';
 
 export interface EdgeLabelMeasurement extends LabelRequest { text: string }
 
@@ -27,15 +29,12 @@ export type RelationEdgeModel = Edge<{
   onFinish: () => void;
 }, 'relation'>;
 
-/** Keep the actual connection and arrowheads in SVG; place its HTML label in
- * nearby free space using the shared layout for every visible relation. */
+/** The SVG connection passes through its opaque HTML relation label. */
 export const RelationEdge = memo(function RelationEdge({
   id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition,
   markerStart, markerEnd, style, selected, label, data, interactionWidth,
 }: EdgeProps<RelationEdgeModel>) {
-  const [autoPath, autoAnchorX, autoAnchorY] = getSmoothStepPath({
-    sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition,
-  });
+  const { connectionStyle } = useAppearancePreferences();
   const flow = useReactFlow();
   const { zoom } = useViewport();
   const [preview, setPreview] = useState<EdgeRoutingUpdate | null>(null);
@@ -46,13 +45,18 @@ export const RelationEdge = memo(function RelationEdge({
   const gesture = useRef<Gesture | null>(null);
   const routing = data?.raw ? readEdgeRouting(data.raw) : { waypoints: [] };
   const controls = preview?.waypoints ?? routing.waypoints;
-  const route = controls.length ? polylineRoute({ x: sourceX, y: sourceY }, { x: targetX, y: targetY }, controls)
-    : defaultRoutePoints({ x: sourceX, y: sourceY }, { x: targetX, y: targetY }, sourcePosition);
-  const center = controls.length ? routeMidpoint(route) : { x: autoAnchorX, y: autoAnchorY };
-  const path = controls.length ? polylinePath(route) : autoPath;
+  const geometry = { source: { x: sourceX, y: sourceY }, target: { x: targetX, y: targetY },
+    sourceSide: sourcePosition, targetSide: targetPosition, waypoints: controls, style: connectionStyle };
+  const base = buildConnectionPath(geometry);
+  const center = connectionMidpoint(base);
   const anchorX = center.x, anchorY = center.y;
   const manualPosition = preview?.labelPosition ?? routing.labelPosition;
   const position = manualPosition ?? data?.position;
+  const displayed = position && (label || data?.editing) ? buildConnectionPath({ ...geometry, labelPosition: position }) : base;
+  const path = displayed.path, route = displayed.points;
+  // Label placement must measure the unchanged base route; measuring the
+  // detoured path would feed each new placement into the next layout pass.
+  const basePath = base.path;
   const canAdjust = Boolean(data?.raw && data.onPatch && !data.busy && !data.editing);
   const patch = (update: EdgeRoutingUpdate) => {
     const current = latest.current;
@@ -109,7 +113,6 @@ export const RelationEdge = memo(function RelationEdge({
   function addWaypoint(point: Point) { patch({ waypoints: insertWaypoint(route, point) }); }
   const firstSegment = route.length > 1 ? { x: (route[0].x + route[1].x) / 2, y: (route[0].y + route[1].y) / 2 } : center;
   const addControl = firstSegment;
-  const group = useRef<SVGGElement>(null);
   const labelElement = useRef<HTMLDivElement>(null);
   const text = typeof label === 'string' ? label : '';
   const onMeasure = data?.onMeasure;
@@ -119,15 +122,7 @@ export const RelationEdge = memo(function RelationEdge({
     if (!element || (!text && !data?.editing) || !onMeasure) return;
     const measure = () => {
       if (!element.offsetWidth || !element.offsetHeight) return;
-      const edgePath = group.current?.querySelector<SVGPathElement>('.react-flow__edge-path');
-      const length = edgePath?.getTotalLength() ?? 0;
-      const pathPoints: Point[] = [];
-      if (edgePath && length > 0) {
-        for (let part = 1; part < 10; part++) {
-          const point = edgePath.getPointAtLength(length * part / 10);
-          pathPoints.push({ x: point.x, y: point.y });
-        }
-      }
+      const pathPoints = sampleConnectionPath(base);
       // DOM layout dimensions stay in graph/CSS pixels at every zoom level.
       onMeasure({ id, text, width: element.offsetWidth + 1, height: element.offsetHeight + 1,
         anchor: { x: anchorX, y: anchorY }, pathPoints });
@@ -136,15 +131,14 @@ export const RelationEdge = memo(function RelationEdge({
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [id, text, path, anchorX, anchorY, onMeasure, data?.editing]);
+  }, [id, text, basePath, anchorX, anchorY, onMeasure, data?.editing]);
 
   const instanceId = useId();
   const markerId = `ps-arrow-${instanceId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const arrow = data?.arrowShape ?? 'triangle';
   const custom = arrow !== 'triangle';
-  const displaced = !manualPosition && position && Math.hypot(position.x - anchorX, position.y - anchorY) > 18;
   return <>
-    <g ref={group} onDoubleClick={event => {
+    <g onDoubleClick={event => {
       if (!event.shiftKey || !canAdjust) return;
       event.preventDefault(); event.stopPropagation(); addWaypoint(flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }));
     }}>
@@ -156,8 +150,6 @@ export const RelationEdge = memo(function RelationEdge({
       </marker></defs>}
       <BaseEdge id={id} path={path} markerStart={custom && markerStart ? `url(#${markerId})` : markerStart} markerEnd={custom && markerEnd ? `url(#${markerId})` : markerEnd}
         style={style} interactionWidth={interactionWidth} />
-      {displaced && <path className="ps-relation-leader"
-        d={`M ${anchorX} ${anchorY} L ${position.x} ${position.y}`} />}
       {selected && canAdjust && <g className="nodrag nopan">
         {controls.map((point, index) => <circle key={index} cx={point.x} cy={point.y} r={6 / zoom}
           fill="var(--ps-surface, white)" stroke={style?.stroke ?? '#70877e'} strokeWidth={1.5 / zoom}
