@@ -232,7 +232,7 @@ export function FigureControls({ node, busy, onPatchNode }: FigureControlsProps)
     onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
     <div className="ps-figure-controls-heading"><span>Fig</span><button type="button" disabled={busy || loading}
       onClick={() => input.current?.click()}>{loading ? '载入图片…' : '＋ 图片'}</button></div>
-    <p className="ps-figure-help">PNG / JPEG / WebP · 每张 ≤ 8 MB · 随文件保存。选中卡片后拖图片右下角调大小。</p>
+    <p className="ps-figure-help">选中卡片后按 Cmd/Ctrl+V 粘贴图片，或点击“＋ 图片”。PNG / JPEG / WebP · 每张 ≤ 8 MB。拖图片右下角调大小。</p>
     <input ref={input} type="file" hidden multiple accept="image/png,image/jpeg,image/webp"
       onChange={async event => {
         const files = [...(event.currentTarget.files ?? [])]; event.currentTarget.value = '';
