@@ -68,7 +68,7 @@ test('compact shared relations export only centered text inside the original 44p
   assert.equal(exported.kind, undefined);
   assert.equal(exported.body.align, 'center');
   assert.equal(exported.body.y, node.y + 12);
-  assert.equal(exported.body.x + exported.body.width / 2, node.x + node.width / 2);
+  assert.equal(exported.body.x + exported.body.width / 2, node.x + node.width / 2 - 13);
   assert.equal(exported.body.lines.length, 1);
   contains(node, exported.body, 'short relation text');
   assertSceneContainsContent(scene);
@@ -112,11 +112,11 @@ test('figure captions use figure width and overflowing text, media and year all 
     caption: '这是一段必须按图片宽度换行的完整图注\n第二段图注' }] };
   const graph = addNode(createCanvas(), node), before = JSON.stringify(graph);
   const scene = buildExportScene(graph, { padding: 0 }), exported = scene.nodes[0], figure = exported.figures[0], caption = exported.captions[0];
-  assert.equal(exported.title!.y, node.y + 18);
-  assert.ok(exported.body.y >= exported.title!.y + exported.title!.height + 10);
-  assert.equal(figure.width, 90);
-  assert.equal(figure.height, 180);
-  assert.equal(figure.x, node.x + 20, 'unknown extensions do not override CardBody placement');
+  assert.equal(exported.title!.y, node.y + 16);
+  assert.ok(exported.body.y >= exported.title!.y + exported.title!.height + 9);
+  assert.equal(figure.width, 92);
+  assert.equal(figure.height, 184);
+  assert.equal(figure.x, node.x + 18, 'unknown extensions do not override CardBody placement');
   assert.equal(caption.x, figure.x);
   assert.equal(caption.width, figure.width);
   assert.ok(caption.lines.length >= 3);
@@ -200,8 +200,8 @@ test('only portable raster images are embedded, with per-figure dimensions and n
   ] };
   const scene = buildExportScene(graph), svg = exportGraphSvg(graph);
   assert.equal(scene.nodes[0].figures.length, 1);
-  assert.equal(scene.nodes[0].figures[0].width, 130);
-  assert.equal(scene.nodes[0].figures[0].height, 65);
+  assert.equal(scene.nodes[0].figures[0].width, 132);
+  assert.equal(scene.nodes[0].figures[0].height, 66);
   assert.ok(svg.includes(PNG));
   assert.match(svg, /Figure &lt;1&gt;/);
   assert.doesNotMatch(svg, /tracking\.png|image\/svg\+xml;base64/);

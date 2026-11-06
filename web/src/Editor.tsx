@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Background, ConnectionMode, ControlButton, Controls, Handle, MarkerType, NodeResizer,
@@ -21,6 +22,7 @@ import type { PopoverPoint } from './popover-layout';
 import { readEdgeDirection } from './edge-direction';
 import { WorkspaceTabs } from './WorkspaceTabs';
 import type { TabMetadata } from './WorkspaceTabs';
+import { CARD_CSS_VARIABLES } from './card-layout';
 import { CardBody, FigureControls } from './CardBody';
 import { layoutVertical, layoutVerticalWithRelations } from './graph-layout';
 import { createRelationNode, promoteEdgeRelation, isRelationNode } from './graph-relations';
@@ -719,7 +721,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
   const paperForm = Boolean(paper);
   const relationForm = selection?.kind === 'edge';
 
-  return <div className="paperstream-editor" aria-busy={busy} onKeyDown={event => {
+  return <div className="paperstream-editor" style={CARD_CSS_VARIABLES as CSSProperties} aria-busy={busy} onKeyDown={event => {
     if (event.key === 'Escape' && detailsAnchor && !event.defaultPrevented) { event.preventDefault(); closeDetails(); }
   }}>
     {recoveryError && <div role="alert" className="ps-workspace-warning">{recoveryError}</div>}

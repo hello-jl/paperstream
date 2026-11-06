@@ -1,4 +1,5 @@
 /** Portable graph exports. Source documents are never mutated. */
+import { CARD_LAYOUT } from './card-layout.ts';
 import { readPaper, serializeCanvas } from './canvas.ts';
 import type { CanvasEdge, CanvasNode, JSONCanvasDocument } from './canvas.ts';
 import { getNodeStrokeWidth, getEdgeStrokeWidth } from './appearance.ts';
@@ -95,15 +96,18 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
     const paper = readPaper(node), kind = getCardKind(node, Boolean(paper)), relation = isRelationNode(node);
     const heading = paper?.alias ?? node.label ?? node.file ?? node.url ?? (kind === 'page' ? '插页' : 'Note');
     const body = paper?.takeaway ?? (node.type === 'text' ? node.text ?? '' : '');
-    const inset = relation ? 18 : 20, contentX = node.x + inset, contentWidth = Math.max(1, node.width - inset * 2);
-    let cursorY = node.y + (relation ? 12 : 18);
+    const inset = CARD_LAYOUT.paddingX, contentX = node.x + inset, contentWidth = Math.max(1, node.width - inset * 2);
+    let cursorY = node.y + (relation ? CARD_LAYOUT.relationPaddingTop : CARD_LAYOUT.paddingTop);
     const kindLabel = node.type === 'group' ? '分组' : node.type === 'file' ? '文件' : node.type === 'link' ? '链接'
       : kind === 'page' ? '插页' : 'NOTE';
     const kindBlock = !relation && kind !== 'paper' ? textBlock(kindLabel, contentX, cursorY, contentWidth, 10, 15, muted) : undefined;
-    if (kindBlock) cursorY += kindBlock.height + 10;
-    const titleBlock = relation ? undefined : { ...textBlock(heading, contentX, cursorY, contentWidth, 19, 24.7, ink), bold: true };
-    if (titleBlock?.height) cursorY += titleBlock.height + 10;
-    const bodyBlock = textBlock(body, contentX, cursorY, contentWidth, 13, 21.45, muted);
+    if (kindBlock) cursorY += kindBlock.height + CARD_LAYOUT.gap;
+    const url = paper?.url ?? node.url;
+    const linked = typeof url === 'string' && /^https?:\/\//i.test(url);
+    const titleWidth = Math.max(1, contentWidth - (linked ? CARD_LAYOUT.linkedTitleReserve : CARD_LAYOUT.titleReserve));
+    const titleBlock = relation ? undefined : { ...textBlock(heading, contentX, cursorY, titleWidth, CARD_LAYOUT.titleSize, CARD_LAYOUT.titleLine, ink), bold: true };
+    if (titleBlock?.height) cursorY += titleBlock.height + CARD_LAYOUT.gap;
+    const bodyBlock = textBlock(body, contentX, cursorY, Math.max(1, contentWidth - (relation ? CARD_LAYOUT.sharedActionReserve : 0)), CARD_LAYOUT.bodySize, CARD_LAYOUT.bodyLine, muted);
     if (relation) { bodyBlock.align = 'center'; bodyBlock.bold = true; }
     cursorY += bodyBlock.height;
     const figures: Figure[] = [], captions: TextBlock[] = [];
@@ -124,13 +128,12 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
         captions.push(caption); cursorY += caption.height;
       }
     }
-    const url = paper?.url ?? node.url;
     return { id: node.id, x: node.x, y: node.y, width: node.width, height: node.height,
       border: safeColor(node.color, '#9ab3a3'), strokeWidth: getNodeStrokeWidth(node), kind: kindBlock, title: titleBlock, body: bodyBlock,
       // Legacy fixed-height documents may overflow. Preserve their card/edge
       // geometry, but keep the footer below content and include it in bounds.
-      year: paper?.year ? { ...textBlock(String(paper.year), node.x + node.width - 62,
-        Math.max(node.y + node.height - 35, cursorY + 10), 42, 11, 17, muted), align: 'right' } : undefined,
+      year: paper?.year ? { ...textBlock(String(paper.year), node.x + node.width - CARD_LAYOUT.yearRight - 42,
+        Math.max(node.y + node.height - CARD_LAYOUT.yearBottom - CARD_LAYOUT.yearLine, cursorY + 10), 42, CARD_LAYOUT.yearSize, CARD_LAYOUT.yearLine, muted), align: 'right' } : undefined,
       figures, captions, url: typeof url === 'string' && /^https?:\/\//i.test(url) ? url : undefined, group: node.type === 'group' };
   });
   const nodeMap = new Map(nodes.map(node => [node.id, node]));

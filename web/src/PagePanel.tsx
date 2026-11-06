@@ -36,7 +36,7 @@ export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeId
     });
   }
   return <>
-    <aside className="ps-pages-panel" role="dialog" aria-label="演示页面">
+    <aside className={`ps-pages-panel${pages.length ? '' : ' is-empty'}`} role="dialog" aria-label="演示页面">
       <header><strong>演示页面</strong><button aria-label="关闭演示页面" onClick={onClose}>×</button></header>
       <div className="ps-pages-actions">
         <button onClick={() => add(selectedNodeIds.filter(id => known.has(id)))}>＋ 页面</button>
