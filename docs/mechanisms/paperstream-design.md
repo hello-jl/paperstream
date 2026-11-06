@@ -1,6 +1,6 @@
 # paperstream 论文关系图设计
 
-更新日期：2026-11-05。用户现已批准采用 JSON Canvas 主格式与 React Flow 界面。文件 API、独立界面源码及 DSH 面板接入源码已实现；前端依赖安装受限，完整构建与浏览器/DSH 真机联调仍待验证。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
+更新日期：2026-11-06。用户现已批准采用 JSON Canvas 主格式与 React Flow 界面。文件 API、独立界面源码及 DSH 面板接入源码已实现；前端依赖安装受限，完整构建与浏览器/DSH 真机联调仍待验证。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
 
 ## 当前实现：Canvas、独立界面与 DSH 面板
 
@@ -234,6 +234,25 @@ API 的基础读写比现有 Mermaid 解析直接，但业务字段仍需要约�
 关于“React.js/React Flow 是否重”：React 是界面库，React Flow 是基于它的图编辑组件，两者均需与完整桌面应用的运行开销区分。当前 DSH 上游 ui-renderer 已使用 React/React DOM；官方共享模块机制允许同页插件复用 React，要求插件构建时将相应导入保留为 external，并适配宿主提供的版本。React Flow 将 React/React DOM 声明为 peer dependencies，适合这种集成方式，无需额外桌面运行时；实际插件构建仍须验证依赖复用。[DSH 共享模块](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/client/web/README.md#the-shared-module-table)、[React Flow 依赖](https://github.com/xyflow/xyflow/blob/main/packages/react/package.json)
 
 运行开销取决于显示的节点/连线数量、卡片复杂度以及更新方式；官方性能文档特别指出拖动触发的无效重绘、过多节点和复杂样式的影响。[React Flow 性能建议](https://reactflow.dev/learn/advanced-use/performance) 对本项目可先采用简短文字卡片、按需显示详细内容、减少动画，并在面板不用时停止不必要的订阅或渲染。开发端会增加 JavaScript/TypeScript 的依赖与构建流程，但开发依赖目录体积不能当作插件下载大小或运行内存。尚未打包或测量内存、启动时间、拖动性能，不提供未经测量的 MB 数字或容量上限。
+
+## ChatGPT 与 Claude 桌面端移植判断（2026-11-06）
+
+本节只记录官方接口调研与工程判断，未实施移植。应分别评估 agent 调用文件 API、在应用内显示现有网页、以及注册原生插件界面。共同使用 React 并不意味着 DSH 的槽位注册、共享依赖或文件选择器可以原样搬到其他宿主。
+
+可复用的核心是 `.canvas` 文档约定、Python API、前端 Canvas 数据操作与 React Flow 论文卡片。主要改动是宿主入口、文件读写、状态同步与构建包装。当前 Editor 将文件选择、保存、sessionStorage 草稿和界面组合在一个组件中；真正移植前宜拆出可传入文档与修改回调的画布组件，另接各宿主的打开/保存/外部链接接口。隔离 iframe 中须按该宿主要求打包 React，不能沿用 DSH 的共享模块假设。
+
+| 目标 | 官方可确认入口 | 判断 |
+| --- | --- | --- |
+| agent 自动维护文件 | Claude Code 可调用本地命令或 stdio MCP；有本地执行与文件权限的 ChatGPT/Codex 会话也可运行项目 CLI | 接入相对简单；将 Python API 包装为 MCP 工具可进一步减少对命令行提示的依赖。仍需安装运行环境与明确文件位置。 |
+| Claude Code 桌面 Code 标签页 | Browser 面板可预览并手工操作本地开发服务器提供的网页 | 先复用独立编辑器是较短路径；这是网页承载，不等同于已安装专属画布插件。SSH 会话的 Browser 自动预览有官方限制，不能照搬本地会话结论。 |
+| Claude Desktop 聊天 | 官方交互连接器支持聊天内嵌与全屏 MCP Apps | 画布可复用，需 MCP Apps UI 接口和工具服务，文件持久化要重新接入；不能把 Code 的 MCP 工具支持视为其已保证渲染 MCP Apps。 |
+| ChatGPT 桌面插件 | MCP Apps UI，以及侧栏应用、会话面板、按扩展名打开文件的编辑器扩展 | 可把 `.canvas` 注册为文件编辑入口；属中等规模宿主适配，实际账户、版本和文件接口还需实测。 |
+
+官方依据：[ChatGPT MCP Apps UI](https://developers.openai.com/plugins/build/chatgpt-ui)、[ChatGPT 插件扩展与文件编辑器](https://developers.openai.com/plugins/build/extensions)、[ChatGPT 本地执行能力](https://learn.chatgpt.com/docs/use-chatgpt)、[Claude Code 桌面预览](https://code.claude.com/docs/en/desktop#preview-your-app)、[Claude Code MCP](https://code.claude.com/docs/en/mcp)、[Claude 交互连接器](https://support.claude.com/en/articles/13454812-use-interactive-connectors-in-claude)。
+
+ChatGPT 官方建议优先用开放 MCP Apps 协议实现可复用 UI，再加平台专用扩展；UI 通过隔离 iframe 与宿主通信，不能将现有浏览器文件句柄视为跨宿主通用能力。文件长期保存仍应落在明确的本地目录或文件服务，避免把聊天组件状态当作论文唯一存档。个人测试和公开分发也要区分：[本地插件测试与打包](https://developers.openai.com/plugins/build/plugins)支持本地来源；[本地 MCP 的公开提交](https://developers.openai.com/plugins/deploy/desktop-only)目前有批准伙伴限制，这不等于禁止个人本地测试。
+
+建议顺序：先完成当前独立编辑器的完整构建与运行验证；随后以 Claude Code 的网页预览验证现有界面，再封装通用 MCP 工具和 MCP Apps UI，为 ChatGPT 文件编辑入口及 Claude Desktop 交互连接器分别增加适配。此顺序是基于公开接口和现有源码的判断，未测移植工时、性能或各桌面端文件保存能力。
 
 ## 后续验证顺序
 
