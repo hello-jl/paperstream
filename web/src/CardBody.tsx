@@ -2,7 +2,7 @@ import { cloneElement, isValidElement, useEffect, useId, useRef, useState } from
 import type { PointerEvent, ReactElement, ReactNode } from 'react';
 import type { CanvasNode, Paper } from './canvas';
 import {
-  addFigurePatch, figureFromFile, getCardKind, readFigures, removeFigurePatch, takeawayBlocks, updateFigurePatch,
+  addFigurePatch, figureCaption, figureFromFile, getCardKind, readFigures, removeFigurePatch, takeawayBlocks, updateFigurePatch,
 } from './card-media';
 import type { CardFigure } from './card-media';
 import './card-body.css';
@@ -31,6 +31,7 @@ export function TakeawayText({ text }: { text: string }) {
 function Figure({ figure, selected, busy, onResize }: {
   figure: CardFigure; selected: boolean; busy: boolean; onResize: (width: number) => void;
 }) {
+  const caption = figureCaption(figure);
   const element = useRef<HTMLElement>(null);
   const gesture = useRef<{ id: number; startX: number; width: number; parentWidth: number; current: number;
     target: HTMLButtonElement } | null>(null);
@@ -97,11 +98,11 @@ function Figure({ figure, selected, busy, onResize }: {
     try { target.setPointerCapture(event.pointerId); } catch { /* Window owns the active gesture. */ }
   };
   return <figure ref={element} className="ps-card-figure" style={{ width: `${preview ?? figure.widthPercent}%` }}>
-    <img src={figure.src} alt={figure.caption || '论文插图'} draggable={false}
+    <img src={figure.src} alt={caption || '论文插图'} draggable={false}
       width={figure.naturalWidth} height={figure.naturalHeight} />
-    {figure.caption && <figcaption>{figure.caption}</figcaption>}
+    {caption && <figcaption>{caption}</figcaption>}
     {selected && <button type="button" className="ps-figure-resize nodrag nopan" disabled={busy}
-      aria-label={`调整图片大小：${figure.caption || 'fig'}`} title="拖动调整图片宽度；双击恢复铺满"
+      aria-label={`调整图片大小：${caption || 'fig'}`} title="拖动调整图片宽度；双击恢复铺满"
       onPointerDown={begin}
       onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); onResize(100); }}
       onKeyDown={event => {

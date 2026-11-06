@@ -132,6 +132,26 @@ test('figure captions use figure width and overflowing text, media and year all 
   assert.equal(JSON.stringify(graph), before);
 });
 
+test('legacy filename captions stay stored but are absent from image and presentation exports', () => {
+  const node = createPaperNode({ alias: 'Figure paper', takeaway: '' }, { id: 'figures' });
+  node.paperstreamCard = { figures: ['screen shot.PNG', '结果.jpeg', 'A useful comparison', '使用 result.png\n观察模型变化'].map((caption, index) => ({
+    id: `fig-${index}`, src: PNG, caption, widthPercent: 100, naturalWidth: 2, naturalHeight: 1,
+  })) };
+  const graph = { nodes: [node], edges: [] }, before = JSON.stringify(graph);
+  const scene = buildExportScene(graph);
+  assert.equal(scene.nodes[0].figures.length, 4);
+  assert.equal(scene.nodes[0].captions.length, 2);
+  assert.match(scene.nodes[0].captions[0].lines.join(' '), /useful comparison/);
+  assert.match(scene.nodes[0].captions[1].lines.join(' '), /result\.png/);
+  const svg = exportGraphSvg(graph);
+  const slide = new TextDecoder().decode(unzipStored(exportGraphPptx(graph)).get('ppt/slides/slide1.xml'));
+  for (const output of [svg, slide]) {
+    assert.ok(!output.includes('screen shot.PNG'));
+    assert.ok(!output.includes('结果.jpeg'));
+  }
+  assert.equal(JSON.stringify(graph), before);
+});
+
 test('paper, note, page, group, file and link retain their distinct content without inventing metadata titles', () => {
   const base = { x: -200, y: -100, width: 180, height: 70 };
   const nodes: CanvasNode[] = [

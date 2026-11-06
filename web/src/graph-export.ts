@@ -3,7 +3,7 @@ import { CARD_LAYOUT } from './card-layout.ts';
 import { readPaper, serializeCanvas } from './canvas.ts';
 import type { CanvasEdge, CanvasNode, JSONCanvasDocument } from './canvas.ts';
 import { getNodeStrokeWidth, getEdgeStrokeWidth } from './appearance.ts';
-import { getCardKind, MAX_FIGURE_BYTES, readFigures } from './card-media.ts';
+import { figureCaption, getCardKind, MAX_FIGURE_BYTES, readFigures } from './card-media.ts';
 import { isRelationNode } from './graph-relations.ts';
 import { getContentBounds, layoutEdgeLabels } from './edge-label-layout.ts';
 import type { Point, Rect } from './edge-label-layout.ts';
@@ -22,7 +22,7 @@ export interface GraphExportOptions {
 }
 interface TextBlock extends Rect { lines: string[]; fontSize: number; lineHeight: number; bold?: boolean; align?: 'center' | 'right'; color: string; }
 interface Figure { x: number; y: number; width: number; height: number; src: string; mime: string; bytes: Uint8Array; }
-interface ExportNode extends Rect { id: string; border: string; strokeWidth: number; kind?: TextBlock; title?: TextBlock; body: TextBlock; year?: TextBlock; figures: Figure[]; captions: TextBlock[]; url?: string; group: boolean; }
+interface ExportNode extends Rect { id: string; radius: number; border: string; strokeWidth: number; kind?: TextBlock; title?: TextBlock; body: TextBlock; year?: TextBlock; figures: Figure[]; captions: TextBlock[]; url?: string; group: boolean; }
 interface ExportEdge { id: string; points: Point[]; color: string; strokeWidth: number; dash: string; shape: string; start: boolean; end: boolean; label?: TextBlock; }
 export interface ExportScene { bounds: Rect; nodes: ExportNode[]; edges: ExportEdge[]; background: string; cardBackground: string; }
 const PALETTE: Record<string, string> = { '1': '#c44848', '2': '#bb722f', '3': '#a58c25', '4': '#3e886c', '5': '#388c9d', '6': '#8b6cb2' };
@@ -122,13 +122,15 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
       if (figures.length || bodyBlock.height) cursorY += 10;
       figures.push({ ...data, x: contentX, y: cursorY, width, height });
       cursorY += height;
-      if (typeof figure.caption === 'string' && figure.caption) {
+      const captionText = figureCaption(value);
+      if (captionText) {
         cursorY += 5;
-        const caption = textBlock(figure.caption, contentX, cursorY, width, 10, 14, muted);
+        const caption = textBlock(captionText, contentX, cursorY, width, 10, 14, muted);
         captions.push(caption); cursorY += caption.height;
       }
     }
     return { id: node.id, x: node.x, y: node.y, width: node.width, height: node.height,
+      radius: relation ? CARD_LAYOUT.relationRadius : CARD_LAYOUT.radius,
       border: safeColor(node.color, '#9ab3a3'), strokeWidth: getNodeStrokeWidth(node), kind: kindBlock, title: titleBlock, body: bodyBlock,
       // Legacy fixed-height documents may overflow. Preserve their card/edge
       // geometry, but keep the footer below content and include it in bounds.
@@ -184,8 +186,8 @@ export function exportGraphSvg(document: JSONCanvasDocument, options: GraphExpor
   const scene = buildExportScene(document, options), b = scene.bounds;
   const markers = scene.edges.map((edge, index) => `<marker id="arrow-${index}" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse" markerUnits="userSpaceOnUse">${edge.shape === 'circle' ? `<circle cx="6" cy="6" r="4" fill="${edge.color}"/>` : edge.shape === 'diamond' ? `<path d="M1 6 6 1 11 6 6 11Z" fill="${edge.color}"/>` : `<path d="M1 1 11 6 1 11${edge.shape === 'open' ? '' : 'Z'}" fill="${edge.shape === 'open' ? 'none' : edge.color}" stroke="${edge.color}"/>`}</marker>`).join('');
   const edgeMarkup = scene.edges.map((edge, index) => `<path d="M ${edge.points.map(p => `${p.x} ${p.y}`).join(' L ')}" fill="none" stroke="${edge.color}" stroke-width="${edge.strokeWidth}"${edge.dash ? ` stroke-dasharray="${edge.dash}"` : ''}${edge.start ? ` marker-start="url(#arrow-${index})"` : ''}${edge.end ? ` marker-end="url(#arrow-${index})"` : ''}/>`).join('');
-  const nodeMarkup = scene.nodes.map(node => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${node.kind ? svgText(node.kind) : ''}${node.title ? svgText(node.title) : ''}${svgText(node.body)}${node.figures.map(fig => `<image x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" preserveAspectRatio="xMidYMid meet" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
-  const labels = scene.edges.flatMap(edge => edge.label ? [`<g data-edge-id="${xml(edge.id)}"><rect x="${edge.label.x}" y="${edge.label.y}" width="${edge.label.width}" height="${edge.label.lines.length * 18 + 12}" rx="6" fill="${scene.cardBackground}" stroke="#cad8ce"/>${svgText({ ...edge.label, x: edge.label.x + 10, width: edge.label.width - 20 }, 5)}</g>`] : []).join('');
+  const nodeMarkup = scene.nodes.map(node => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="${node.radius}" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${node.kind ? svgText(node.kind) : ''}${node.title ? svgText(node.title) : ''}${svgText(node.body)}${node.figures.map(fig => `<image x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" preserveAspectRatio="xMidYMid meet" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
+  const labels = scene.edges.flatMap(edge => edge.label ? [`<g data-edge-id="${xml(edge.id)}"><rect x="${edge.label.x}" y="${edge.label.y}" width="${edge.label.width}" height="${edge.label.lines.length * 18 + 12}" rx="${CARD_LAYOUT.labelRadius}" fill="${scene.cardBackground}" stroke="#cad8ce"/>${svgText({ ...edge.label, x: edge.label.x + 10, width: edge.label.width - 20 }, 5)}</g>`] : []).join('');
   return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(b.width)}" height="${Math.ceil(b.height)}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" role="img" aria-label="Paperstream research graph"><defs>${markers}</defs><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="${scene.background}"/><g font-family="Arial, Microsoft YaHei, sans-serif">${edgeMarkup}${nodeMarkup}${labels}</g></svg>`;
 }
 

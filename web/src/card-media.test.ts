@@ -74,7 +74,7 @@ test('raster upload embeds original bytes and records decoded dimensions', async
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
     const figure = await figureFromFile(new File([bytes], '结果.png', { type: 'image/png' }));
     assert.equal(figure.src, image.src);
-    assert.equal(figure.caption, '结果.png');
+    assert.equal(figure.caption, '');
     assert.equal(figure.widthPercent, 100);
     assert.equal(figure.naturalWidth, 800);
     assert.equal(figure.naturalHeight, 400);

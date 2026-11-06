@@ -1,5 +1,7 @@
 /* Shared tokens keep canvas, chrome and floating controls in the same theme. */
 .paperstream-shell, .paperstream-editor {
+  --ps-radius-popover: 18px; --ps-radius-menu: 12px; --ps-radius-control: 9px;
+  --ps-radius-compact: 8px; --ps-radius-inset: 6px;
   --ps-ink: #293d33; --ps-muted: #6c7b72; --ps-body: #5f7065; --ps-line: #dce4dd; --ps-border: var(--ps-line);
   --ps-accent: #3e7054; --ps-accent-ink: #fff; --ps-canvas: #f5f7f3; --ps-surface: #fff;
   --ps-surface-alt: #eef3ed; --ps-field: #fafcf9; --ps-card-line: #b9c9bd;
@@ -16,7 +18,7 @@
 .paperstream-editor button, .paperstream-editor input, .paperstream-editor textarea, .paperstream-editor select { font: inherit; }
 .paperstream-editor button {
   cursor: pointer; border: 1px solid var(--ps-line); background: var(--ps-surface); color: var(--ps-ink);
-  border-radius: 7px; padding: 6px 12px; white-space: nowrap;
+  border-radius: var(--ps-radius-control); padding: 6px 12px; white-space: nowrap;
 }
 .paperstream-editor button:hover { background: var(--ps-surface-alt); border-color: var(--ps-card-line); }
 .paperstream-editor button:disabled { opacity: .45; cursor: default; }
@@ -33,18 +35,18 @@
 .ps-save-state.is-dirty { color: #9d691a; }
 .ps-actions { display: flex; gap: 8px; }
 .ps-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 22px; border-bottom: 1px solid var(--ps-line); }
-.ps-toolbar select { max-width: 220px; border: 1px solid var(--ps-line); background: var(--ps-surface); border-radius: 7px; padding: 7px; color: var(--ps-ink); }
+.ps-toolbar select { max-width: 220px; border: 1px solid var(--ps-line); background: var(--ps-surface); border-radius: var(--ps-radius-control); padding: 7px; color: var(--ps-ink); }
 .ps-divider { height: 22px; border-left: 1px solid var(--ps-line); margin: 0 4px; }
 .ps-count { font-size: 12px; color: var(--ps-muted); margin-left: auto; }
 .ps-workspace { position: relative; flex: 1; display: flex; min-height: 0; }
 .ps-canvas { position: relative; flex: 1; min-width: 0; }
-.ps-inspector { position: absolute; z-index: 20; background: var(--ps-surface); border: 1px solid var(--ps-card-line); border-radius: 12px; padding: 16px; overflow: auto; box-shadow: 0 12px 36px var(--ps-shadow), 0 2px 6px var(--ps-shadow); overscroll-behavior: contain; }
+.ps-inspector { position: absolute; z-index: 20; background: var(--ps-surface); border: 1px solid var(--ps-card-line); border-radius: var(--ps-radius-popover); padding: 16px; overflow: auto; box-shadow: 0 12px 36px var(--ps-shadow), 0 2px 6px var(--ps-shadow); overscroll-behavior: contain; }
 .ps-inspector-heading { font-weight: 650; display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--ps-line); outline: none; }
 .ps-inspector-heading button { border: none; width: 28px; height: 28px; padding: 0; font-size: 20px; line-height: 1; color: var(--ps-muted); }
 .ps-inspector fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .ps-inspector label { display: block; margin-bottom: 12px; color: var(--ps-muted); font-size: 12px; }
 .ps-inspector input, .ps-inspector textarea, .ps-inspector select {
-  display: block; width: 100%; border: 1px solid var(--ps-line); border-radius: 6px; padding: 7px 9px;
+  display: block; width: 100%; border: 1px solid var(--ps-line); border-radius: var(--ps-radius-control); padding: 7px 9px;
   color: var(--ps-ink); background: var(--ps-field); margin-top: 5px; resize: vertical; font-size: 13px;
 }
 .ps-inspector a { color: var(--ps-accent); word-break: break-word; }
@@ -65,11 +67,11 @@
 .ps-choice-options { display: flex; gap: 4px; margin-top: 5px; }
 .ps-inspector label.ps-choice { position: relative; flex: 1; margin: 0; min-width: 0; cursor: pointer; }
 .ps-inspector .ps-choice input { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; border: 0; opacity: 0; }
-.ps-choice > span { display: block; padding: 7px 3px; border: 1px solid var(--ps-line); border-radius: 6px; text-align: center; color: var(--ps-muted); background: var(--ps-field); white-space: nowrap; }
+.ps-choice > span { display: block; padding: 7px 3px; border: 1px solid var(--ps-line); border-radius: var(--ps-radius-control); text-align: center; color: var(--ps-muted); background: var(--ps-field); white-space: nowrap; }
 .ps-choice input:checked + span { color: var(--ps-accent); border-color: var(--ps-focus); background: var(--ps-selected); font-weight: 600; }
 .ps-choice input:focus-visible + span { outline: 2px solid var(--ps-focus); outline-offset: 2px; }
 .ps-choice input:disabled + span { opacity: .45; cursor: default; }
-.ps-card { position: relative; height: 100%; width: 100%; background: var(--ps-surface); border: 1px solid var(--ps-card-line); border-radius: 9px; box-shadow: 0 1px 2px var(--ps-shadow); }
+.ps-card { position: relative; height: 100%; width: 100%; background: var(--ps-surface); border: 1px solid var(--ps-card-line); border-radius: var(--ps-card-radius); box-shadow: 0 1px 2px var(--ps-shadow); }
 .ps-card-content { display: flex; flex-direction: column; gap: var(--ps-card-gap); width: 100%; min-width: 0; padding: var(--ps-card-padding-top) var(--ps-card-padding-x); }
 /* Reserve the footer in natural-height measurement, even though the year is
    anchored to the card. Long text and inline editors cannot cover the year. */
@@ -79,14 +81,14 @@
 .ps-card-title { display: block; font-size: var(--ps-card-title-size); font-weight: 650; line-height: var(--ps-card-title-line); letter-spacing: -.2px; overflow-wrap: anywhere; }
 .ps-card-takeaway { font-size: var(--ps-card-body-size); color: var(--ps-body); line-height: var(--ps-card-body-line); margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .ps-card-takeaway:empty { display: none; }
-.ps-editable-text { display: block; border-radius: 3px; cursor: text; }
+.ps-editable-text { display: block; border-radius: var(--ps-radius-inset); cursor: text; }
 .ps-editable-text:hover { background: var(--ps-surface-alt); }
 .ps-editable-text:focus-visible { outline: 2px solid var(--ps-focus); outline-offset: 3px; }
 .paperstream-editor button.ps-card-settings { position: absolute; top: 10px; right: 10px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 4px; border-color: transparent; background: transparent; color: var(--ps-muted); opacity: .65; }
 .paperstream-editor button.ps-card-settings:hover, .paperstream-editor button.ps-card-settings:focus-visible { opacity: 1; background: var(--ps-surface-alt); border-color: var(--ps-line); }
 .ps-card-settings svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; }
 .ps-inline-editor { min-width: 0; text-align: left; white-space: normal; }
-.ps-inline-editor textarea { display: block; width: 100%; min-height: 28px; padding: 3px 5px; resize: none; overflow: hidden; border: 1px solid var(--ps-focus); border-radius: 4px; color: inherit; background: var(--ps-field); line-height: inherit; font-size: inherit; font-weight: inherit; }
+.ps-inline-editor textarea { display: block; width: 100%; min-height: 28px; padding: 3px 5px; resize: none; overflow: hidden; border: 1px solid var(--ps-focus); border-radius: var(--ps-radius-inset); color: inherit; background: var(--ps-field); line-height: inherit; font-size: inherit; font-weight: inherit; }
 .ps-inline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding-top: 5px; font-size: 10px; line-height: 1.4; font-weight: 400; color: var(--ps-muted); }
 .ps-inline-actions span { flex: 1; }
 .paperstream-editor .ps-inline-actions button { padding: 1px 6px; font-size: 13px; line-height: 1.3; }
@@ -97,7 +99,7 @@
 .paperstream-editor .react-flow__edge-textbg { fill: var(--ps-canvas); }
 .paperstream-editor .ps-relation-label {
   position: absolute; pointer-events: all; width: max-content; max-width: 240px; min-width: 0;
-  padding: 5px 9px; border: 1px solid var(--ps-card-line); border-radius: 6px;
+  padding: 5px 9px; border: 1px solid var(--ps-card-line); border-radius: var(--ps-label-radius);
   color: var(--ps-ink); background: var(--ps-surface); box-shadow: 0 1px 3px var(--ps-shadow);
   font-size: 12px; line-height: 1.5; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere;
 }
@@ -111,8 +113,8 @@
 .ps-empty > span { font-size: 24px; font-weight: 600; }
 .ps-empty p { color: var(--ps-muted); margin: 12px 0 24px; }
 .ps-empty button { pointer-events: auto; }
-.ps-view-note { position: absolute; top: 12px; left: 14px; background: var(--ps-surface); border: 1px solid var(--ps-line); border-radius: 6px; padding: 5px 10px; font-size: 12px; color: var(--ps-muted); pointer-events: none; }
-.ps-edit-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: calc(100% - 110px); padding: 5px 10px; border-radius: 6px; background: var(--ps-canvas); color: var(--ps-muted); font-size: 11px; text-align: center; pointer-events: none; }
+.ps-view-note { position: absolute; top: 12px; left: 14px; background: var(--ps-surface); border: 1px solid var(--ps-line); border-radius: var(--ps-radius-control); padding: 5px 10px; font-size: 12px; color: var(--ps-muted); pointer-events: none; }
+.ps-edit-hint { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); max-width: calc(100% - 110px); padding: 5px 10px; border-radius: var(--ps-radius-control); background: var(--ps-canvas); color: var(--ps-muted); font-size: 11px; text-align: center; pointer-events: none; }
 .ps-status { padding: 8px 16px; border-top: 1px solid var(--ps-line); background: var(--ps-surface); color: var(--ps-muted); display: flex; align-items: center; gap: 12px; justify-content: space-between; font-size: 12px; }
 .ps-status.has-error { color: var(--ps-error); background: var(--ps-error-bg); }
 .ps-status button { font-size: 11px; padding: 3px 8px; }
@@ -126,7 +128,7 @@
 .ps-tabs { display: flex; align-items: stretch; flex: 1; min-width: 0; overflow: auto; scrollbar-width: thin; }
 .ps-tab { display: flex; align-items: center; min-width: 100px; max-width: 240px; border-bottom: 2px solid transparent; color: var(--ps-muted); }
 .ps-tab.is-active { border-bottom-color: var(--ps-accent); color: var(--ps-ink); }
-.ps-tab button, .ps-add-tab { border: 0; color: inherit; background: transparent; padding: 10px 7px; font: inherit; cursor: pointer; }
+.ps-tab button, .ps-add-tab { border: 0; border-radius: var(--ps-radius-compact); color: inherit; background: transparent; padding: 10px 7px; font: inherit; cursor: pointer; }
 .ps-tab [role=tab] { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ps-tab-close { opacity: .55; flex: none; }
 .ps-add-tab { padding-inline: 12px; }
@@ -134,24 +136,25 @@
 .ps-tab-panel { flex: 1; min-height: 0; flex-direction: column; }
 .ps-tab-panel .paperstream-editor { min-height: 0; }
 .ps-header.ps-compact-header { position: absolute; top: 0; right: 8px; padding: 0; height: 42px; background: transparent; border: 0; z-index: 35; }
-.ps-file-menu > summary { font-size: 23px; line-height: 34px; list-style: none; padding: 0 8px; cursor: pointer; }
+.ps-file-menu > summary { border-radius: var(--ps-radius-compact); font-size: 23px; line-height: 34px; list-style: none; padding: 0 8px; cursor: pointer; }
 .ps-file-menu > summary::-webkit-details-marker, .ps-insert-menu > summary::-webkit-details-marker { display: none; }
-.ps-menu-items { position: absolute; z-index: 40; min-width: 160px; padding: 6px; border: 1px solid var(--ps-line); border-radius: 9px; background: var(--ps-surface, #fff); box-shadow: 0 8px 28px var(--ps-shadow); }
+.ps-menu-items { position: absolute; z-index: 40; min-width: 160px; padding: 6px; border: 1px solid var(--ps-line); border-radius: var(--ps-radius-menu); background: var(--ps-surface, #fff); box-shadow: 0 8px 28px var(--ps-shadow); }
 .ps-file-menu .ps-menu-items { right: 0; top: 38px; }
 .ps-menu-items button { display: block; width: 100%; border: 0; text-align: left; }
 .ps-status { min-height: 38px; padding: 4px 12px; gap: 10px; flex-wrap: wrap; background: var(--ps-surface, #fff); }
 .ps-status-tools { color: var(--ps-ink); display: flex; align-items: center; gap: 3px; flex-wrap: wrap; min-width: 0; }
-.ps-status-tools button, .ps-insert-menu > summary { font-size: 12px; min-height: 28px; padding: 4px 8px; border-color: transparent; background: transparent; border-radius: 5px; cursor: pointer; list-style: none; }
+.ps-status-tools button, .ps-insert-menu > summary { font-size: 12px; min-height: 28px; padding: 4px 8px; border-color: transparent; background: transparent; border-radius: var(--ps-radius-compact); cursor: pointer; list-style: none; }
 .ps-insert-menu { position: relative; }
 .ps-insert-menu .ps-menu-items { bottom: 30px; left: 0; }
-.ps-search { width: 116px; height: 28px; border: 1px solid var(--ps-line); border-radius: 5px; padding: 4px 8px; font: inherit; font-size: 11px; background: transparent; color: inherit; }
+.ps-search { width: 116px; height: 28px; border: 1px solid var(--ps-line); border-radius: var(--ps-radius-compact); padding: 4px 8px; font: inherit; font-size: 11px; background: transparent; color: inherit; }
+.ps-card.ps-shared-relation { border-radius: var(--ps-relation-radius); }
 .ps-shared-relation .ps-card-kind, .ps-shared-relation .ps-card-title { display: none; }
 .ps-shared-relation .ps-card-content { padding: var(--ps-card-relation-top) var(--ps-card-padding-x); }
 .ps-shared-relation .ps-card-takeaway { padding-right: var(--ps-shared-action-reserve, 26px); text-align: center; font-weight: 550; }
 .ps-theme-warning { color: #a56e31; font-size: 10px; }
 .ps-status-notice { margin-left: auto; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .ps-wheel-hint { opacity: .65; font-size: 10px; }
-.ps-create-menu { position: absolute; z-index: 25; padding: 5px; width: 160px; border-radius: 8px; border: 1px solid var(--ps-line); background: var(--ps-surface, white); box-shadow: 0 8px 24px var(--ps-shadow); }
+.ps-create-menu { position: absolute; z-index: 25; padding: 5px; width: 160px; border-radius: var(--ps-radius-menu); border: 1px solid var(--ps-line); background: var(--ps-surface, white); box-shadow: 0 8px 24px var(--ps-shadow); }
 .ps-create-menu button { display: block; width: 100%; border: 0; text-align: left; }
 /* Themes change semantic surfaces together, including radios and menus. */
 .paperstream-shell[data-theme=paper], .paperstream-shell[data-theme=paper] .paperstream-editor {
@@ -168,8 +171,8 @@
 }
 .ps-tab button:hover, .ps-add-tab:hover, .ps-theme:hover { background: var(--ps-surface-alt); color: var(--ps-ink); }
 .ps-tab button:focus-visible, .ps-add-tab:focus-visible, .ps-theme:focus-visible,
-.ps-file-menu > summary:focus-visible, .ps-insert-menu > summary:focus-visible { outline: 2px solid var(--ps-focus); outline-offset: -2px; border-radius: 4px; }
-.ps-theme { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border-radius: 5px; font-size: 18px; cursor: pointer; }
+.ps-file-menu > summary:focus-visible, .ps-insert-menu > summary:focus-visible { outline: 2px solid var(--ps-focus); outline-offset: -2px; border-radius: var(--ps-radius-compact); }
+.ps-theme { display: grid; place-items: center; flex: none; width: 28px; height: 28px; padding: 0; border-radius: var(--ps-radius-compact); font-size: 18px; cursor: pointer; }
 .ps-tab [role=tab] { min-width: 0; }
 .ps-tab-close:hover { opacity: 1; }
 .ps-tabs-header > strong { flex: none; letter-spacing: -.25px; }
@@ -191,7 +194,7 @@
 .paperstream-editor .react-flow__resize-control.handle { width: 7px; height: 7px; background: var(--ps-surface); border: 1.5px solid var(--ps-accent); border-radius: 2px; }
 .paperstream-editor .react-flow__resize-control.handle:hover { background: var(--ps-selected); }
 
-.paperstream-editor .react-flow__controls { border: 1px solid var(--ps-line); border-radius: 7px; overflow: hidden; box-shadow: 0 2px 6px var(--ps-shadow); }
+.paperstream-editor .react-flow__controls { border: 1px solid var(--ps-line); border-radius: var(--ps-radius-control); overflow: hidden; box-shadow: 0 2px 6px var(--ps-shadow); }
 .paperstream-editor .react-flow__controls-button { border: 0; border-bottom: 1px solid var(--ps-line); border-radius: 0; width: 29px; height: 29px; }
 .paperstream-editor .react-flow__controls-button:last-child { border-bottom: 0; }
 .paperstream-editor .react-flow__controls-button:hover { background: var(--ps-surface-alt); }

@@ -14,6 +14,13 @@ export interface CardFigure {
 export const MAX_FIGURE_BYTES = 8 * 1024 * 1024;
 const DATA_IMAGE = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
 
+/** Older imports used the source filename as a caption. Hide that visual noise
+ * without rewriting the stored document or discarding an authored description. */
+export function figureCaption(figure: Pick<CardFigure, 'caption'>): string {
+  const text = figure.caption.trim();
+  return /^[^\r\n]+\.(?:png|jpe?g|webp)$/i.test(text) ? '' : figure.caption;
+}
+
 function object(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -104,7 +111,7 @@ export async function figureFromFile(file: File): Promise<CardFigure> {
     naturalWidth = bitmap.width; naturalHeight = bitmap.height; bitmap.close();
   } catch { throw new CanvasError('图片无法解码，请使用有效的 PNG、JPEG 或 WebP。'); }
   return { id: crypto.randomUUID().replaceAll('-', ''), src,
-    caption: file.name, widthPercent: 100, naturalWidth, naturalHeight };
+    caption: '', widthPercent: 100, naturalWidth, naturalHeight };
 }
 
 export type TakeawayBlock = { type: 'paragraph'; text: string } | { type: 'list'; items: string[] };
