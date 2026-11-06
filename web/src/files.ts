@@ -1,6 +1,8 @@
 /** Browser file access. The editor never silently overwrites an external edit. */
 export interface LocalFileHandle {
   name: string;
+  queryPermission?(options: { mode: 'readwrite' }): Promise<PermissionState>;
+  requestPermission?(options: { mode: 'readwrite' }): Promise<PermissionState>;
   getFile(): Promise<{ text(): Promise<string> }>;
   createWritable(options?: { mode?: 'exclusive' }): Promise<{
     write(text: string): Promise<void>;
