@@ -2,7 +2,8 @@
 import { readPaper, serializeCanvas } from './canvas.ts';
 import type { CanvasEdge, CanvasNode, JSONCanvasDocument } from './canvas.ts';
 import { getNodeStrokeWidth, getEdgeStrokeWidth } from './appearance.ts';
-import { readFigures } from './card-media.ts';
+import { getCardKind, MAX_FIGURE_BYTES, readFigures } from './card-media.ts';
+import { isRelationNode } from './graph-relations.ts';
 import { getContentBounds, layoutEdgeLabels } from './edge-label-layout.ts';
 import type { Point, Rect } from './edge-label-layout.ts';
 import { presentationDocuments } from './presentation-pages.ts';
@@ -18,9 +19,9 @@ export interface GraphExportOptions {
   /** PNG rasterization density; bounded to avoid accidental huge allocations. */
   scale?: number;
 }
-interface TextBlock { x: number; y: number; width: number; lines: string[]; fontSize: number; bold?: boolean; color: string; }
+interface TextBlock extends Rect { lines: string[]; fontSize: number; lineHeight: number; bold?: boolean; align?: 'center' | 'right'; color: string; }
 interface Figure { x: number; y: number; width: number; height: number; src: string; mime: string; bytes: Uint8Array; }
-interface ExportNode extends Rect { id: string; border: string; strokeWidth: number; title: TextBlock; body: TextBlock; year?: TextBlock; figures: Figure[]; captions: TextBlock[]; url?: string; group: boolean; }
+interface ExportNode extends Rect { id: string; border: string; strokeWidth: number; kind?: TextBlock; title?: TextBlock; body: TextBlock; year?: TextBlock; figures: Figure[]; captions: TextBlock[]; url?: string; group: boolean; }
 interface ExportEdge { id: string; points: Point[]; color: string; strokeWidth: number; dash: string; shape: string; start: boolean; end: boolean; label?: TextBlock; }
 export interface ExportScene { bounds: Rect; nodes: ExportNode[]; edges: ExportEdge[]; background: string; cardBackground: string; }
 const PALETTE: Record<string, string> = { '1': '#c44848', '2': '#bb722f', '3': '#a58c25', '4': '#3e886c', '5': '#388c9d', '6': '#8b6cb2' };
@@ -33,7 +34,17 @@ function safeColor(value: unknown, fallback: string): string {
   return /^#[\da-f]{6}$/i.test(color) ? color : fallback;
 }
 function measureText(text: string, size: number): number {
-  return [...text].reduce((sum, char) => sum + (/[^\u0000-\u00ff]/u.test(char) ? size : /[ il.,:;'!|]/.test(char) ? size * .3 : size * .56), 0);
+  return [...text].reduce((sum, char) => sum + (/[^\u0000-\u00ff]/u.test(char) ? size : /[ il.,:;'!|]/.test(char) ? size * .3 : /[MW@%]/.test(char) ? size : /[A-Z]/.test(char) ? size * .75 : size * .56), 0);
+}
+/** Shared line boxes keep SVG, DrawingML and scene bounds in the same units. */
+function textBlock(text: string, x: number, y: number, width: number, fontSize: number, lineHeight: number, color: string): TextBlock {
+  const lines = text ? wrapExportText(text, width, fontSize) : [];
+  return { x, y, width: Math.max(width, ...lines.map(line => measureText(line, fontSize))),
+    height: lines.length * lineHeight, lines, fontSize, lineHeight, color };
+}
+function nodeContentRects(node: ExportNode): Rect[] {
+  return [node.kind, node.title, node.body, ...node.figures, ...node.captions, node.year]
+    .filter((block): block is TextBlock | Figure => Boolean(block && block.height > 0));
 }
 /** Wrap CJK by character, but keep fitting ASCII words and numbers together. */
 export function wrapExportText(text: string, width: number, size: number): string[] {
@@ -81,35 +92,45 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
   serializeCanvas(document);
   const ink = safeColor(options.foreground, '#263d34'), muted = safeColor(options.muted, '#617369');
   const nodes: ExportNode[] = document.nodes.map((node: CanvasNode) => {
-    const paper = readPaper(node), meta = record(node.paperstreamCard);
-    const heading = paper?.alias ?? (typeof meta.title === 'string' ? meta.title : node.label ?? node.file ?? node.url ?? (meta.kind === 'relation' ? '关系' : 'Note'));
-    const body = paper?.takeaway ?? node.text ?? '';
-    const contentWidth = Math.max(40, node.width - 40);
-    const titleLines = wrapExportText(heading, contentWidth, 19);
-    const bodyLines = wrapExportText(body, contentWidth, 13);
-    const titleBlock: TextBlock = { x: node.x + 20, y: node.y + 24, width: contentWidth, lines: titleLines, fontSize: 19, bold: true, color: ink };
-    const bodyBlock: TextBlock = { x: node.x + 20, y: titleBlock.y + titleLines.length * 25 + 9, width: contentWidth, lines: bodyLines, fontSize: 13, color: muted };
-    let cursorY = bodyBlock.y + bodyLines.length * 21 + 10;
+    const paper = readPaper(node), kind = getCardKind(node, Boolean(paper)), relation = isRelationNode(node);
+    const heading = paper?.alias ?? node.label ?? node.file ?? node.url ?? (kind === 'page' ? '插页' : 'Note');
+    const body = paper?.takeaway ?? (node.type === 'text' ? node.text ?? '' : '');
+    const inset = relation ? 18 : 20, contentX = node.x + inset, contentWidth = Math.max(1, node.width - inset * 2);
+    let cursorY = node.y + (relation ? 12 : 18);
+    const kindLabel = node.type === 'group' ? '分组' : node.type === 'file' ? '文件' : node.type === 'link' ? '链接'
+      : kind === 'page' ? '插页' : 'NOTE';
+    const kindBlock = !relation && kind !== 'paper' ? textBlock(kindLabel, contentX, cursorY, contentWidth, 10, 15, muted) : undefined;
+    if (kindBlock) cursorY += kindBlock.height + 10;
+    const titleBlock = relation ? undefined : { ...textBlock(heading, contentX, cursorY, contentWidth, 19, 24.7, ink), bold: true };
+    if (titleBlock?.height) cursorY += titleBlock.height + 10;
+    const bodyBlock = textBlock(body, contentX, cursorY, contentWidth, 13, 21.45, muted);
+    if (relation) { bodyBlock.align = 'center'; bodyBlock.bold = true; }
+    cursorY += bodyBlock.height;
     const figures: Figure[] = [], captions: TextBlock[] = [];
     for (const value of readFigures(node)) {
       const figure = record(value), data = figureData(figure.src);
       if (!data) continue;
       const percent = Math.min(100, Math.max(15, finite(figure.widthPercent, 100)));
       const width = contentWidth * percent / 100;
-      const aspect = finite(figure.aspectRatio, finite(figure.naturalWidth, finite(figure.width, 4)) / finite(figure.naturalHeight, finite(figure.height, 3)));
+      const aspect = finite(figure.naturalWidth, 4) / finite(figure.naturalHeight, 3);
       const height = width / aspect;
-      figures.push({ ...data, x: node.x + 20 + (figure.inset ? contentWidth - width : 0), y: cursorY, width, height });
-      cursorY += height + 8;
+      // Figures and captions share a left-aligned column, as in CardBody.
+      if (figures.length || bodyBlock.height) cursorY += 10;
+      figures.push({ ...data, x: contentX, y: cursorY, width, height });
+      cursorY += height;
       if (typeof figure.caption === 'string' && figure.caption) {
-        const lines = wrapExportText(figure.caption, contentWidth, 11);
-        captions.push({ x: node.x + 20, y: cursorY, width: contentWidth, lines, fontSize: 11, color: muted });
-        cursorY += lines.length * 16 + 8;
+        cursorY += 5;
+        const caption = textBlock(figure.caption, contentX, cursorY, width, 10, 14, muted);
+        captions.push(caption); cursorY += caption.height;
       }
     }
     const url = paper?.url ?? node.url;
     return { id: node.id, x: node.x, y: node.y, width: node.width, height: node.height,
-      border: safeColor(node.color, '#9ab3a3'), strokeWidth: getNodeStrokeWidth(node), title: titleBlock, body: bodyBlock,
-      year: paper?.year ? { x: node.x + node.width - 62, y: node.y + node.height - 31, width: 42, lines: [String(paper.year)], fontSize: 11, color: muted } : undefined,
+      border: safeColor(node.color, '#9ab3a3'), strokeWidth: getNodeStrokeWidth(node), kind: kindBlock, title: titleBlock, body: bodyBlock,
+      // Legacy fixed-height documents may overflow. Preserve their card/edge
+      // geometry, but keep the footer below content and include it in bounds.
+      year: paper?.year ? { ...textBlock(String(paper.year), node.x + node.width - 62,
+        Math.max(node.y + node.height - 35, cursorY + 10), 42, 11, 17, muted), align: 'right' } : undefined,
       figures, captions, url: typeof url === 'string' && /^https?:\/\//i.test(url) ? url : undefined, group: node.type === 'group' };
   });
   const nodeMap = new Map(nodes.map(node => [node.id, node]));
@@ -123,7 +144,7 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
       dash: style.lineStyle === 'dashed' ? '7 5' : style.lineStyle === 'dotted' ? '2 4' : '',
       shape: typeof style.arrowShape === 'string' ? style.arrowShape : 'triangle', start: edge.fromEnd === 'arrow', end: edge.toEnd !== 'none',
       label: lines.length ? { x: 0, y: 0, width: Math.max(...lines.map(line => measureText(line, 12)), 8) + 20,
-        lines, fontSize: 12, color: ink } : undefined };
+        height: lines.length * 18, lines, fontSize: 12, lineHeight: 18, color: ink } : undefined };
   });
   const manual = new Map(document.edges.flatMap(edge => {
     const position = readEdgeRouting(edge).labelPosition;
@@ -134,27 +155,34 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
     width: edge.label.width, height: edge.label.lines.length * 18 + 12,
   }] : []);
   const placements = layoutEdgeLabels(edges.flatMap(edge => edge.label && !manual.has(edge.id) ? [{ id: edge.id, width: edge.label.width,
-    height: edge.label.lines.length * 18 + 12, anchor: { x: (edge.points[0].x + edge.points.at(-1)!.x) / 2, y: (edge.points[0].y + edge.points.at(-1)!.y) / 2 }, pathPoints: edge.points }] : []), [...nodes, ...manualObstacles]);
+    height: edge.label.lines.length * 18 + 12, anchor: { x: (edge.points[0].x + edge.points.at(-1)!.x) / 2, y: (edge.points[0].y + edge.points.at(-1)!.y) / 2 }, pathPoints: edge.points }] : []), [...nodes, ...nodes.flatMap(nodeContentRects), ...manualObstacles]);
   for (const edge of edges) if (edge.label) {
     const center = manual.get(edge.id) ?? placements.get(edge.id)!;
     edge.label.x = center.x - edge.label.width / 2;
     edge.label.y = center.y - (edge.label.lines.length * 18 + 12) / 2;
   }
-  const content = getContentBounds([...nodes, ...edges.flatMap(edge => edge.label ? [{ x: edge.label.x, y: edge.label.y, width: edge.label.width, height: edge.label.lines.length * 18 + 12 }] : []), ...edges.flatMap(edge => edge.points.map(point => ({ ...point, width: 1, height: 1 })))]) ?? { x: 0, y: 0, width: 800, height: 450 };
+  const content = getContentBounds([...nodes.map(node => ({ x: node.x - node.strokeWidth / 2, y: node.y - node.strokeWidth / 2,
+    width: node.width + node.strokeWidth, height: node.height + node.strokeWidth })), ...nodes.flatMap(nodeContentRects),
+    ...edges.flatMap(edge => edge.label ? [{ x: edge.label.x - .5, y: edge.label.y - .5, width: edge.label.width + 1, height: edge.label.height + 13 }] : []),
+    ...edges.flatMap(edge => edge.points.map(point => {
+      const inset = Math.max(edge.strokeWidth / 2, edge.start || edge.end ? 9 : 0);
+      return { x: point.x - inset, y: point.y - inset, width: inset * 2, height: inset * 2 };
+    }))]) ?? { x: 0, y: 0, width: 800, height: 450 };
   const padding = Math.min(200, Math.max(0, options.padding ?? 32));
   return { bounds: { x: content.x - padding, y: content.y - padding, width: content.width + padding * 2, height: content.height + padding * 2 }, nodes, edges,
     background: safeColor(options.background, '#f6f8f4'), cardBackground: safeColor(options.cardBackground, '#ffffff') };
 }
 function svgText(block: TextBlock, offsetY = 0): string {
-  const lineHeight = block.fontSize === 19 ? 25 : block.fontSize === 13 ? 21 : block.fontSize === 12 ? 18 : 16;
-  return `<text x="${block.x}" y="${block.y + block.fontSize + offsetY}" fill="${block.color}" font-size="${block.fontSize}"${block.bold ? ' font-weight="700"' : ''}>${block.lines.map((line, index) => `<tspan x="${block.x}" dy="${index ? lineHeight : 0}">${xml(line)}</tspan>`).join('')}</text>`;
+  if (!block.lines.length) return '';
+  const x = block.x + (block.align === 'center' ? block.width / 2 : block.align === 'right' ? block.width : 0);
+  return `<text x="${x}" y="${block.y + block.fontSize + offsetY}" fill="${block.color}" font-size="${block.fontSize}" xml:space="preserve"${block.align ? ` text-anchor="${block.align === 'center' ? 'middle' : 'end'}"` : ''}${block.bold ? ' font-weight="700"' : ''}>${block.lines.map((line, index) => `<tspan x="${x}" dy="${index ? block.lineHeight : 0}">${xml(line)}</tspan>`).join('')}</text>`;
 }
 export function exportGraphSvg(document: JSONCanvasDocument, options: GraphExportOptions = {}): string {
   const scene = buildExportScene(document, options), b = scene.bounds;
   const markers = scene.edges.map((edge, index) => `<marker id="arrow-${index}" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse" markerUnits="userSpaceOnUse">${edge.shape === 'circle' ? `<circle cx="6" cy="6" r="4" fill="${edge.color}"/>` : edge.shape === 'diamond' ? `<path d="M1 6 6 1 11 6 6 11Z" fill="${edge.color}"/>` : `<path d="M1 1 11 6 1 11${edge.shape === 'open' ? '' : 'Z'}" fill="${edge.shape === 'open' ? 'none' : edge.color}" stroke="${edge.color}"/>`}</marker>`).join('');
   const edgeMarkup = scene.edges.map((edge, index) => `<path d="M ${edge.points.map(p => `${p.x} ${p.y}`).join(' L ')}" fill="none" stroke="${edge.color}" stroke-width="${edge.strokeWidth}"${edge.dash ? ` stroke-dasharray="${edge.dash}"` : ''}${edge.start ? ` marker-start="url(#arrow-${index})"` : ''}${edge.end ? ` marker-end="url(#arrow-${index})"` : ''}/>`).join('');
-  const nodeMarkup = scene.nodes.map(node => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${svgText(node.title)}${svgText(node.body)}${node.figures.map(fig => `<image x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" preserveAspectRatio="xMidYMid meet" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
-  const labels = scene.edges.flatMap(edge => edge.label ? [`<g data-edge-id="${xml(edge.id)}"><rect x="${edge.label.x}" y="${edge.label.y}" width="${edge.label.width}" height="${edge.label.lines.length * 18 + 12}" rx="6" fill="${scene.cardBackground}" stroke="#cad8ce"/>${svgText({ ...edge.label, x: edge.label.x + 10 }, 5)}</g>`] : []).join('');
+  const nodeMarkup = scene.nodes.map(node => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="10" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${node.kind ? svgText(node.kind) : ''}${node.title ? svgText(node.title) : ''}${svgText(node.body)}${node.figures.map(fig => `<image x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" preserveAspectRatio="xMidYMid meet" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
+  const labels = scene.edges.flatMap(edge => edge.label ? [`<g data-edge-id="${xml(edge.id)}"><rect x="${edge.label.x}" y="${edge.label.y}" width="${edge.label.width}" height="${edge.label.lines.length * 18 + 12}" rx="6" fill="${scene.cardBackground}" stroke="#cad8ce"/>${svgText({ ...edge.label, x: edge.label.x + 10, width: edge.label.width - 20 }, 5)}</g>`] : []).join('');
   return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(b.width)}" height="${Math.ceil(b.height)}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" role="img" aria-label="Paperstream research graph"><defs>${markers}</defs><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="${scene.background}"/><g font-family="Arial, Microsoft YaHei, sans-serif">${edgeMarkup}${nodeMarkup}${labels}</g></svg>`;
 }
 
@@ -196,11 +224,13 @@ function singleSlideEntries(document: JSONCanvasDocument, options: GraphExportOp
   const files: Array<{ name: string; bytes: Uint8Array }> = [];
   let shapeId = 1, mediaId = 0;
   const textShape = (block: TextBlock, name: string, url?: string) => {
+    if (!block.lines.length) return '';
     const id = ++shapeId, relationId = url ? `rId${relationships.length + 1}` : undefined;
     if (url) relationships.push([relationId!, 'hyperlink', url]);
     // DrawingML font sizes are 1/100pt. Graph units scale to EMU, then to pt.
-    const fontSize = Math.max(100, Math.round(block.fontSize * scale / 12700 * 100));
-    return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${xml(name)}"${url ? `><a:hlinkClick r:id="${relationId}"/></p:cNvPr>` : '/>'}<p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr>${transform({ x: block.x, y: block.y, width: block.width, height: block.lines.length * (block.fontSize === 19 ? 25 : block.fontSize === 13 ? 21 : 18) + 3 })}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="none" lIns="0" rIns="0" tIns="0" bIns="0"/><a:lstStyle/>${block.lines.map(line => `<a:p><a:pPr marL="0" marR="0"><a:lnSpc><a:spcPct val="110000"/></a:lnSpc></a:pPr><a:r><a:rPr lang="zh-CN" sz="${fontSize}"${block.bold ? ' b="1"' : ''}><a:solidFill><a:srgbClr val="${rgb(block.color)}"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Microsoft YaHei"/></a:rPr><a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr lang="zh-CN" sz="${fontSize}"/></a:p>`).join('')}</p:txBody></p:sp>`;
+    const fontSize = Math.max(1, Math.round(block.fontSize * scale / 12700 * 100));
+    const lineSpacing = Math.max(1, Math.round(block.lineHeight * scale / 12700 * 100));
+    return `<p:sp><p:nvSpPr><p:cNvPr id="${id}" name="${xml(name)}"${url ? `><a:hlinkClick r:id="${relationId}"/></p:cNvPr>` : '/>'}<p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr>${transform(block)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:noFill/></a:ln></p:spPr><p:txBody><a:bodyPr wrap="none" lIns="0" rIns="0" tIns="0" bIns="0"/><a:lstStyle/>${block.lines.map(line => `<a:p><a:pPr marL="0" marR="0" algn="${block.align === 'center' ? 'ctr' : block.align === 'right' ? 'r' : 'l'}"><a:lnSpc><a:spcPts val="${lineSpacing}"/></a:lnSpc><a:spcBef><a:spcPts val="0"/></a:spcBef><a:spcAft><a:spcPts val="0"/></a:spcAft></a:pPr><a:r><a:rPr lang="zh-CN" sz="${fontSize}"${block.bold ? ' b="1"' : ''}><a:solidFill><a:srgbClr val="${rgb(block.color)}"/></a:solidFill><a:latin typeface="Arial"/><a:ea typeface="Microsoft YaHei"/></a:rPr><a:t xml:space="preserve">${xml(line)}</a:t></a:r><a:endParaRPr lang="zh-CN" sz="${fontSize}"/></a:p>`).join('')}</p:txBody></p:sp>`;
   };
   const nodeIds = new Map<string, number>();
   // Card backgrounds come first, edges behind textual content but remain editable.
@@ -226,9 +256,9 @@ function singleSlideEntries(document: JSONCanvasDocument, options: GraphExportOp
       files.push({ name: `ppt/media/${name}`, bytes: figure.bytes }); relationships.push([rid, 'image', `../media/${name}`]);
       return `<p:pic><p:nvPicPr><p:cNvPr id="${id}" name="Figure ${mediaId}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="${rid}"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr>${transform(figure)}<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr></p:pic>`;
     }).join('');
-    return textShape(node.title, `Title ${node.id}`, node.url) + textShape(node.body, `Takeaway ${node.id}`) + images + node.captions.map((caption, i) => textShape(caption, `Caption ${node.id} ${i}`)).join('') + (node.year ? textShape(node.year, `Year ${node.id}`) : '');
+    return (node.kind ? textShape(node.kind, `Kind ${node.id}`) : '') + (node.title ? textShape(node.title, `Title ${node.id}`, node.url) : '') + textShape(node.body, `Takeaway ${node.id}`) + images + node.captions.map((caption, i) => textShape(caption, `Caption ${node.id} ${i}`)).join('') + (node.year ? textShape(node.year, `Year ${node.id}`) : '');
   }).join('');
-  const labels = scene.edges.map(edge => edge.label ? textShape({ ...edge.label, x: edge.label.x + 10, y: edge.label.y + 6 }, `Relation ${edge.id}`) : '').join('');
+  const labels = scene.edges.map(edge => edge.label ? textShape({ ...edge.label, x: edge.label.x + 10, y: edge.label.y + 6, width: edge.label.width - 20 }, `Relation ${edge.id}`) : '').join('');
   const slide = xmlDoc(`<p:sld xmlns:a="${NS_A}" xmlns:r="${NS_R}" xmlns:p="${NS_P}"><p:cSld name="Paperstream graph"><p:bg><p:bgPr><a:solidFill><a:srgbClr val="${rgb(scene.background)}"/></a:solidFill><a:effectLst/></p:bgPr></p:bg><p:spTree>${groupShape}${connections}${cards}${contents}${labels}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`);
   const xmlEntries: Array<[string, string]> = [
     ['[Content_Types].xml', xmlDoc('<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Default Extension="jpg" ContentType="image/jpeg"/><Default Extension="webp" ContentType="image/webp"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/><Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/><Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/><Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/><Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/></Types>')],
@@ -273,6 +303,12 @@ export function downloadBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob), link = globalThis.document.createElement('a');
   link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+/** A converted PNG must remain acceptable to readFigures, or it would silently
+ * disappear from the slide. Keep this check independent of browser allocation. */
+export function validatePresentationImageSize(byteLength: number): void {
+  if (!Number.isSafeInteger(byteLength) || byteLength <= 0) throw new Error('PowerPoint 图片转换失败：PNG 数据为空或无效。');
+  if (byteLength > MAX_FIGURE_BYTES) throw new Error('WebP 转换后的 PNG 超过 8 MB，无法导出 PowerPoint；请缩小图片后重试。');
+}
 /** Older PowerPoint versions cannot display WebP. Browser downloads normalize
  * those embedded figures to PNG while keeping the original Canvas untouched. */
 async function presentationImages(document: JSONCanvasDocument): Promise<JSONCanvasDocument> {
@@ -288,7 +324,11 @@ async function presentationImages(document: JSONCanvasDocument): Promise<JSONCan
       const canvas = globalThis.document.createElement('canvas'); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
       const context = canvas.getContext('2d'); if (!context) throw new Error('浏览器无法转换 PowerPoint 图片。');
       context.drawImage(image, 0, 0); changed = true;
-      return { ...figure, src: canvas.toDataURL('image/png') };
+      const src = canvas.toDataURL('image/png'), prefix = 'data:image/png;base64,';
+      if (!src.startsWith(prefix)) throw new Error('PowerPoint 图片转换失败：浏览器未生成 PNG。');
+      const encodedLength = src.length - prefix.length;
+      validatePresentationImageSize(encodedLength / 4 * 3 - (src.endsWith('==') ? 2 : src.endsWith('=') ? 1 : 0));
+      return { ...figure, src, naturalWidth: image.naturalWidth, naturalHeight: image.naturalHeight };
     }));
     return changed ? { ...node, paperstreamCard: { ...meta, figures } } : node;
   }));
