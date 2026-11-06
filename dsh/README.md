@@ -65,7 +65,19 @@ Desktop 与 npm CLI 的安装空间不同；不要假定装进 npm 的 `web` pro
 - 浏览器草稿是临时恢复手段，不能替代 `.canvas` 文件。关闭浏览器、清理站点数据或跨设备使用前先保存文件。
 - DSH 主面板切换可能卸载组件。本插件没有伪造宿主的“取消离开”接口；编辑器负责草稿恢复与页面关闭提示。禁用或升级插件前先保存。
 
-当前只提供人工编辑界面。自动化仍通过项目的文件 API 维护图；这个浏览器插件没有额外注册模型工具或 HTTP API。
+自动化仍通过项目的文件 API 维护图；插件没有额外注册模型工具或图文档文件 HTTP API。宿主提供下面两个用途受限的控制路由。
+
+## DSH 本地主题与原文浏览器
+
+主题由宿主保存到 `DSH_HOME/paperstream/preferences.json`；未设置 `DSH_HOME` 时使用 `~/.dsh/paperstream/preferences.json`。苔绿、纸白、夜间对应 `sage`、`paper`、`night`，各画布共用，`.canvas` 不携带主题。`GET/PUT /paperstream/preferences` 使用 DSH 官方 `webServer.register` 契约，每次请求先调用 `connection.requestRejection`，沿用宿主的 Host/Origin 与登录 cookie 校验。写请求只接受一个合法主题、JSON 内容类型和 ≤ 4 KiB 的请求体；写入排队并通过临时文件原子替换，保留已有未知属性，损坏偏好文件拒绝覆盖。
+
+客户端读写失败会显示“主题未同步”，使用浏览器同源存储的回退值，而不宣称已保存到 DSH。真实本机验证已通过：重启宿主后读取主题没有回退提示，点击切到纸白后，`.local/dsh-home/paperstream/preferences.json` 实际写入 `{"theme":"paper"}`。
+
+`POST /paperstream/open-url` 用于请求宿主打开系统默认浏览器。它先执行同一认证校验，再要求请求 socket 的地址为回环地址；只接收一个无凭据、无控制字符的绝对 HTTP(S) URL，JSON 请求体同样限制为 4 KiB。macOS 调用 `/usr/bin/open`，Linux 调用 `xdg-open`，URL 作为单独 argv 参数传递，不经 shell；Windows 当前明确返回不支持。只有系统打开器成功返回才确认成功，失败会提示使用普通原文链接。
+
+该操作打开的是 **DSH 宿主机器** 的默认浏览器。回环检查针对 socket peer，不是物理同机证明；代理或 SSH 转发可能仍呈现回环地址。直接远程连接不通过该本机入口，远程阅读应右键卡片的普通原文链接在客户端浏览器打开。本轮只验证了本机 macOS：点击 LeNet 卡片的原文入口，经宿主 `/usr/bin/open` 打开了实际 Chrome 论文页。Linux、Windows、远程和 Desktop 未记为真机通过，也没有修改系统默认浏览器设置。
+
+这两个路由的入口与测试见 [宿主实现](src/index.mjs)、[主题测试](test/preferences.test.mjs)、[外链测试](test/open-url.test.mjs)。修改宿主入口后需要重新构建；若宿主热更新未重载路由，需要重启 DSH。
 
 ## 卸载与检查
 
@@ -108,7 +120,11 @@ dsh plugin --profile web remove dsh-paperstream
 
 标签避让只改变显示位置，不改动论文卡片坐标或文件里的关系说明；拥挤时标签可能移到图外侧，“适应视图”会将其一起纳入。
 
-最终检查通过：前端 52 项、DSH 生命周期 5 项、Python 73 项、Python/TypeScript 互操作，以及独立前端和 DSH 插件构建。就地编辑、局部浮层、双向箭头及高度/粗细设置已按上述范围手测；未将所有方向逐一切换或全部键盘组合视为已覆盖。
+上一轮检查通过：前端 52 项、DSH 生命周期 5 项、Python 73 项、Python/TypeScript 互操作，以及独立前端和 DSH 插件构建。就地编辑、局部浮层、双向箭头及高度/粗细设置已按上述范围手测；未将所有方向逐一切换或全部键盘组合视为已覆盖。
+
+本轮工作台的真实 DSH 验证新增：简约顶部、底部状态栏和竖向布局；Note 的分点显示、空白双击插入菜单、两步点击创建空说明边；将边转换为共享关系节点后，再把第二条边接入同一文本。导入 fig 后保存副本，Python 回读确认 6 个节点、6 条边，其中 4 条为空说明边、共享节点有 2 条入边，图片 data URL 实际随文档保存。PNG 已在真实浏览器生成并通过图像查看核对；SVG/PPTX 的数据与包结构已检查，PPTX 尚未在 PowerPoint 中打开。
+
+宿主主题落盘和 macOS 系统默认浏览器调用按上节完成真机验证。普通滚轮移动、选中节点后线重从 1 调至 1.2 已在 DSH 实测；Ctrl 缩放的锚点与边界通过辅助函数测试，当前原生操作工具尚未独立完成 Ctrl 滚轮组合。Fig 鼠标调尺寸的持久化仍在复核。上述范围之外的跨平台兼容和性能仍待验证。
 
 当前 Chrome 的 HTTP 页面中，Esc 在到达编辑器前被浏览器环境拦截，只出现失焦；同一纯测试页通过 `file://` 打开时能收到 Esc。该浏览器装有 Vimium，测试未改动扩展设置，也未把实际 DSH 的 Esc 取消记为通过；可使用输入框旁的“×”取消。上述记录不代表所有使用场景均无问题；Desktop、不支持 File System Access API 的浏览器回退流程，以及大规模性能仍未验证。
 
