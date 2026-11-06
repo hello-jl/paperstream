@@ -1,0 +1,24 @@
+.ps-pages-panel { position: absolute; top: 48px; right: 12px; bottom: 48px; z-index: 45; display: flex; flex-direction: column; width: min(340px, calc(100% - 24px)); overflow: auto; border: 1px solid var(--ps-line); border-radius: 12px; padding: 14px; background: var(--ps-surface, #fff); box-shadow: 0 14px 48px #263d3430; color: var(--ps-ink); }
+.ps-pages-panel header, .ps-pages-panel footer, .ps-presentation-screen header, .ps-presentation-screen footer { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.ps-pages-panel header { margin-bottom: 12px; }
+.ps-pages-actions { display: flex; gap: 5px; flex-wrap: wrap; margin: 8px 0; }
+.ps-pages-panel button { padding: 5px 8px; font-size: 12px; }
+.ps-page-list { display: flex; flex-direction: column; gap: 5px; margin: 6px 0 12px; }
+.ps-page-list button { display: flex; align-items: center; gap: 8px; text-align: left; }
+.ps-page-list button[aria-current=page] { border-color: #6a977b; background: #edf3eb; }
+.ps-page-list small { margin-left: auto; color: var(--ps-muted); }
+.ps-page-list button > span { color: var(--ps-muted); font-size: 11px; }
+.ps-page-fields > label { display: block; font-size: 12px; }
+.ps-page-fields > label input { display: block; width: 100%; padding: 7px; margin-top: 4px; border: 1px solid var(--ps-line); border-radius: 6px; color: inherit; background: transparent; }
+.ps-page-fields fieldset { border: 1px solid var(--ps-line); border-radius: 7px; padding: 8px; margin: 8px 0 12px; }
+.ps-page-fields legend { font-size: 12px; color: var(--ps-muted); }
+.ps-page-member { display: flex; align-items: start; gap: 7px; padding: 5px 0; font-size: 12px; }
+.ps-page-member input { flex: none; margin-top: 3px; }
+.ps-pages-help { color: var(--ps-muted); font-size: 12px; line-height: 1.6; }
+.ps-pages-error { color: #a34e44; font-size: 12px; }
+.ps-pages-panel footer { margin-top: auto; padding-top: 10px; }
+.ps-presentation-screen { position: absolute; inset: 0; z-index: 100; display: flex; flex-direction: column; padding: 18px; background: #101713; color: #edf3eb; outline: none; }
+.ps-presentation-screen img { flex: 1; min-height: 0; width: 100%; object-fit: contain; margin: 12px 0; }
+.ps-presentation-screen header strong { flex: 1; }
+.ps-presentation-screen header span { font-size: 12px; opacity: .7; }
+.ps-presentation-screen footer { justify-content: center; }

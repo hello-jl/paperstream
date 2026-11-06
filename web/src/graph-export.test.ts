@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { addEdge, addNode, createCanvas, createEdge, createPaperNode } from './canvas.ts';
 import type { JSONCanvasDocument } from './canvas.ts';
 import { buildExportScene, createStoredZip, exportGraphPptx, exportGraphSvg, wrapExportText } from './graph-export.ts';
+import { createPresentationPage, movePresentationPage } from './presentation-pages.ts';
 
 function sample(): JSONCanvasDocument {
   let graph = createCanvas();
@@ -91,6 +92,54 @@ test('PPTX is a real package with editable cards, text, connectors, arrow ends, 
   assert.match(links, /TargetMode="External"/);
   assert.match(links, /Target="https:\/\/example.org\/\?a=1&amp;b=2"/);
   assert.deepEqual(entries.get('ppt/media/image1.png'), new Uint8Array([1, 2, 3, 4]));
+});
+
+test('three-page PPTX follows page order and filters cards, connections and image relationships independently', () => {
+  let graph = sample();
+  graph.nodes[0].paperstreamCard = { figures: [{ id: 'fig', src: 'data:image/png;base64,AQIDBA==', caption: '', widthPercent: 100 }] };
+  graph = createPresentationPage(graph, { id: 'all', title: 'Overview & details', nodeIds: ['first', 'second'] });
+  graph = createPresentationPage(graph, { id: 'next', title: 'Only Next', nodeIds: ['second'] });
+  graph = createPresentationPage(graph, { id: 'again', title: 'First again', nodeIds: ['first'] });
+  graph = movePresentationPage(graph, 'again', -1);
+  const before = JSON.stringify(graph), entries = unzipStored(exportGraphPptx(graph));
+  assert.equal(JSON.stringify(graph), before);
+  const decode = (name: string) => new TextDecoder().decode(entries.get(name));
+  assert.deepEqual([...entries.keys()].filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name)), ['ppt/slides/slide1.xml', 'ppt/slides/slide2.xml', 'ppt/slides/slide3.xml']);
+  const slides = [1, 2, 3].map(number => decode(`ppt/slides/slide${number}.xml`));
+  assert.match(slides[0], /<p:cSld name="Overview &amp; details">/);
+  assert.match(slides[0], /name="Card first"/); assert.match(slides[0], /name="Card second"/); assert.match(slides[0], /<p:cxnSp>/);
+  assert.match(slides[1], /<p:cSld name="First again">/); assert.match(slides[1], /name="Card first"/); assert.doesNotMatch(slides[1], /name="Card second"|<p:cxnSp>/);
+  assert.match(slides[2], /<p:cSld name="Only Next">/); assert.match(slides[2], /name="Card second"/); assert.doesNotMatch(slides[2], /name="Card first"|<p:cxnSp>|<p:pic>/);
+  assert.match(decode('ppt/presentation.xml'), /<p:sldId id="256" r:id="rId1"\/><p:sldId id="257" r:id="rId2"\/><p:sldId id="258" r:id="rId3"\/>/);
+  assert.match(decode('ppt/presentation.xml'), /<p:sldMasterId id="2147483648" r:id="rId4"\/>/);
+  assert.match(decode('ppt/_rels/presentation.xml.rels'), /Id="rId4"[^>]+Target="slideMasters\/slideMaster1.xml"/);
+  for (const number of [1, 2, 3]) {
+    assert.match(decode('[Content_Types].xml'), new RegExp(`PartName="/ppt/slides/slide${number}\\.xml"`));
+    assert.match(decode('ppt/_rels/presentation.xml.rels'), new RegExp(`Target="slides/slide${number}\\.xml"`));
+    const ids = [...slides[number - 1].matchAll(/<p:cNvPr id="(\d+)"/g)].map(match => match[1]);
+    assert.equal(new Set(ids).size, ids.length, 'shape IDs are unique within each slide');
+    const relationships = decode(`ppt/slides/_rels/slide${number}.xml.rels`);
+    for (const match of relationships.matchAll(/Target="\.\.\/media\/([^"]+)"/g)) assert.ok(entries.has(`ppt/media/${match[1]}`), match[1]);
+  }
+  assert.deepEqual(entries.get('ppt/media/slide1-image1.png'), new Uint8Array([1, 2, 3, 4]));
+  assert.deepEqual(entries.get('ppt/media/slide2-image1.png'), new Uint8Array([1, 2, 3, 4]));
+  assert.equal(entries.has('ppt/media/slide3-image1.png'), false);
+});
+
+test('manual relation labels and routing export at their saved positions with editable custom connectors', () => {
+  const graph = sample();
+  graph.edges[0].paperstreamStyle = { ...graph.edges[0].paperstreamStyle as object, labelPosition: { x: 750, y: -600 }, waypoints: [{ x: 1300, y: -1000 }, { x: 1300, y: 900 }] };
+  const before = JSON.stringify(graph), scene = buildExportScene(graph), label = scene.edges[0].label!;
+  assert.equal(label.x + label.width / 2, 750);
+  assert.equal(label.y + (label.lines.length * 18 + 12) / 2, -600);
+  assert.deepEqual(scene.edges[0].points.slice(1, -1), [{ x: 1300, y: -1000 }, { x: 1300, y: 900 }]);
+  assert.ok(scene.bounds.x + scene.bounds.width > 1300 && scene.bounds.y < -1000 && scene.bounds.y + scene.bounds.height > 900);
+  const svg = exportGraphSvg(graph), entries = unzipStored(exportGraphPptx(graph));
+  assert.match(svg, /L 1300 -1000 L 1300 900/);
+  const slide = new TextDecoder().decode(entries.get('ppt/slides/slide1.xml'));
+  assert.match(slide, /<p:cxnSp>/); assert.match(slide, /<a:custGeom>/);
+  assert.equal([...slide.matchAll(/<a:lnTo>/g)].length, 3);
+  assert.equal(JSON.stringify(graph), before);
 });
 
 test('ZIP store writer supports Unicode names and preserves bytes', () => {

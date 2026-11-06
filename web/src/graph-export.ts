@@ -5,6 +5,8 @@ import { getNodeStrokeWidth, getEdgeStrokeWidth } from './appearance.ts';
 import { readFigures } from './card-media.ts';
 import { getContentBounds, layoutEdgeLabels } from './edge-label-layout.ts';
 import type { Point, Rect } from './edge-label-layout.ts';
+import { presentationDocuments } from './presentation-pages.ts';
+import { readEdgeRouting, polylineRoute } from './edge-routing.ts';
 
 export type GraphExportFormat = 'svg' | 'png' | 'pptx';
 export interface GraphExportOptions {
@@ -113,7 +115,8 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
   const nodeMap = new Map(nodes.map(node => [node.id, node]));
   const edges: ExportEdge[] = document.edges.map(edge => {
     const source = nodeMap.get(edge.fromNode)!, target = nodeMap.get(edge.toNode)!;
-    const points = route(anchor(source, edge.fromSide ?? 'bottom'), anchor(target, edge.toSide ?? 'top'), edge.fromSide ?? 'bottom');
+    const routing = readEdgeRouting(edge), start = anchor(source, edge.fromSide ?? 'bottom'), end = anchor(target, edge.toSide ?? 'top');
+    const points = routing.waypoints.length ? polylineRoute(start, end, routing.waypoints) : route(start, end, edge.fromSide ?? 'bottom');
     const style = record(edge.paperstreamStyle);
     const lines = edge.label ? wrapExportText(edge.label, 220, 12) : [];
     return { id: edge.id, points, color: safeColor(edge.color, '#70877e'), strokeWidth: getEdgeStrokeWidth(edge),
@@ -122,10 +125,18 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
       label: lines.length ? { x: 0, y: 0, width: Math.max(...lines.map(line => measureText(line, 12)), 8) + 20,
         lines, fontSize: 12, color: ink } : undefined };
   });
-  const placements = layoutEdgeLabels(edges.flatMap(edge => edge.label ? [{ id: edge.id, width: edge.label.width,
-    height: edge.label.lines.length * 18 + 12, anchor: { x: (edge.points[0].x + edge.points.at(-1)!.x) / 2, y: (edge.points[0].y + edge.points.at(-1)!.y) / 2 }, pathPoints: edge.points }] : []), nodes);
+  const manual = new Map(document.edges.flatMap(edge => {
+    const position = readEdgeRouting(edge).labelPosition;
+    return position ? [[edge.id, position] as const] : [];
+  }));
+  const manualObstacles = edges.flatMap(edge => edge.label && manual.has(edge.id) ? [{
+    x: manual.get(edge.id)!.x - edge.label.width / 2, y: manual.get(edge.id)!.y - (edge.label.lines.length * 18 + 12) / 2,
+    width: edge.label.width, height: edge.label.lines.length * 18 + 12,
+  }] : []);
+  const placements = layoutEdgeLabels(edges.flatMap(edge => edge.label && !manual.has(edge.id) ? [{ id: edge.id, width: edge.label.width,
+    height: edge.label.lines.length * 18 + 12, anchor: { x: (edge.points[0].x + edge.points.at(-1)!.x) / 2, y: (edge.points[0].y + edge.points.at(-1)!.y) / 2 }, pathPoints: edge.points }] : []), [...nodes, ...manualObstacles]);
   for (const edge of edges) if (edge.label) {
-    const center = placements.get(edge.id)!;
+    const center = manual.get(edge.id) ?? placements.get(edge.id)!;
     edge.label.x = center.x - edge.label.width / 2;
     edge.label.y = center.y - (edge.label.lines.length * 18 + 12) / 2;
   }
@@ -174,7 +185,7 @@ const rels = (relationships: Array<[string, string, string]>) => xmlDoc(`<Relati
 const groupShape = '<p:nvGrpSpPr><p:cNvPr id="1" name="Graph"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>';
 
 /** One slide, editable shapes/text/connectors; raster figures are embedded assets. */
-export function exportGraphPptx(document: JSONCanvasDocument, options: GraphExportOptions = {}): Uint8Array {
+function singleSlideEntries(document: JSONCanvasDocument, options: GraphExportOptions = {}): Array<{ name: string; bytes: Uint8Array }> {
   const scene = buildExportScene(document, options), b = scene.bounds;
   const slideWidth = 12192000, slideHeight = 6858000;
   const scale = Math.min(slideWidth / b.width, slideHeight / b.height);
@@ -199,9 +210,15 @@ export function exportGraphPptx(document: JSONCanvasDocument, options: GraphExpo
     const original = document.edges.find(item => item.id === edge.id)!;
     const sites = { top: 0, left: 1, bottom: 2, right: 3 };
     const attachments = `<a:stCxn id="${nodeIds.get(original.fromNode)}" idx="${sites[original.fromSide ?? 'bottom']}"/><a:endCxn id="${nodeIds.get(original.toNode)}" idx="${sites[original.toSide ?? 'top']}"/>`;
-    const left = Math.min(source.x, target.x), top = Math.min(source.y, target.y), width = Math.abs(source.x - target.x), height = Math.abs(source.y - target.y);
+    const custom = readEdgeRouting(original).waypoints.length > 0;
+    const routePoints = custom ? edge.points : [source, target];
+    const left = Math.min(...routePoints.map(point => point.x)), top = Math.min(...routePoints.map(point => point.y));
+    const width = Math.max(...routePoints.map(point => point.x)) - left, height = Math.max(...routePoints.map(point => point.y)) - top;
+    const geometry = custom
+      ? `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/><a:pathLst><a:path w="${length(width)}" h="${length(height)}" fill="none" stroke="1" extrusionOk="0">${edge.points.map((point, index) => `<a:${index ? 'lnTo' : 'moveTo'}><a:pt x="${n((point.x - left) * scale)}" y="${n((point.y - top) * scale)}"/></a:${index ? 'lnTo' : 'moveTo'}>`).join('')}</a:path></a:pathLst></a:custGeom>`
+      : '<a:prstGeom prst="bentConnector3"><a:avLst/></a:prstGeom>';
     const arrow = edge.shape === 'open' ? 'arrow' : edge.shape === 'diamond' ? 'diamond' : edge.shape === 'circle' ? 'oval' : 'triangle';
-    return `<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="${id}" name="Connection ${xml(edge.id)}"/><p:cNvCxnSpPr>${attachments}</p:cNvCxnSpPr><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm${source.x > target.x ? ' flipH="1"' : ''}${source.y > target.y ? ' flipV="1"' : ''}><a:off x="${x(left)}" y="${y(top)}"/><a:ext cx="${length(width)}" cy="${length(height)}"/></a:xfrm><a:prstGeom prst="bentConnector3"><a:avLst/></a:prstGeom><a:ln w="${length(edge.strokeWidth)}"><a:solidFill><a:srgbClr val="${rgb(edge.color)}"/></a:solidFill>${edge.dash ? `<a:prstDash val="${edge.dash === '2 4' ? 'dot' : 'dash'}"/>` : ''}<a:headEnd type="${edge.start ? arrow : 'none'}" w="med" len="med"/><a:tailEnd type="${edge.end ? arrow : 'none'}" w="med" len="med"/></a:ln></p:spPr><p:style><a:lnRef idx="0"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="0"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></p:style></p:cxnSp>`;
+    return `<p:cxnSp><p:nvCxnSpPr><p:cNvPr id="${id}" name="Connection ${xml(edge.id)}"/><p:cNvCxnSpPr>${attachments}</p:cNvCxnSpPr><p:nvPr/></p:nvCxnSpPr><p:spPr><a:xfrm${!custom && source.x > target.x ? ' flipH="1"' : ''}${!custom && source.y > target.y ? ' flipV="1"' : ''}><a:off x="${x(left)}" y="${y(top)}"/><a:ext cx="${length(width)}" cy="${length(height)}"/></a:xfrm>${geometry}<a:ln w="${length(edge.strokeWidth)}"><a:solidFill><a:srgbClr val="${rgb(edge.color)}"/></a:solidFill>${edge.dash ? `<a:prstDash val="${edge.dash === '2 4' ? 'dot' : 'dash'}"/>` : ''}<a:headEnd type="${edge.start ? arrow : 'none'}" w="med" len="med"/><a:tailEnd type="${edge.end ? arrow : 'none'}" w="med" len="med"/></a:ln></p:spPr><p:style><a:lnRef idx="0"><a:schemeClr val="accent1"/></a:lnRef><a:fillRef idx="0"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef><a:fontRef idx="minor"><a:schemeClr val="lt1"/></a:fontRef></p:style></p:cxnSp>`;
   }).join('');
   const contents = scene.nodes.map(node => {
     const images = node.figures.map(figure => {
@@ -225,7 +242,32 @@ export function exportGraphPptx(document: JSONCanvasDocument, options: GraphExpo
     ['ppt/slideLayouts/_rels/slideLayout1.xml.rels', rels([['rId1', 'slideMaster', '../slideMasters/slideMaster1.xml']])],
     ['ppt/theme/theme1.xml', xmlDoc(`<a:theme xmlns:a="${NS_A}" name="Paperstream"><a:themeElements><a:clrScheme name="Paperstream">${[['dk1','263D34'],['lt1','FFFFFF'],['dk2','617369'],['lt2','F6F8F4'],['accent1','34694F'],['accent2','388C9D'],['accent3','8B6CB2'],['accent4','BB722F'],['accent5','C44848'],['accent6','A58C25'],['hlink','0563C1'],['folHlink','954F72']].map(([key,value])=>`<a:${key}><a:srgbClr val="${value}"/></a:${key}>`).join('')}</a:clrScheme><a:fontScheme name="Paperstream"><a:majorFont><a:latin typeface="Arial"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface="Arial"/></a:majorFont><a:minorFont><a:latin typeface="Arial"/><a:ea typeface="Microsoft YaHei"/><a:cs typeface="Arial"/></a:minorFont></a:fontScheme><a:fmtScheme name="Paperstream"><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst><a:lnStyleLst>${[6350,12700,19050].map(width=>`<a:ln w="${width}"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:prstDash val="solid"/></a:ln>`).join('')}</a:lnStyleLst><a:effectStyleLst><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle><a:effectStyle><a:effectLst/></a:effectStyle></a:effectStyleLst><a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:bgFillStyleLst></a:fmtScheme></a:themeElements></a:theme>`)],
   ];
-  return createStoredZip([...xmlEntries.map(([name, value]) => ({ name, bytes: encoder.encode(value) })), ...files]);
+  return [...xmlEntries.map(([name, value]) => ({ name, bytes: encoder.encode(value) })), ...files];
+}
+/** One slide per configured page; old graphs keep the familiar whole-graph slide. */
+export function exportGraphPptx(document: JSONCanvasDocument, options: GraphExportOptions = {}): Uint8Array {
+  serializeCanvas(document);
+  const pages = presentationDocuments(document), output = new Map<string, Uint8Array>(), decoder = new TextDecoder();
+  pages.forEach(({ page, document: view }, index) => {
+    const number = index + 1;
+    for (const entry of singleSlideEntries(view, options)) {
+      if (entry.name === 'ppt/slides/slide1.xml') {
+        output.set(`ppt/slides/slide${number}.xml`, encoder.encode(decoder.decode(entry.bytes).replace('name="Paperstream graph"', `name="${xml(page.title)}"`)));
+      } else if (entry.name === 'ppt/slides/_rels/slide1.xml.rels') {
+        output.set(`ppt/slides/_rels/slide${number}.xml.rels`, encoder.encode(decoder.decode(entry.bytes).replaceAll('../media/image', pages.length === 1 ? '../media/image' : `../media/slide${number}-image`)));
+      } else if (entry.name.startsWith('ppt/media/')) output.set(pages.length === 1 ? entry.name : entry.name.replace('ppt/media/', `ppt/media/slide${number}-`), entry.bytes);
+      else if (!index) output.set(entry.name, entry.bytes);
+    }
+  });
+  const contentTypes = decoder.decode(output.get('[Content_Types].xml')!);
+  output.set('[Content_Types].xml', encoder.encode(contentTypes.replace(/<Override PartName="\/ppt\/slides\/slide1.xml"[^>]*\/>/, pages.map((_, index) => `<Override PartName="/ppt/slides/slide${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`).join(''))));
+  const presentation = decoder.decode(output.get('ppt/presentation.xml')!);
+  output.set('ppt/presentation.xml', encoder.encode(presentation.replace(/<p:sldIdLst>.*?<\/p:sldIdLst>/, `<p:sldIdLst>${pages.map((_, index) => `<p:sldId id="${256 + index}" r:id="rId${index + 1}"/>`).join('')}</p:sldIdLst>`).replace('<p:sldMasterId id="2147483648" r:id="rId2"/>', `<p:sldMasterId id="2147483648" r:id="rId${pages.length + 1}"/>`)));
+  output.set('ppt/_rels/presentation.xml.rels', encoder.encode(rels([
+    ...pages.map((_, index) => [`rId${index + 1}`, 'slide', `slides/slide${index + 1}.xml`] as [string, string, string]),
+    [`rId${pages.length + 1}`, 'slideMaster', 'slideMasters/slideMaster1.xml'],
+  ])));
+  return createStoredZip([...output].map(([name, bytes]) => ({ name, bytes })));
 }
 export function downloadBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob), link = globalThis.document.createElement('a');
