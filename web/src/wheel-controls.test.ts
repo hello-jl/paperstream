@@ -2,10 +2,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { zoomAt, wheelStroke, wheelIntent } from './wheel-controls.ts';
 
-test('ordinary wheel always zooms; only Alt plus a selection changes line weight', () => {
+test('selection switches ordinary wheel to line weight; Ctrl and Meta always zoom', () => {
   for (const selected of [false, true]) {
-    assert.equal(wheelIntent({}, selected), 'zoom');
+    assert.equal(wheelIntent({}, selected), selected ? 'weight' : 'zoom');
     assert.equal(wheelIntent({ ctrlKey: true }, selected), 'zoom');
+    assert.equal(wheelIntent({ metaKey: true }, selected), 'zoom');
+    assert.equal(wheelIntent({ ctrlKey: true, altKey: true }, selected), 'zoom');
     assert.equal(wheelIntent({ metaKey: true, altKey: true }, selected), 'zoom');
   }
   assert.equal(wheelIntent({ altKey: true }, false), 'zoom');

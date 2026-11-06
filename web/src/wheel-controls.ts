@@ -1,6 +1,6 @@
 export interface Viewport { x: number; y: number; zoom: number }
 export function wheelIntent(keys: { altKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }, selected: boolean): 'zoom' | 'weight' {
-  return keys.altKey && !keys.ctrlKey && !keys.metaKey && selected ? 'weight' : 'zoom';
+  return selected && !keys.ctrlKey && !keys.metaKey ? 'weight' : 'zoom';
 }
 /** Keep the graph point under the mouse fixed while Ctrl-wheel zooms. */
 export function zoomAt(viewport: Viewport, deltaY: number, point: { x: number; y: number }): Viewport {

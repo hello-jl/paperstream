@@ -827,7 +827,7 @@ function Editor({ draftKey, onMeta, openExternal }: { draftKey: string; onMeta: 
       </div>
       <span className="ps-status-notice" role={error ? 'alert' : 'status'} title={error || notice}>{busy ? '处理中…' : error || (formDirty ? '编辑尚未应用' : dirty ? '未保存' : file.current ? '已保存' : '未关联文件')}</span>
       <span className="ps-count">{visible.size}/{canvas.nodes.length} 卡片 · {canvas.edges.length} 边</span>
-      <span className="ps-wheel-hint">滚轮缩放 · 拖空白平移 · Alt 滚轮调线重</span>
+      <span className="ps-wheel-hint">滚轮{selectedNode || selection?.kind === 'edge' ? '调线重' : '缩放'} · Ctrl 滚轮缩放 · 拖空白平移</span>
     </footer>
     <input ref={input} hidden type="file" accept=".canvas,application/json" onChange={async event => {
       const selected = event.target.files?.[0]; event.target.value = '';
