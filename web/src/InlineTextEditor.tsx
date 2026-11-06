@@ -5,13 +5,14 @@ export interface InlineTextEditorProps {
   label: string;
   value: string;
   multiline?: boolean;
+  required?: boolean;
   onChange: (value: string) => void;
   onCommit: () => void;
   onCancel: () => void;
 }
 
 /** A single shared draft is owned by Editor, including while this input blurs. */
-export function InlineTextEditor({ label, value, multiline = false, onChange, onCommit, onCancel }: InlineTextEditorProps) {
+export function InlineTextEditor({ label, value, multiline = false, required = true, onChange, onCommit, onCancel }: InlineTextEditorProps) {
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => { input.current?.focus(); input.current?.select(); }, []);
   useLayoutEffect(() => {
@@ -31,7 +32,7 @@ export function InlineTextEditor({ label, value, multiline = false, onChange, on
   }
   return <div className="ps-inline-editor nodrag nopan" onPointerDown={event => event.stopPropagation()}
     onClick={event => event.stopPropagation()} onDoubleClick={event => event.stopPropagation()}>
-    <textarea ref={input} aria-label={label} required rows={1} value={value}
+    <textarea ref={input} aria-label={label} required={required} rows={1} value={value}
       onChange={event => onChange(event.target.value)} onKeyDown={keyDown} />
     <div className="ps-inline-actions">
       <span>{multiline ? '⌘ / Ctrl + Enter 应用' : 'Enter 应用'} · Esc 取消</span>

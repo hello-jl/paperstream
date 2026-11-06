@@ -13,6 +13,8 @@ export type RelationEdgeModel = Edge<{
   onSelect: (id: string) => void;
   editing: boolean;
   draft: string;
+  arrowShape?: string;
+  lineStyle?: string;
   onEdit: () => void;
   onDetails: (anchor: Point) => void;
   onChange: (value: string) => void;
@@ -36,7 +38,7 @@ export const RelationEdge = memo(function RelationEdge({
 
   useLayoutEffect(() => {
     const element = labelElement.current;
-    if (!element || !text || !onMeasure) return;
+    if (!element || (!text && !data?.editing) || !onMeasure) return;
     const measure = () => {
       if (!element.offsetWidth || !element.offsetHeight) return;
       const edgePath = group.current?.querySelector<SVGPathElement>('.react-flow__edge-path');
@@ -59,21 +61,29 @@ export const RelationEdge = memo(function RelationEdge({
   }, [id, text, path, anchorX, anchorY, onMeasure, data?.editing]);
 
   const position = data?.position;
+  const markerId = `ps-arrow-${id.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const arrow = data?.arrowShape ?? 'triangle';
+  const custom = arrow !== 'triangle';
   const displaced = position && Math.hypot(position.x - anchorX, position.y - anchorY) > 18;
   return <>
     <g ref={group}>
-      <BaseEdge id={id} path={path} markerStart={markerStart} markerEnd={markerEnd}
+      {custom && <defs><marker id={markerId} markerWidth="12" markerHeight="12" refX="10" refY="6" viewBox="0 0 12 12" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+        {arrow === 'open' ? <path d="M1 1 L10 6 L1 11" fill="none" stroke={style?.stroke ?? '#70877e'} strokeWidth="1.8" />
+          : arrow === 'diamond' ? <path d="M0 6 L5 1 L10 6 L5 11 Z" fill={style?.stroke ?? '#70877e'} />
+          : <circle cx="6" cy="6" r="4" fill={style?.stroke ?? '#70877e'} />}
+      </marker></defs>}
+      <BaseEdge id={id} path={path} markerStart={custom && markerStart ? `url(#${markerId})` : markerStart} markerEnd={custom && markerEnd ? `url(#${markerId})` : markerEnd}
         style={style} interactionWidth={interactionWidth} />
       {displaced && <path className="ps-relation-leader"
         d={`M ${anchorX} ${anchorY} L ${position.x} ${position.y}`} />}
     </g>
-    {text && <EdgeLabelRenderer>
+    {(text || data?.editing) && <EdgeLabelRenderer>
       <div ref={labelElement} data-edge-id={id}
         className={`ps-relation-label nodrag nopan${selected ? ' is-selected' : ''}`}
         style={{ transform: `translate(-50%, -50%) translate(${position?.x ?? anchorX}px, ${position?.y ?? anchorY}px)`,
-          visibility: position ? 'visible' : 'hidden' }}
+          visibility: position || data?.editing ? 'visible' : 'hidden' }}
         onContextMenu={event => { event.preventDefault(); event.stopPropagation(); data?.onDetails({ x: event.clientX, y: event.clientY }); }}>
-        {data?.editing ? <InlineTextEditor label="关系说明" value={data.draft}
+        {data?.editing ? <InlineTextEditor label="关系说明" value={data.draft} required={false}
           onChange={data.onChange} onCommit={data.onApply} onCancel={data.onCancel} />
           : <button type="button" className="ps-relation-text" disabled={data?.busy}
               aria-label={`编辑关系：${text}`} aria-pressed={Boolean(selected)} title="双击编辑；右键查看详情"
