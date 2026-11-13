@@ -85,7 +85,7 @@ export function createIndexedDbStorage(factory: IDBFactory = globalThis.indexedD
 export function createLocalStorageFallback(storage: LegacyStorage): WorkspaceStorage {
   const keyFor = (key: string) => `paperstream-workspace:${key}`;
   return {
-    async get(key) { const text = storage.getItem(keyFor(key)); return text ? JSON.parse(text) : undefined; },
+    async get(key) { const text = storage.getItem(keyFor(key)); return text === null ? undefined : JSON.parse(text); },
     async set(key, value) {
       if (key.startsWith('file:')) throw new Error('此浏览器只能恢复草稿，无法长期保存文件授权；请重新选择原文件。');
       if (!storage.setItem) throw new Error('浏览器持久存储不可写。');
@@ -133,20 +133,34 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
     return result.then(() => { errors.delete(key); }, error => { report(key, error); throw error; })
       .finally(() => { pending--; if (queues.get(key) === result) queues.delete(key); publish(); });
   }
-  function readLegacy(key: string): unknown {
-    try { const text = legacy?.getItem(key); return text ? JSON.parse(text) : undefined; } catch { return undefined; }
+  function readLegacy(key: string, preserveMalformed = false): unknown {
+    const text = legacy?.getItem(key);
+    if (text === null || text === undefined) return undefined;
+    try { return JSON.parse(text); }
+    catch {
+      // A damaged draft can still contain recoverable user text. Let the
+      // editor quarantine the original string instead of replacing it with a
+      // fresh document. A damaged tab list cannot safely identify its drafts.
+      if (preserveMalformed) return text;
+      throw new Error('原工作区页签记录无法读取，已暂停覆盖它。');
+    }
   }
   const api = {
     async hydrateWorkspace(baseKey: string, fallback: WorkspaceState = { ids: ['initial'], active: 'initial' }): Promise<WorkspaceState> {
       let loading = hydrated.get(baseKey);
       if (!loading) {
         loading = (async () => {
-          const persisted = workspaceState(await storage.get(`tabs:${baseKey}`));
-          const next = persisted ?? workspaceState(readLegacy(`${baseKey}:tabs`)) ?? workspaceState(fallback)!;
+          const storedTabs = await storage.get(`tabs:${baseKey}`);
+          const persisted = workspaceState(storedTabs);
+          if (storedTabs !== undefined && !persisted) throw new Error('原工作区页签清单无效，已暂停覆盖它。');
+          const legacyTabs = persisted ? undefined : readLegacy(`${baseKey}:tabs`);
+          const legacyState = workspaceState(legacyTabs);
+          if (legacyTabs !== undefined && !legacyState) throw new Error('原工作区页签清单无效，已暂停覆盖它。');
+          const next = persisted ?? legacyState ?? workspaceState(fallback)!;
           await Promise.all(next.ids.map(async id => {
             const key = tabDraftKey(baseKey, id);
             const durable = storedDraft(await storage.get(`draft:${key}`));
-            const session = readLegacy(key) as { _workspaceUpdatedAt?: unknown } | undefined;
+            const session = readLegacy(key, true) as { _workspaceUpdatedAt?: unknown } | undefined;
             const sessionTime = typeof session?._workspaceUpdatedAt === 'number' ? session._workspaceUpdatedAt : 0;
             const preferSession = session !== undefined && (durable.value === undefined || sessionTime > durable.updatedAt);
             const previous = preferSession ? session : durable.value;

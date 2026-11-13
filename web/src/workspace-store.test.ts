@@ -4,6 +4,7 @@ import { createIndexedDbStorage, createLocalStorageFallback, createWorkspaceStor
 import type { WorkspaceStorage } from './workspace-store.ts';
 import { writeFile } from './files.ts';
 import type { LocalFileHandle } from './files.ts';
+import { restoreEditorDraft } from './draft-recovery.ts';
 
 function memory() {
   const records = new Map<string, unknown>();
@@ -124,6 +125,63 @@ test('recovery failure cannot overwrite unreadable existing workspace records', 
   assert.ok(statuses.includes('error'));
 });
 
+test('damaged legacy draft JSON remains recoverable and quarantined instead of becoming a fresh document', async () => {
+  const { adapter, records } = memory(), session = legacyMemory();
+  const original = '{"canvas":{"nodes":[],"edges":[]},"form":{"takeaway":"precious unfinished text';
+  session.setItem('project', original);
+  const store = createWorkspaceStore(adapter, session);
+  await store.hydrateWorkspace('project');
+  assert.equal(store.getRestoredDraft('project'), original);
+  assert.match(restoreEditorDraft(store.getRestoredDraft('project')).recoveryError, /暂停覆盖/);
+  assert.equal(session.getItem('project'), original, 'migration leaves the original rescue copy intact');
+  assert.equal((records.get('draft:project') as { value: unknown }).value, original);
+
+  const reopened = createWorkspaceStore(adapter);
+  await reopened.hydrateWorkspace('project');
+  assert.equal(reopened.getRestoredDraft('project'), original);
+  assert.match(restoreEditorDraft(reopened.getRestoredDraft('project')).recoveryError, /暂停覆盖/);
+});
+
+test('invalid durable tab manifests are not replaced by an empty workspace', async () => {
+  for (const manifest of [null, {}, { ids: [], active: 'precious' }, { ids: ['precious', 4], active: 'precious' }]) {
+    const { adapter, records } = memory();
+    records.set('tabs:project', manifest);
+    records.set('draft:project:precious', { value: 'unread but valuable draft' });
+    const store = createWorkspaceStore(adapter);
+    await assert.rejects(store.hydrateWorkspace('project'), /页签清单无效/);
+    await assert.rejects(store.persistWorkspace('project', { ids: ['initial'], active: 'initial' }), /暂停覆盖/);
+    await assert.rejects(store.persistDraft('project', { canvas: { nodes: [], edges: [] } }), /暂停覆盖/);
+    assert.equal(records.get('tabs:project'), manifest);
+    assert.deepEqual(records.get('draft:project:precious'), { value: 'unread but valuable draft' });
+  }
+});
+
+test('invalid legacy tab manifests are protected while a valid durable manifest still takes precedence', async () => {
+  for (const manifest of ['{broken', '{"ids":[]}']) {
+    const { adapter, records } = memory(), session = legacyMemory();
+    session.setItem('project:tabs', manifest);
+    session.setItem('project:precious', '{valuable damaged draft');
+    const store = createWorkspaceStore(adapter, session);
+    await assert.rejects(store.hydrateWorkspace('project'), /页签/);
+    await assert.rejects(store.persistWorkspace('project', { ids: ['initial'], active: 'initial' }), /暂停覆盖/);
+    assert.equal(session.getItem('project:tabs'), manifest);
+    assert.equal(session.getItem('project:precious'), '{valuable damaged draft');
+    assert.equal(records.has('tabs:project'), false);
+
+    records.set('tabs:project', { ids: ['initial'], active: 'initial' });
+    const readable = createWorkspaceStore(adapter, session);
+    assert.deepEqual(await readable.hydrateWorkspace('project'), { ids: ['initial'], active: 'initial' });
+  }
+});
+
+test('unreadable session storage cannot be mistaken for an absent recovery record', async () => {
+  const { adapter, records } = memory();
+  const store = createWorkspaceStore(adapter, { getItem() { throw new Error('session storage denied'); } });
+  await assert.rejects(store.hydrateWorkspace('project'), /session storage denied/);
+  await assert.rejects(store.persistDraft('project', {}), /暂停覆盖/);
+  assert.equal(records.size, 0);
+});
+
 test('paused recovery protects session copies and cached drafts and bindings before any mutation', async () => {
   const { adapter, records } = memory(), session = legacyMemory();
   const store = createWorkspaceStore(adapter, session), original = file();
@@ -179,6 +237,15 @@ test('JSON fallback restores drafts but explicitly refuses to claim file-handle 
   await assert.rejects(adapter.set('file:project', { handle: file().handle, snapshot: 'original' }), /无法长期保存文件授权/);
   assert.equal(tabDraftKey('project', 'initial'), 'project');
   assert.equal(tabDraftKey('project', 'second'), 'project:second');
+});
+
+test('an empty existing fallback record fails recovery instead of being overwritten as absent', async () => {
+  const values = legacyMemory();
+  values.setItem('paperstream-workspace:tabs:project', '');
+  const store = createWorkspaceStore(createLocalStorageFallback(values));
+  await assert.rejects(store.hydrateWorkspace('project'), SyntaxError);
+  await assert.rejects(store.persistWorkspace('project', { ids: ['initial'], active: 'initial' }), /暂停覆盖/);
+  assert.equal(values.getItem('paperstream-workspace:tabs:project'), '');
 });
 
 test('IndexedDB request success is insufficient when the transaction later aborts', async () => {
