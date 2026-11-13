@@ -611,6 +611,17 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     setForm(valuesFor(next));
     return true;
   }
+  function findCard() {
+    const query = search.trim().toLowerCase();
+    if (!query) return;
+    const found = current.current.nodes.find(node => title(node).toLowerCase().includes(query));
+    if (!found) { setNotice('未找到匹配的卡片。'); return; }
+    if (!select({ kind: 'node', id: found.id })) return;
+    setFocusId(null);
+    // React Flow still has the previous hidden flag until the next render.
+    // Include the target now so the viewport update can use its saved bounds.
+    void flow.fitView({ nodes: [{ id: found.id }], includeHiddenNodes: true, maxZoom: 1, duration: 0 });
+  }
   selectRef.current = select;
   function defaultAnchor() {
     const rect = workspace.current?.getBoundingClientRect();
@@ -1054,8 +1065,8 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
         {pendingBinding && <button disabled={busy} onClick={() => void authorizeFile()}>授权文件</button>}
         <button disabled={busy || readOnly || !past.length} onClick={() => travel(true)} title="撤销">↶</button><button disabled={busy || readOnly || !future.length} onClick={() => travel(false)} title="重做">↷</button>
         <button disabled={busy || readOnly || !canvas.nodes.length} onClick={() => void arrangeGraph()} title={hasManualRelations ? '重新竖排并计算线路与标签，替换手工位置和折点；可以撤销' : '联合排列卡片、连线路径和关系文字；可以撤销'}>智能竖排</button>
-        <input className="ps-search" aria-label="搜索卡片" placeholder="搜索…" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !isComposingKey(e)) { const found = canvas.nodes.find(node => title(node).toLowerCase().includes(search.toLowerCase())); if (found && select({ kind: 'node', id: found.id })) void flow.fitView({ nodes: [{ id: found.id }], maxZoom: 1, duration: 0 }); } }} />
-        <button disabled={!selectedNode} onClick={() => setFocusId(focusId ? null : selectedNode!.id)}>{focusId ? '全图' : '附近'}</button>
+        <input className="ps-search" aria-label="搜索卡片" placeholder="搜索…" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !isComposingKey(e)) findCard(); }} />
+        <button disabled={!focusId && !selectedNode} onClick={() => setFocusId(focusId ? null : selectedNode!.id)}>{focusId ? '全图' : '附近'}</button>
       </div>
       <span className="ps-status-notice" role={error ? 'alert' : 'status'} title={error || notice}>{busy ? '处理中…' : error || (formDirty ? '请检查输入格式' : dirty ? '未保存' : host ? readOnly ? '只读文件' : '已保存' : file.current ? '已保存' : '未关联文件')}</span>
       <span className="ps-count">{canvas.nodes.filter(node => visible.has(node.id) && !isRelationNode(node)).length}/{canvas.nodes.length - relationCount} 卡片 · {canvas.edges.length} 边{relationCount > 0 ? ` · ${relationCount} 共享标签` : ''}</span>
