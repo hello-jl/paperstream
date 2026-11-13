@@ -1,18 +1,35 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { spawn, spawnSync } from 'node:child_process';
-import { cp, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
-test('portable preview CLI serves and safely updates its explicit file outside the repository', { timeout: 15000 }, async () => {
+test('portable ZIP extracts, serves and safely updates its explicit file outside the repository', { timeout: 15000 }, async () => {
   const directory = await mkdtemp(join(tmpdir(), 'paperstream preview '));
   let child;
   try {
-    const plugin = join(directory, 'plugin with spaces');
-    await cp(fileURLToPath(new URL('../dist/plugin', import.meta.url)), plugin, { recursive: true });
+    const manifest = JSON.parse(await readFile(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8'));
+    const archive = fileURLToPath(new URL(`../dist/paperstream-claude-${manifest.version}.zip`, import.meta.url));
+    const extracted = spawnSync('python3', ['-c', [
+      'from pathlib import Path, PurePosixPath',
+      'import sys, zipfile',
+      'with zipfile.ZipFile(sys.argv[1]) as source:',
+      '    assert source.testzip() is None, "Archive checksum failed"',
+      '    for entry in source.infolist():',
+      '        path = PurePosixPath(entry.filename)',
+      '        assert not path.is_absolute() and ".." not in path.parts, "Unsafe archive path"',
+      '        assert path.parts[0] == "paperstream", "Unexpected archive root"',
+      '        assert "node_modules" not in path.parts and "__pycache__" not in path.parts',
+      '        assert not entry.filename.endswith((".pyc", ".pyo"))',
+      '        assert (entry.external_attr >> 16) & 0o170000 != 0o120000, "Archive contains a symlink"',
+      '    source.extractall(Path(sys.argv[2]))',
+    ].join('\n'), archive, directory], { encoding: 'utf8', timeout: 10000 });
+    assert.ifError(extracted.error);
+    assert.equal(extracted.status, 0, extracted.stderr);
+    const plugin = join(directory, 'paperstream');
     const launcher = join(plugin, 'scripts/paperstream.py'), canvas = join(directory, '论文 with spaces.canvas');
     const run = args => {
       const result = spawnSync('python3', [launcher, ...args], { cwd: directory, encoding: 'utf8' });
