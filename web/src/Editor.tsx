@@ -41,8 +41,8 @@ import { preserveNodeMeasurements } from './flow-node-sync';
 import { createDraftWriter } from './draft-writer';
 import { restoreEditorDraft } from './draft-recovery';
 import type { RecoveredSelection } from './draft-recovery';
-import { getRestoredDraft, getRestoredFileBinding, persistDraft, persistFileBinding, recoverFileBinding } from './workspace-store';
-import type { FileBinding } from './workspace-store';
+import { getRestoredDraft, getRestoredFileBinding, openDraftSession, persistDraft, persistFileBinding, recoverFileBinding } from './workspace-store';
+import type { DraftSession, FileBinding } from './workspace-store';
 import { edgeRoutingPatch, readEdgeRouting } from './edge-routing';
 import { RelationMetadataControls } from './RelationMetadataControls';
 import '@xyflow/react/dist/style.css';
@@ -252,11 +252,29 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
 
   const draftSnapshot = useRef({ canvas, fileName, saved, selection, form, formDirty, inlineField, fileBindingId });
   draftSnapshot.current = { canvas, fileName, saved, selection, form, formDirty, inlineField, fileBindingId };
+  const draftSession = useRef<DraftSession | null>(null);
+  useEffect(() => {
+    if (host || recoveryError) return;
+    const snapshot = draftSnapshot.current;
+    const session = openDraftSession(draftKey, { saved: snapshot.saved, fileName: snapshot.fileName, fileBindingId: snapshot.fileBindingId }, result => {
+      if (!mounted.current) return;
+      bindingRevision.current++;
+      file.current = result.binding;
+      setPendingBinding(null); setFileBindingId(result.fileBindingId);
+      setSaved(result.saved); setFileName(result.fileName); setNotice('已保存到文件。');
+    });
+    draftSession.current = session;
+    return () => {
+      if (draftSession.current === session) draftSession.current = null;
+      void session.dispose(draftSnapshot.current).catch(() => { /* Workspace status reports recovery failures. */ });
+    };
+  }, [draftKey, recoveryError, Boolean(host)]);
   const draftWriter = useRef<ReturnType<typeof createDraftWriter<typeof draftSnapshot.current>> | null>(null);
   useEffect(() => {
     if (host || recoveryError) return;
     const failed = (err: unknown) => setNotice(`工作区恢复记录未保存：${message(err)}`);
-    const writer = createDraftWriter<typeof draftSnapshot.current>(value => persistDraft(draftKey, value), { onError: failed });
+    const session = draftSession.current;
+    const writer = createDraftWriter<typeof draftSnapshot.current>(value => session ? session.persistDraft(value) : persistDraft(draftKey, value), { onError: failed });
     draftWriter.current = writer;
     writer.schedule(() => draftSnapshot.current);
     const flush = () => { void writer.flush().catch(failed); };
@@ -292,11 +310,12 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     }).catch(err => { if (active && revision === bindingRevision.current) setNotice(`草稿已恢复；文件关联恢复失败：${message(err)}`); });
     return () => { active = false; };
   }, [draftKey]);
-  function rememberBinding(binding: Omit<FileBinding, 'bindingId'> | null) {
+  function rememberBinding(binding: Omit<FileBinding, 'bindingId'> | null, state: { saved: string; fileName: string }) {
     bindingRevision.current++;
     const bindingId = crypto.randomUUID();
     const next = binding ? { ...binding, bindingId } : null;
     file.current = next; setPendingBinding(null); setFileBindingId(bindingId);
+    draftSession.current?.setFileState({ ...state, fileBindingId: bindingId });
     void persistFileBinding(draftKey, next).catch(err => setNotice(`文件关联未持久保存：${message(err)}`));
   }
   async function authorizeFile() {
@@ -307,7 +326,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     setBusy(true);
     try {
       const result = await operation;
-      if (revision !== bindingRevision.current) return;
+      if (!mounted.current || revision !== bindingRevision.current) return;
       if (result.status === 'granted') { file.current = result.binding; setPendingBinding(null); setNotice('文件已重新授权；保存前仍会检查外部修改。'); }
       else setError('文件写入权限尚未授予；可再次授权或另存为。');
     } catch (err) { setError(message(err)); } finally { setBusy(false); }
@@ -683,6 +702,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     current.current = next; setCanvas(next); changeSelection(null); setFormDirty(false); setInlineField(null); setDetailsAnchor(null); setError('');
   }
   function replace(text: string, name: string, handle: LocalFileHandle | null) {
+    if (!mounted.current) return;
     const next = parseCanvas(text);
     documentGeneration.current++;
     setRecoveryError('');
@@ -690,8 +710,9 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     pendingInitialFit.current = true;
     setNodes([]); // A different document must measure its own nodes, even if IDs overlap.
     setContentHeights({});
-    current.current = next; setCanvas(next); setSaved(serializeCanvas(next)); setFileName(name);
-    rememberBinding(handle ? { handle, snapshot: text } : null);
+    const nextSource = serializeCanvas(next);
+    current.current = next; setCanvas(next); setSaved(nextSource); setFileName(name);
+    rememberBinding(handle ? { handle, snapshot: text } : null, { saved: nextSource, fileName: name });
     setPast([]); setFuture([]); changeSelection(null); setForm({}); setFormDirty(false); setInlineField(null); setDetailsAnchor(null); setFocusId(null);
     setError(''); setNotice(handle ? '已打开文件；保存前会检查外部修改。' : '已打开文件；更改后可下载副本。');
   }
@@ -703,6 +724,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
       // The native picker needs this click's transient user activation. A
       // confirmation before it can expire that activation while the user reads.
       const handle = await pickFile();
+      if (!mounted.current) return;
       if (dirty && !window.confirm('当前有未保存的修改。放弃它们并打开所选文件吗？')) return;
       replace(await (await handle.getFile()).text(), handle.name, handle);
     }
@@ -713,6 +735,8 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     if (busy || readOnly || formDirty) return;
     setBusy(true); setError('');
     const text = serializeCanvas(current.current);
+    const session = draftSession.current;
+    const operation = session?.beginSave();
     try {
       if (host) {
         await host.onSave(parseCanvas(text));
@@ -725,9 +749,15 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
         if (!handle) { downloadFile(fileName, text); setNotice('已发起下载；请保留下载的 .canvas 文件。临时草稿仍保留。'); return; }
         target = { handle, snapshot: await (await handle.getFile()).text() };
       }
+      if (session) void session.persistDraft({ ...draftSnapshot.current, canvas: current.current }).catch(() => { /* The file save remains available if recovery storage fails. */ });
       await writeFile(target.handle, target.snapshot, text);
-      rememberBinding({ handle: target.handle, snapshot: text });
-      setFileName(target.handle.name); setSaved(text); setNotice('已保存到文件。');
+      if (operation) {
+        try { await operation.complete({ handle: target.handle, snapshot: text }); }
+        catch (err) { if (mounted.current) setNotice(`文件已保存，但工作区记录未保存：${message(err)}`); }
+      } else if (mounted.current) {
+        rememberBinding({ handle: target.handle, snapshot: text }, { saved: text, fileName: target.handle.name });
+        setFileName(target.handle.name); setSaved(text); setNotice('已保存到文件。');
+      }
     } catch (err) { if (!(err instanceof DOMException && err.name === 'AbortError')) setError(message(err)); }
     finally { setBusy(false); }
   }

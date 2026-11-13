@@ -3,6 +3,16 @@ import type { LocalFileHandle } from './files.ts';
 
 export interface WorkspaceState { ids: string[]; active: string }
 export interface FileBinding { handle: LocalFileHandle; snapshot: string; bindingId?: string }
+export interface DraftFileState { saved: string; fileName: string; fileBindingId: string | null }
+export interface SavedFileState extends DraftFileState { fileBindingId: string; binding: FileBinding & { bindingId: string } }
+export interface DraftSession {
+  persistDraft(value: unknown): Promise<void>;
+  /** A different document/association invalidates saves started before it. */
+  setFileState(value: DraftFileState): void;
+  beginSave(): { complete(binding: Omit<FileBinding, 'bindingId'>): Promise<SavedFileState | null> };
+  /** Cache the final input synchronously before another instance can mount. */
+  dispose(finalDraft?: unknown): Promise<void>;
+}
 export interface WorkspaceStatus { state: 'ready' | 'saving' | 'error'; message: string }
 export interface WorkspaceStorage {
   get(key: string): Promise<unknown>;
@@ -109,6 +119,15 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
   const scheduledDrafts = new Map<string, { latest: unknown; promise: Promise<void> }>();
   const errors = new Map<string, string>();
   const listeners = new Set<(status: WorkspaceStatus) => void>();
+  type DraftOwner = {
+    state: DraftFileState;
+    onSaved?: (state: SavedFileState) => void;
+    released: boolean;
+    checkpoint?: { previousBindingId: string | null; previousFileName: string; saved: SavedFileState };
+  };
+  // One small owner/checkpoint per tab; no previous Canvas, form or history is
+  // retained here. A new instance invalidates the old instance's draft writer.
+  const draftOwners = new Map<string, DraftOwner>();
   let pending = 0;
   let lastTimestamp = 0;
   function timestamp() { lastTimestamp = Math.max(Date.now(), lastTimestamp + 1); return lastTimestamp; }
@@ -150,6 +169,75 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
     }
   }
   const api = {
+    openDraftSession(key: string, initialState: DraftFileState, onSaved?: (state: SavedFileState) => void): DraftSession {
+      const previous = draftOwners.get(key);
+      const checkpoint = previous?.checkpoint;
+      const caughtUp = checkpoint && (initialState.fileBindingId === checkpoint.saved.fileBindingId
+        || (initialState.fileBindingId === checkpoint.previousBindingId && initialState.fileName === checkpoint.previousFileName));
+      const state = caughtUp ? checkpoint.saved : initialState;
+      const owner: DraftOwner = { state: { saved: state.saved, fileName: state.fileName, fileBindingId: state.fileBindingId },
+        released: false, onSaved, ...(caughtUp ? { checkpoint } : {}) };
+      if (previous) { previous.released = true; previous.onSaved = undefined; }
+      draftOwners.set(key, owner);
+      if (caughtUp && (initialState.saved !== state.saved || initialState.fileBindingId !== state.fileBindingId || initialState.fileName !== state.fileName)) {
+        queueMicrotask(() => {
+          if (!owner.released && draftOwners.get(key) === owner && owner.checkpoint === checkpoint
+            && owner.state.fileBindingId === checkpoint.saved.fileBindingId) owner.onSaved?.(checkpoint.saved);
+        });
+      }
+      const persist = (value: unknown) => {
+        if (draftOwners.get(key) !== owner || removed.has(key)) return Promise.resolve();
+        // The snapshot may have been captured before a completed save's React
+        // update. Its contents stay intact; only file metadata catches up.
+        const next = value && typeof value === 'object' && !Array.isArray(value) ? { ...value, ...owner.state } : value;
+        return api.persistDraft(key, next);
+      };
+      let disposed: Promise<void> | undefined;
+      return {
+        persistDraft: persist,
+        setFileState(value) {
+          if (owner.released || draftOwners.get(key) !== owner || removed.has(key)) return;
+          owner.state = { saved: value.saved, fileName: value.fileName, fileBindingId: value.fileBindingId };
+          owner.checkpoint = undefined;
+        },
+        beginSave() {
+          const expectedBindingId = owner.state.fileBindingId, expectedFileName = owner.state.fileName;
+          let completed: Promise<SavedFileState | null> | undefined;
+          return { complete(binding) {
+            if (completed) return completed;
+            completed = (async () => {
+              if (removed.has(key)) return null;
+              const current = draftOwners.get(key), latest = drafts.get(key) as Record<string, unknown> | undefined;
+              if (!current || current.state.fileBindingId !== expectedBindingId || current.state.fileName !== expectedFileName) return null;
+              const nextBinding = { ...binding, bindingId: crypto.randomUUID() };
+              const next: SavedFileState = { saved: binding.snapshot, fileName: binding.handle.name, fileBindingId: nextBinding.bindingId, binding: nextBinding };
+              current.state = { saved: next.saved, fileName: next.fileName, fileBindingId: next.fileBindingId };
+              current.checkpoint = { previousBindingId: expectedBindingId, previousFileName: expectedFileName, saved: next };
+              // Cache records before publishing when recovery storage allows
+              // it. Even a paused recovery must acknowledge the actual file
+              // save to the active editor, without replacing old rescue data.
+              const pending = [api.persistFileBinding(key, nextBinding)];
+              if (latest && typeof latest === 'object' && !Array.isArray(latest) && latest.fileBindingId === expectedBindingId) {
+                pending.push(api.persistDraft(key, { ...latest, ...current.state }));
+              } else {
+                pending.push(Promise.reject(new Error('文件已保存，但工作区草稿的文件关联无法核对；原恢复记录已保留。')));
+              }
+              if (!current.released) current.onSaved?.(next);
+              await Promise.all(pending);
+              return next;
+            })();
+            return completed;
+          } };
+        },
+        dispose(finalDraft) {
+          if (disposed) return disposed;
+          owner.released = true;
+          owner.onSaved = undefined;
+          disposed = finalDraft === undefined ? Promise.resolve() : persist(finalDraft);
+          return disposed;
+        },
+      };
+    },
     async hydrateWorkspace(baseKey: string, fallback: WorkspaceState = { ids: ['initial'], active: 'initial' }): Promise<WorkspaceState> {
       let loading = hydrated.get(baseKey);
       if (!loading) {
@@ -236,6 +324,9 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
     async deleteDraft(key: string): Promise<void> {
       ensureReadable(key);
       removed.add(key); drafts.delete(key); bindings.delete(key);
+      const owner = draftOwners.get(key);
+      if (owner) { owner.released = true; owner.onSaved = undefined; }
+      draftOwners.delete(key);
       await Promise.all([
         enqueue(`draft:${key}`, () => storage.delete(`draft:${key}`)),
         enqueue(`file:${key}`, () => storage.delete(`file:${key}`)),
@@ -272,4 +363,4 @@ function browserStorage(): WorkspaceStorage {
 }
 const store = createWorkspaceStore(browserStorage(), browserLegacy());
 export const { hydrateWorkspace, getRestoredDraft, getRestoredFileBinding, persistDraft, persistFileBinding,
-  persistWorkspace, deleteDraft, subscribeWorkspaceStatus, getWorkspaceStatus } = store;
+  persistWorkspace, deleteDraft, subscribeWorkspaceStatus, getWorkspaceStatus, openDraftSession } = store;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createIndexedDbStorage, createLocalStorageFallback, createWorkspaceStore, recoverFileBinding, tabDraftKey } from './workspace-store.ts';
-import type { WorkspaceStorage } from './workspace-store.ts';
+import type { DraftFileState, SavedFileState, WorkspaceStorage } from './workspace-store.ts';
 import { writeFile } from './files.ts';
 import type { LocalFileHandle } from './files.ts';
 import { restoreEditorDraft } from './draft-recovery.ts';
@@ -115,6 +115,156 @@ test('a newer durable tab manifest wins over a stale session, including future w
   assert.ok((records.get('tabs:project') as { _workspaceUpdatedAt: number })._workspaceUpdatedAt > future);
   const reopened = createWorkspaceStore(adapter, session);
   assert.deepEqual(await reopened.hydrateWorkspace('project'), { ids: ['durable', 'next'], active: 'next' });
+});
+
+function draftFixture() {
+  const metadata: DraftFileState = { saved: 'original', fileName: 'papers.canvas', fileBindingId: 'binding-before-save' };
+  const draft = { ...metadata, canvas: { nodes: [{ id: 'paper', text: 'current paper' }], edges: [] },
+    selection: { kind: 'node', id: 'paper' }, form: { year: '202x' }, formDirty: true, unknown: { keep: ['metadata'] } };
+  return { metadata, draft };
+}
+
+test('a save finishing after unmount updates the baseline without replacing the final draft or retaining its callback', async () => {
+  const { adapter } = memory(), store = createWorkspaceStore(adapter), target = file(), { metadata, draft } = draftFixture();
+  await store.persistDraft('project', draft);
+  let notifications = 0;
+  const session = store.openDraftSession('project', metadata, () => { notifications++; });
+  const saving = session.beginSave();
+  const finalDraft = { ...draft, form: { year: '202x last input' } };
+  const disposing = session.dispose(finalDraft);
+  assert.deepEqual(store.getRestoredDraft('project'), finalDraft, 'final input is cached before dispose returns its promise');
+  await disposing;
+  target.state.text = 'saved document';
+  const saved = await saving.complete({ handle: target.handle, snapshot: target.state.text });
+  assert.ok(saved);
+  const recovered = store.getRestoredDraft('project') as typeof draft;
+  assert.deepEqual(recovered.canvas, finalDraft.canvas); assert.deepEqual(recovered.form, finalDraft.form);
+  assert.deepEqual(recovered.selection, finalDraft.selection); assert.deepEqual(recovered.unknown, finalDraft.unknown);
+  assert.equal(recovered.saved, 'saved document'); assert.equal(recovered.fileBindingId, saved.fileBindingId);
+  assert.equal(store.getRestoredFileBinding('project')?.bindingId, saved.fileBindingId);
+  assert.equal(notifications, 0, 'the unmounted component callback is released');
+  const binding = store.getRestoredFileBinding('project')!;
+  target.handle.createWritable = async () => {
+    let pending = target.state.text;
+    return { async write(text) { pending = text; }, async close() { target.state.text = pending; }, async abort() {} };
+  };
+  await writeFile(binding.handle, binding.snapshot, 'next save');
+  assert.equal(target.state.text, 'next save', 'the next save does not falsely conflict with our completed save');
+});
+
+test('late saves merge into the new instance without losing newer input and stale writers cannot roll metadata back', async () => {
+  const { adapter } = memory(), store = createWorkspaceStore(adapter), target = file(), { metadata, draft } = draftFixture();
+  const first = store.openDraftSession('project', metadata);
+  await first.persistDraft(draft);
+  const saving = first.beginSave();
+  await first.dispose(draft);
+  const notices: SavedFileState[] = [];
+  const reopened = store.openDraftSession('project', metadata, value => notices.push(value));
+  const newer = { ...draft, canvas: { ...draft.canvas, unknown: 'new document edit' }, form: { year: '202xy' }, selection: null };
+  await reopened.persistDraft(newer);
+  const saved = await saving.complete({ handle: target.handle, snapshot: 'saved older graph' });
+  assert.ok(saved); assert.equal(notices.length, 1); assert.equal(notices[0].fileBindingId, saved.fileBindingId);
+  await first.persistDraft({ ...draft, form: { year: 'obsolete unmount flush' } });
+  await reopened.persistDraft({ ...newer, form: { year: 'newest input' } }); // Its React file state may still be the old generation.
+  const recovered = store.getRestoredDraft('project') as typeof newer;
+  assert.equal(recovered.canvas.unknown, 'new document edit'); assert.deepEqual(recovered.form, { year: 'newest input' });
+  assert.equal(recovered.selection, null); assert.equal(recovered.saved, saved.saved); assert.equal(recovered.fileBindingId, saved.fileBindingId);
+  assert.equal((await saving.complete({ handle: target.handle, snapshot: 'duplicate callback' }))?.fileBindingId, saved.fileBindingId);
+});
+
+test('a save cannot update an instance that has switched to another file or resurrect a closed tab', async () => {
+  for (const remount of [false, true]) {
+    const { adapter } = memory(), store = createWorkspaceStore(adapter), target = file(), { metadata, draft } = draftFixture();
+    let notifications = 0;
+    const first = store.openDraftSession('project', metadata, () => { notifications++; });
+    await first.persistDraft(draft);
+    const saving = first.beginSave();
+    if (remount) await first.dispose(draft);
+    const active = remount ? store.openDraftSession('project', metadata, () => { notifications++; }) : first;
+    const other = { saved: 'other original', fileName: 'other.canvas', fileBindingId: 'other-binding' };
+    active.setFileState(other);
+    const next = { ...draft, ...other, form: { year: 'new file input' } };
+    await active.persistDraft(next);
+    assert.equal(await saving.complete({ handle: target.handle, snapshot: 'old saved text' }), null);
+    assert.deepEqual(store.getRestoredDraft('project'), next); assert.equal(notifications, 0);
+    assert.equal(store.getRestoredFileBinding('project'), null);
+
+    const nextSave = active.beginSave();
+    await store.deleteDraft('project');
+    await active.dispose(next);
+    assert.equal(await nextSave.complete({ handle: target.handle, snapshot: 'late closed-tab save' }), null);
+    assert.equal(store.getRestoredDraft('project'), undefined); assert.equal(store.getRestoredFileBinding('project'), null);
+  }
+});
+
+test('a new instance catches up if a save completes between reading its initial draft and mounting', async () => {
+  const { adapter } = memory(), store = createWorkspaceStore(adapter), target = file(), { metadata, draft } = draftFixture();
+  const first = store.openDraftSession('project', metadata);
+  await first.persistDraft(draft);
+  const saving = first.beginSave();
+  await first.dispose(draft);
+  const staleInitial = store.getRestoredDraft('project') as typeof draft;
+  const saved = await saving.complete({ handle: target.handle, snapshot: 'completed before mount' });
+  assert.ok(saved);
+  const notices: SavedFileState[] = [];
+  const reopened = store.openDraftSession('project', staleInitial, value => notices.push(value));
+  await Promise.resolve();
+  assert.equal(notices.length, 1); assert.equal(notices[0].saved, saved.saved);
+  await reopened.persistDraft(staleInitial);
+  assert.equal((store.getRestoredDraft('project') as typeof draft).fileBindingId, saved.fileBindingId);
+});
+
+test('queued save catch-up cannot reconnect a different file opened before its notification', async () => {
+  const { adapter } = memory(), store = createWorkspaceStore(adapter), target = file(), { metadata, draft } = draftFixture();
+  const first = store.openDraftSession('project', metadata);
+  await first.persistDraft(draft);
+  const saving = first.beginSave();
+  await first.dispose(draft);
+  const saved = await saving.complete({ handle: target.handle, snapshot: 'saved before remount' });
+  assert.ok(saved);
+  const notices: SavedFileState[] = [];
+  const reopened = store.openDraftSession('project', metadata, value => notices.push(value));
+  const other = { saved: 'other document', fileName: 'other.canvas', fileBindingId: 'other-generation' };
+  reopened.setFileState(other);
+  await reopened.persistDraft({ ...draft, ...other });
+  await Promise.resolve();
+  assert.deepEqual(notices, [], 'the queued old-file notification must be cancelled with its checkpoint');
+  assert.equal((store.getRestoredDraft('project') as typeof draft).fileBindingId, other.fileBindingId);
+});
+
+test('successive saves keep only current metadata even when the current writer still holds an old React snapshot', async () => {
+  const { adapter } = memory(), store = createWorkspaceStore(adapter), target = file(), { metadata, draft } = draftFixture();
+  const session = store.openDraftSession('project', metadata);
+  await session.persistDraft(draft);
+  const first = await session.beginSave().complete({ handle: target.handle, snapshot: 'first save' });
+  assert.ok(first);
+  await session.persistDraft(draft);
+  const second = await session.beginSave().complete({ handle: target.handle, snapshot: 'second save' });
+  assert.ok(second); assert.notEqual(first.fileBindingId, second.fileBindingId);
+  await session.dispose(draft);
+  const recovered = store.getRestoredDraft('project') as typeof draft;
+  assert.equal(recovered.saved, 'second save'); assert.equal(recovered.fileBindingId, second.fileBindingId);
+  assert.equal(store.getRestoredFileBinding('project')?.snapshot, 'second save');
+});
+
+test('successful file saves update the active baseline even when workspace persistence fails', async () => {
+  for (const unreadable of [false, true]) {
+    const { adapter, records } = memory(), store = createWorkspaceStore(adapter), target = file(), { metadata, draft } = draftFixture();
+    const notices: SavedFileState[] = [];
+    const session = store.openDraftSession('project', metadata, value => notices.push(value));
+    await session.persistDraft(draft);
+    const before = records.get('draft:project'), saving = session.beginSave();
+    if (unreadable) {
+      adapter.get = async () => { throw new Error('read denied'); };
+      await assert.rejects(store.hydrateWorkspace('project'), /read denied/);
+    } else adapter.set = async () => { throw new Error('quota exceeded'); };
+    await assert.rejects(saving.complete({ handle: target.handle, snapshot: 'saved despite recovery failure' }));
+    assert.equal(notices.length, 1); assert.equal(notices[0].saved, 'saved despite recovery failure');
+    assert.equal(notices[0].binding.snapshot, notices[0].saved);
+    assert.equal(records.get('draft:project'), before, 'failed recovery writes do not replace the durable rescue record');
+    assert.deepEqual((store.getRestoredDraft('project') as typeof draft).canvas, draft.canvas);
+    if (unreadable) assert.deepEqual(store.getRestoredDraft('project'), draft, 'paused recovery preserves its old cached record too');
+  }
 });
 
 test('file binding identity survives reopening while legacy records stay identifiable as unpaired', async () => {
