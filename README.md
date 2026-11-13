@@ -4,7 +4,9 @@
 
 Paperstream 是一个本地论文关系画布。每张卡片记下一篇论文最值得保留的认识，每条线说明两项工作之间的联系。你可以手工拖动、编辑和排版，也可以让 agent 通过 Python API 或 CLI 整理同一份 `.canvas` 文件。
 
-![Paperstream 的论文卡片、关系说明与竖向布局](docs/assets/paperstream.jpg)
+![Paperstream：鲸娘讲解 AI 历史，白龙娘与 Claude 娘旁听](docs/assets/paperstream-classroom-promo-v2.png)
+
+宣传插画由 AI 生成，角色参考 ZipZipPipe 的社区拟人设定。[角色来源与生成记录](docs/assets/paperstream-classroom-promo-v2-prompt.md)
 
 ## 为什么做它
 
@@ -33,6 +35,10 @@ npm --prefix web run dev
 - [ResNet、DenseNet、ResNeXt](examples/resnet.canvas)：三篇论文，适合快速了解卡片与关系。
 - [CNN 演进](examples/cnn-evolution.canvas)：LeNet 等经典工作。
 - [量子力学经典论文](examples/quantum-foundations.canvas)与 [DeepH 阅读路线](examples/deeph-reading.canvas)。
+- [从电子计算到 AI](examples/computing-ai-history.canvas)：16 个里程碑，含人物肖像；[查看整图 PNG](docs/assets/computing-ai-history.png)。
+- [深度学习的几条发展线](examples/deep-learning-history.canvas)：从 Hinton 参与的反传工作到 Transformer、生成模型与语言模型；[查看整图 PNG](docs/assets/deep-learning-history.png)。
+
+历史图均通过 CanvasGraph API 创建，可继续编辑，不是只供观看的海报。人物与论文来源、逐图署名和许可分别记录在 [计算机与 AI 来源表](docs/research/computing-ai-history-sources.md)、[深度学习来源表](docs/research/deep-learning-history-sources.md)；分享导出图片时请带上相应来源表。
 
 建议另存为自己的文件后开始整理。支持文件句柄的浏览器可保存回原文件；其他环境使用下载副本。草稿恢复不能替代正式保存。
 
@@ -60,6 +66,10 @@ python3 -m paperstream serve examples/resnet.canvas --read-only --port 3817
 | 导出与外观 | 文件菜单导出全图 PNG/SVG；右上角设置切换主题与直角／圆角／曲线路径 |
 
 卡片随内容增减自动调整高度，年份贴在卡片内部右下角；手动调整尺寸后可保留留白。takeaway 支持 `- ` 分点。图片默认铺满内容宽度，不显示上传文件名；每张上限 8 MB、3200 万像素、单边 16384。当前只保留 PNG/SVG 导出，不提供 PPT 或放映。
+
+实际编辑器如下；上方宣传图是插画，不是界面截图：
+
+![Paperstream 实际编辑界面](docs/assets/paperstream.jpg)
 
 ## 让 agent 帮忙整理
 

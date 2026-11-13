@@ -2,6 +2,24 @@
 
 更新日期：2026-11-13。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器及 DSH 面板已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实 DSH 验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
 
+## 宣传与历史画布（2026-11-13）
+
+新增两份可编辑样例：`examples/computing-ai-history.canvas` 为 1946–2026 的 16 个精选里程碑，加两张范围/来源说明卡；`examples/deep-learning-history.canvas` 从 Hinton 参与的 1986 年工作出发，含 14 个论文节点和三张说明卡。全部创建、后续修正与保存经过 CanvasGraph；复现脚本 `scripts/create-computing-ai-history.py`、`scripts/create-deep-learning-history.py` 拒绝覆盖已有文件。历史年份对应所链接版本，ResNet 明确区分 2015 预印本与 CVPR 2016；时间相邻不表示直接继承。当前模型只列已核实的官方发布例子，不承诺完整或最新排行榜。
+
+肖像以 data URL 置入已知 figures 格式，来源、摄影者、许可链接和改动说明作为扩展字段随图保留；对应原图与 manifest 在 `assets/history/`。计算机图 16 次照片引用、深度学习图 13 次引用；ResNet 作者没有核实到可再分发头像，明确保留缺项，不借用不相关人物。两份 `docs/research/*history-sources.md` 记录逐项来源与肖像许可，导出图须与对应来源表一起分发；不能把这些照片当作项目代码许可证覆盖的素材。历史人物照片也不表示其为项目背书。
+
+`exportGraphSvg` 是当前编辑器的原导出 API。新增 `scripts/export-canvas-images.mjs` 只读取已保存文档，调用同一 API 生成自含 SVG；可选从明确路径加载本地 resvg 2.6.2 转成 3000 px 宽 PNG，在分配前检查 3200 万像素预算。resvg 仅装于忽略的本地工具目录，不增加产品或 Python 运行时依赖。示例命令：
+
+```sh
+npm install --prefix .local/history-renderer --no-audit --no-fund @resvg/resvg-js@2.6.2
+node --experimental-strip-types scripts/export-canvas-images.mjs examples/computing-ai-history.canvas docs/assets/computing-ai-history .local/history-renderer/package.json
+node --experimental-strip-types scripts/export-canvas-images.mjs examples/deep-learning-history.canvas docs/assets/deep-learning-history .local/history-renderer/package.json
+```
+
+导出 SVG 分别含 16/13 张内嵌照片，PNG 为 3000×2673 / 3000×2655。逐项图片数据与 provenance 检查通过；两图全部关系标签对卡片矩形无交集，深度图中两条横向说明简写为“反传训练”“自回归”，长说明留于来源文档。已查看整图，Python 93 项回归通过。用户可直接在 Paperstream 中继续修改原 `.canvas`，导出不是单独维护的另一份图数据。
+
+宣传图首稿为自行设计的三位角色，用户指出不符合已有社区形象，已停止用于 README。第二版先实际检索与查看参考图，再用内置 image_gen 生成新课堂构图：DeepSeek 蓝长发、鱼鳍耳、蓝白女仆与鲸尾；GPT 银白龙角/翅尾与白紫礼服；Claude 橙长发、日芒花饰、米白橙黑长裙和书本。角色设定追溯至 ZipZipPipe，DeepSeek 另保留上善无形的来源链。参考原图只在忽略目录供生成使用，没有复制到版本库。最终选择 `docs/assets/paperstream-classroom-promo-v2.png`，完整提示词、来源和第三方角色边界见同名 `-prompt.md`；不把社区角色写成 Paperstream 原创或公司官方形象。README 使用新插画作封面，并保留真实界面截图及历史样例入口。
+
 ## 开源前验收（2026-11-13）
 
 当前发布准备以实际测试与可重复构建为依据，不把所有平台都标成完成。完整自动检查：Python 93、web 204、DSH 18、Codex 23、Claude 16 项，共 354 项；各端构建与类型检查、Python/TypeScript 往返通过。新增 DSH 许可包完整性与两端便携 Skill/CLI 回归；Claude 验收直接解压 ZIP 到含空格临时目录，再执行 CLI 和真实 HTTP 读写／409 冲突，检查 ID 与未知字段保留。
