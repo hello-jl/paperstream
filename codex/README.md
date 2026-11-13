@@ -4,7 +4,9 @@ Local MCP Apps file editor for `.canvas` files. The desktop host provides the
 opened resource, read/write permissions, version tokens and update notifications.
 The plugin reuses the project's React Flow editor, with React, CSS and all browser
 code bundled into one HTML resource. No API key, OpenAI API call, Vite server or
-HTTP server is required at runtime. Node 22.18+ is required for the stdio server.
+HTTP server is required for the file-editor UI. Node 22.18+ is required for the
+stdio server. The bundled agent Skill and Python CLI additionally require
+Python 3.10+; they do not call a model API.
 
 ## Build and check
 
@@ -22,6 +24,14 @@ The installable package is `codex/dist/plugin/`; it has no `node_modules`
 dependency. `codex/.agents/plugins/marketplace.json` points to that package.
 `package-lock.json` pins the dependencies. The Zod override selects the patched
 4.6.6 release because MCP Extensions 0.2.1 pins an older vulnerable version.
+
+The package also carries `skills/paperstream/`, its API reference, and
+`scripts/paperstream.py` with the standard-library Python implementation. An
+agent can use the installed launcher from another working directory to read or
+edit a known local file. The MCP server itself exposes the file-editor UI, not
+general-purpose graph CRUD tools. Default `serve` is rejected here because this
+package's HTML requires the native host; use the separate browser adapter for
+HTTP editing. Third-party notices and license texts are included in the package.
 
 ## Local installation
 
@@ -46,6 +56,13 @@ An app name or bundle ID alone does not establish that capability. It is not an
 `@paperstream` chat tool, and no separate browser is required for the packaged UI.
 Cloud sessions and standard remote MCP apps are not covered by this local stdio
 adapter; changing transport alone does not provide host file access.
+
+Native acceptance on 2026-11-13 used a separate test copy in the local Codex
+desktop conversation. Editing, undo/redo, saving through the host and reading
+back from disk passed. Clean external updates appeared automatically. With an
+unsaved edit, two consecutive saves refused a newer disk version and retained
+the local draft; the external file's SHA-256 stayed unchanged. This covers that
+tested desktop session, not every Chat/Work entry point or platform version.
 
 For native acceptance, open `examples/resnet.canvas` in the conversation's right
 file panel after restarting. Confirm that it shows the graph rather than JSON,

@@ -44,7 +44,7 @@ MCP tools 描述结构化动作，resources 提供上下文；MCP Apps 是独立
 - 实际 bundle 涉及 ELK 的 EPL 声明和 MCP 的许可迁移文本，不能统称 MIT。已保留 26 个实际打包 npm 版本的许可与准确来源，含 cfworker 上游派生代码声明。此记录不构成法律兼容性意见。
 - Python 模块可从仓库或便携包运行；目前没有 Python 安装元数据，不能写 `pip install paperstream`。JS 源码构建需要 web 锁定依赖；便携包运行要求与源码构建要求应分开。
 - Web / DSH 会在同源浏览器存储保留工作区草稿和文件关联；图片可内嵌在 `.canvas`。分享文件也会分享其中图片，删除原图文件不会清除浏览器草稿。Codex 宿主文件模式不把文档写入浏览器草稿；Claude 令牌在标签页 sessionStorage，服务仅绑定单个明确文件。
-- 对当前跟踪的 146 个文件做启发式扫描，未发现私钥标记、硬编码长凭据或 `/Users/` 路径。它不是 Git 历史或所有秘密格式的完整扫描，不能作无泄露保证。`.local/`、依赖、构建产物和本机数据已忽略。
+- 发布前追加只读历史扫描：扫描时全部 6 个 refs 可达的 62 个提交、191 个历史路径、414 个去重 blob（7.62 MB），另检查当前 186 个已跟踪文件。未发现误入历史的 `.local`、`.env`、凭据／本机数据路径、私钥、高置信服务令牌或 JWT 常量；两处路径启发式命中核对为 `/tmp` 测试 fixture。范围不含忽略／未跟踪文件、不可达对象、未取回远端分支及所有未知凭据格式，不作零泄露保证；没有改写历史。
 - README 中的本机 `.local/start-dsh.sh`、过长的调试历史、重复的旧 Mermaid 主教程和相互不一致的宿主验收描述应移出首屏；保留简洁的支持矩阵和链接，旧功能不作为产品卖点。当前 root README 与 feature-analysis 的 Codex 原生验收措辞已有差异，应以最新实际证据统一。
 - 公开源码、自建本地 marketplace 与官方商店上架是不同步骤。OpenAI 当前把本地 stdio 插件的公开商店提交限制为获批伙伴；不影响说明个人本地安装，但不能承诺开源即自动上架。[官方 desktop-only 分发说明](https://developers.openai.com/plugins/deploy/desktop-only)。
 

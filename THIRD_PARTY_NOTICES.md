@@ -24,7 +24,7 @@ Build and test dependencies that are absent from runtime output are not listed.
 | [@openai/mcp-extensions](https://github.com/openai/mcp-extensions) | 0.2.1 | Apache-2.0 | Codex UI, Codex server | [Text](licenses/third-party/openai-mcp-extensions-0.2.1-LICENSE.txt) |
 | [@xyflow/react](https://github.com/xyflow/xyflow) | 12.12.1 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/xyflow-react-12.12.1-LICENSE.txt) |
 | [@xyflow/system](https://github.com/xyflow/xyflow) | 0.0.84 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/xyflow-system-0.0.84-LICENSE.txt) |
-| [classcat](jorgebucaran/classcat) | 5.0.5 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/classcat-5.0.5-LICENSE.txt) |
+| [classcat](https://github.com/jorgebucaran/classcat) | 5.0.5 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/classcat-5.0.5-LICENSE.txt) |
 | [d3-color](https://github.com/d3/d3-color) | 3.1.1 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-color-3.1.1-LICENSE.txt) |
 | [d3-dispatch](https://github.com/d3/d3-dispatch) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-dispatch-3.0.2-LICENSE.txt) |
 | [d3-drag](https://github.com/d3/d3-drag) | 3.0.1 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-drag-3.0.1-LICENSE.txt) |

@@ -44,6 +44,8 @@ claude plugin install paperstream@paperstream-local
 
 以上路径是源码开发方式；分发时给完整 `dist/plugin` 文件夹即可。不要单独复制 `SKILL.md` 或启动器，也不要把仓库外目录写死进插件。
 
+插件另带通用 `skills/paperstream/`，供 agent 按 API 约定整理图：先读完整文档、取得稳定 ID、多项修改一次保存、冲突后核对差异并回读。它与手动打开页面的 `/paperstream:open` 分工不同。两份技能均使用包内 Python 启动器；当前没有供模型改图的 MCP server。便携包也包含第三方许可资料。
+
 ## Claude Code 桌面 Browser
 
 本机 Code 会话可以用 Browser 打开上述 URL。若需要 Preview 菜单管理启动进程，在目标项目根现有 `.claude/launch.json` 中合并一个配置，保留其他配置：

@@ -2,6 +2,23 @@
 
 更新日期：2026-11-13。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器及 DSH 面板已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实 DSH 验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
 
+## 开源前验收（2026-11-13）
+
+当前发布准备以实际测试与可重复构建为依据，不把所有平台都标成完成。完整自动检查：Python 93、web 204、DSH 18、Codex 23、Claude 16 项，共 354 项；各端构建与类型检查、Python/TypeScript 往返通过。新增 DSH 许可包完整性与两端便携 Skill/CLI 回归；Claude 验收直接解压 ZIP 到含空格临时目录，再执行 CLI 和真实 HTTP 读写／409 冲突，检查 ID 与未知字段保留。
+
+| 范围 | 本轮实际验收与边界 |
+| --- | --- |
+| Codex 原生文件面板 | 使用独立 `.local/chatgpt-acceptance-20261113.canvas` 副本，详情即时修改简称，撤销恢复干净原文、重做、通过宿主保存，Python API 从磁盘回读确认；干净状态外部 API 修改后自动刷新；有草稿时外改，连续两次保存均提示冲突且外部文件 SHA-256 不变，本地输入保留。撤销本次草稿后自动接收外部版本，结束为干净状态。未知扩展含 `1e-7` 在合法保存后保留。原既有另一面板与未保存排版未动。本轮补齐 Codex 会话原生链路，不扩展到所有 Chat/Work、平台或宿主版本。 |
+| DSH Web | 在独立第三页签新增论文 A/B、Note、共享标签；原两份草稿保留。逐字输入 `a → abcdef → abcdefgh` 完整保留；空说明连线、正向改双向开放箭头、关系线 6 px 与论文边框 4 px 独立；PNG 剪贴板成功添加且无文件名，宽度 100→50%，实际鼠标拖到 34%，卡片随之收缩；两个论文分别连向一个共享标签，3 边；智能竖排、夜间／曲线及恢复苔绿／圆角、附近过滤后搜索 Note 恢复全图通过。选中时滚轮使 viewport scale 0.781→0.1，未改线重；菜单 PNG/SVG 返回已导出，本轮未重新解析下载文件，历史真机下载验证与自动导出回归仍保留。构建时宿主热卸载回到 Conversation，重新进入后本轮草稿完整恢复。 |
+| 普通浏览器本地桥 | 从 examples 通过 CanvasGraph 创建独立副本 `.local/release-demo/papers.canvas`，实际智能竖排、保存，得到 README 截图 `docs/assets/paperstream.jpg`；图片内容只有公开论文资料。上一轮简称编辑、外改读取及重复冲突磁盘保护仍按原记录有效。 |
+| Claude Code | 官方 CLI 严格清单校验、隔离本地安装通过，打包/运行与原始版本拒写通过。没有 Claude 账号，真实会话的技能发现／权限交互与桌面 Browser 内运行仍无法验收，不冒充通过。 |
+
+本轮证据：`.local/release-native-saved-20261113.jpg`、`.local/release-native-conflict-20261113.jpg`、`.local/release-dsh-verified-20261113.jpg`；仅公开展示截图提交仓库。未解决的原生 ResizeObserver 循环告警保留诊断，未用静默拦截掩盖；未将局部成功推广为大图、其他系统、DSH Desktop 或全部输入法流程完成。
+
+Agent 发布资料：完善仓库 AGENTS.md，新增可分发 `skills/paperstream/` 和 API reference；官方技能格式校验、真实 API 操作与独立 agent forward test 通过，完整对比保留原布局、Note、未知字段和数组顺序。Claude/Codex 包含技能与 Python 启动器；Codex UI 仍只需 Node，agent CLI 另需 Python，默认不允许把原生 HTML 用作 HTTP 界面。现有 MCP 只有 app-only UI resource／文件入口，没有通用语义编辑工具；首发继续用 API/CLI 作为本地 agent 改图内核，理由与未来 MCP 最小边界见 [交互审查](../research/agent-interaction-audit.md)。
+
+发布许可：按实际 bundle 输入核对 26 个依赖版本，保留原始许可、ELK source notice 与 npm 漏带的上游归属。Web、DSH、Codex、Claude 产物都复制根第三方声明和完整 licenses；DSH prepack 检查字节一致，npm 包清单确认包含全部许可资料。项目本身的许可证仍待维护者选择，未臆造版权或擅自公开发布。
+
 ## 当前实现：Canvas、独立界面与 DSH 面板
 
 用户确认：复用 DSH 已有 React，以 React Flow 提供拖动、缩放和连线；论文卡片显示 alias、takeaway 与可选 fig，完整原题 name、url、year 在就近详情浮层编辑；另有 Note 和共享关系标签。边可显示 relation，也可只保留连线；支持只看选中卡片附近的关系；原文点击打开，不为每张卡片嵌入 PDF 或加载原文网页。不依赖 Obsidian，保留文件独立与 agent 通过 API 操作的要求。
