@@ -176,3 +176,101 @@ test('external change immediately after successful write is noticed and loaded a
   assert.equal(f.snapshot().document.external, 'newer');
   assert.equal(f.snapshot().externalChange, false);
 });
+
+test('discard reload cannot discard edits made after confirmation, even when already dirty', async () => {
+  for (const initiallyDirty of [false, true]) {
+    const f = fixture();
+    await f.session.refresh();
+    f.session.noteLocalDocument(f.initial); // Initial editor mount is not an edit.
+    f.session.setDirty(initiallyDirty);
+    if (initiallyDirty) f.session.noteLocalDocument({ ...f.initial, local: 'before confirmation' });
+    const revision = f.snapshot().revision;
+    const original = f.resources.read;
+    f.external(serializeCanvas({ ...f.initial, external: 'newer' }));
+    const incoming = await original({ uri, representation: 'text' });
+    let resolve!: (value: typeof incoming) => void;
+    f.resources.read = () => new Promise(done => { resolve = done; });
+    const reload = f.session.refresh(true);
+    f.session.setDirty(true);
+    f.session.noteLocalDocument({ ...f.initial, local: 'typed while reading' });
+    resolve(incoming);
+    await reload;
+    assert.equal(f.snapshot().revision, revision, 'do not remount the editor and erase new text');
+    assert.equal(f.snapshot().dirty, true);
+    assert.equal(f.snapshot().externalChange, true);
+    assert.match(f.snapshot().notice, /新的修改.*已保留/);
+    assert.equal(f.snapshot().document.external, undefined);
+    // The etag still belongs to the version originally loaded, so saving the
+    // retained local edit cannot overwrite the external revision either.
+    await assert.rejects(f.session.save({ ...f.initial, local: 'typed while reading' }), /冲突/);
+    assert.equal(f.writes[0].ifMatch, 'v1');
+    f.resources.read = original;
+    await f.session.refresh(true);
+    assert.equal(f.snapshot().document.external, 'newer');
+    assert.equal(f.snapshot().dirty, false);
+  }
+});
+
+test('late failures of superseded or disposed reads cannot report errors for the active file', async () => {
+  const f = fixture();
+  await f.session.refresh();
+  const original = f.resources.read;
+  let reject!: (error: Error) => void;
+  f.resources.read = () => new Promise((_resolve, fail) => { reject = fail; });
+  const older = f.session.refresh();
+  f.resources.read = original;
+  f.external(serializeCanvas({ ...f.initial, external: 'current' }));
+  await f.session.refresh();
+  reject(new Error('old request failed'));
+  await assert.doesNotReject(older);
+  assert.equal(f.snapshot().document.external, 'current');
+
+  f.resources.read = () => new Promise((_resolve, fail) => { reject = fail; });
+  const closing = f.session.refresh();
+  f.session.dispose();
+  reject(new Error('closed file read failed'));
+  await assert.doesNotReject(closing);
+
+  // Current failures must still reach the caller instead of being suppressed.
+  const current = fixture();
+  current.resources.read = async () => { throw new Error('active file failed'); };
+  await assert.rejects(current.session.refresh(), /active file failed/);
+});
+
+test('missing fresh version metadata revokes writes without adopting an external etag', async () => {
+  for (const discardDuringEdit of [false, true]) {
+    const f = fixture();
+    await f.session.refresh();
+    f.session.setDirty(true);
+    f.session.noteLocalDocument({ ...f.initial, local: 'unsaved' });
+    const revision = f.snapshot().revision;
+    const original = f.resources.read;
+    f.external(serializeCanvas({ ...f.initial, external: 'newer' }));
+    const incoming = await original({ uri, representation: 'text' });
+    incoming.contents[0].openaiMetadata = { writable: true }; // No fresh etag.
+    let resolve!: (value: typeof incoming) => void;
+    f.resources.read = () => new Promise(done => { resolve = done; });
+    const refresh = f.session.refresh(discardDuringEdit);
+    if (discardDuringEdit) f.session.noteLocalDocument({ ...f.initial, local: 'newer unsaved' });
+    resolve(incoming);
+    await refresh;
+    assert.equal(f.snapshot().revision, revision);
+    assert.equal(f.snapshot().dirty, true);
+    assert.equal(f.snapshot().readOnly, true, 'an old baseline etag is not a current write grant');
+    await assert.rejects(f.session.save({ ...f.initial, local: 'unsaved' }), /不可安全写入/);
+    assert.equal(f.writes.length, 0);
+
+    // A later read may restore safe-write evidence, but it must not authorize
+    // overwriting the newer external document with a stale local graph.
+    f.resources.read = original;
+    await f.session.refresh();
+    assert.equal(f.snapshot().readOnly, false);
+    assert.equal(f.snapshot().dirty, true);
+    await assert.rejects(f.session.save({ ...f.initial, local: 'unsaved' }), /冲突/);
+    assert.equal(f.writes[0].ifMatch, 'v1', 'retain the original baseline token');
+    await f.session.refresh(true);
+    assert.equal(f.snapshot().dirty, false);
+    await f.session.save(f.snapshot().document);
+    assert.equal(f.writes[1].ifMatch, 'v1-external');
+  }
+});

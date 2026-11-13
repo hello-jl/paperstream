@@ -4,6 +4,7 @@ import { App, applyDocumentTheme, applyHostStyleVariables } from '@modelcontextp
 import { OpenAIExtensions, OpenAIFileEntrypointInputSchema } from '@openai/mcp-extensions/app';
 import { PaperstreamEmbeddedEditor } from '../../web/src/EmbeddedEditor';
 import { ResourceSession } from './resource-session';
+import { ResourceSubscriptions } from './resource-subscriptions';
 import type { ResourceSnapshot } from './resource-session';
 import type { JSONCanvasDocument } from '../../web/src/canvas';
 import './host.css';
@@ -22,7 +23,8 @@ function HostEditor() {
   useEffect(() => {
     let alive = true;
     let current: View | undefined;
-    let active: { session: ResourceSession; disposeHandler: () => void; uri: string } | undefined;
+    let active: { session: ResourceSession; disposeHandler: () => void; unsubscribe: () => Promise<void> } | undefined;
+    const subscriptions = new ResourceSubscriptions();
     let generation = 0;
     let connected = false;
     let pending: OpenFile | undefined;
@@ -32,8 +34,7 @@ function HostEditor() {
       closing?.session.dispose();
       closing?.disposeHandler();
       active = undefined;
-      return closing && extensions.resources
-        ? extensions.resources.unsubscribe({ uri: closing.uri }).catch(() => {}) : Promise.resolve();
+      return closing ? closing.unsubscribe().catch(() => {}) : Promise.resolve();
     };
     const open = async (file: OpenFile) => {
       if (!connected) { pending = file; return; }
@@ -65,11 +66,12 @@ function HostEditor() {
         try { await session.refresh(); }
         catch (err) { if (alive && generation === attempt) setError(`读取外部更新失败：${message(err)}`); }
       });
-      active = { session, disposeHandler, uri: file.resourceUri };
+      const subscription = subscriptions.open(resources, file.resourceUri);
+      active = { session, disposeHandler, unsubscribe: subscription.close };
       // Subscribe first so an update between subscription and the initial read
       // cannot leave the editor silently showing an old version.
       try {
-        await resources.subscribe({ uri: file.resourceUri });
+        await subscription.ready;
       } catch (err) {
         if (alive && generation === attempt) setError(`无法订阅文件更新；请使用“重新载入”检查外部修改。${message(err)}`);
       }
@@ -95,6 +97,7 @@ function HostEditor() {
     const onPageHide = () => { alive = false; void cleanup(); };
     window.addEventListener('pagehide', onPageHide);
     void app.connect().then(async () => {
+      if (!alive) return;
       connected = true;
       applyContext();
       if (pending) await open(pending);
@@ -113,6 +116,7 @@ function HostEditor() {
 
   const session = view?.session;
   const onDirtyChange = useCallback((dirty: boolean) => session?.setDirty(dirty), [session]);
+  const onDocumentChange = useCallback((document: JSONCanvasDocument) => session?.noteLocalDocument(document), [session]);
   const onSave = useCallback(async (document: JSONCanvasDocument) => {
     if (!session) throw new Error('文件会话尚未准备好。');
     await session.save(document);
@@ -130,7 +134,7 @@ function HostEditor() {
     {view && <section className="ps-codex-editor">
       <PaperstreamEmbeddedEditor key={`${view.file.resourceUri}:${view.snapshot.revision}`}
         document={view.snapshot.document} fileName={view.file.name} readOnly={view.snapshot.readOnly}
-        onSave={onSave} onDirtyChange={onDirtyChange}
+        onSave={onSave} onDirtyChange={onDirtyChange} onDocumentChange={onDocumentChange}
         onReload={() => void reload()} reloadDisabled={view.snapshot.saving}
         openExternal={async url => { await app.openLink({ url }); }} />
     </section>}

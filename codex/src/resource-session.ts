@@ -28,10 +28,15 @@ export class ResourceSession {
   private baseline = '';
   private etag: string | undefined;
   private writable = false;
+  // Keep the latest read's permission evidence separate from the baseline
+  // etag: a dirty graph must not adopt an external version as its save token.
+  private versionAvailable = false;
   private dirty = false;
   private saving = false;
   private revision = 0;
   private request = 0;
+  private localRevision = 0;
+  private localText = '';
   private disposed = false;
   private externalChange = false;
   private document: JSONCanvasDocument | undefined;
@@ -46,7 +51,7 @@ export class ResourceSession {
   private publish() {
     if (!this.disposed && this.document) this.changed({
       document: this.document, revision: this.revision,
-      readOnly: !this.writable || !this.etag, dirty: this.dirty, saving: this.saving,
+      readOnly: !this.writable || !this.versionAvailable || !this.etag, dirty: this.dirty, saving: this.saving,
       externalChange: this.externalChange, notice: this.notice,
     });
   }
@@ -54,12 +59,24 @@ export class ResourceSession {
   setDirty(value: boolean) {
     if (this.dirty === value) return;
     this.dirty = value;
+    if (value) this.localRevision += 1;
     this.publish();
     if (!value && this.externalChange && !this.saving) {
       void this.refresh().catch(error => {
         this.notice = `读取外部更新失败：${error instanceof Error ? error.message : String(error)}`;
         this.publish();
       });
+    }
+  }
+
+  /** Track every local document change, including edits while already dirty.
+   * Reload confirmation authorizes discarding only the state seen at its start. */
+  noteLocalDocument(document: JSONCanvasDocument) {
+    if (this.disposed) return;
+    const text = serializeCanvas(document);
+    if (text !== this.localText) {
+      this.localText = text;
+      this.localRevision += 1;
     }
   }
 
@@ -72,7 +89,15 @@ export class ResourceSession {
       return;
     }
     const request = ++this.request;
-    const result = await this.resources.read({ uri: this.uri, representation: 'text' });
+    const localRevision = this.localRevision;
+    let result: Awaited<ReturnType<HostResources['read']>>;
+    try { result = await this.resources.read({ uri: this.uri, representation: 'text' }); }
+    catch (error) {
+      // An obsolete request must not replace a newer file's status with its
+      // transport error after the user has switched files or refreshed again.
+      if (this.disposed || request !== this.request) return;
+      throw error;
+    }
     if (this.disposed || request !== this.request) return;
     const content = result.contents.find(item => item.uri === this.uri);
     if (!content || typeof content.text !== 'string') throw new Error('宿主没有返回此 Canvas 的文本内容。');
@@ -80,7 +105,14 @@ export class ResourceSession {
     const document = parseCanvas(content.text);
     const etag = content.openaiMetadata?.etag;
     this.writable = content.openaiMetadata?.writable === true;
+    this.versionAvailable = Boolean(etag);
     const changed = this.document && (etag !== this.etag || content.text !== this.baseline);
+    if (this.document && discard && localRevision !== this.localRevision) {
+      this.externalChange = Boolean(changed);
+      this.notice = '重新载入期间产生了新的修改，已保留。请检查后再次重新载入。';
+      this.publish();
+      return;
+    }
     if (changed && (this.dirty || this.saving) && !discard) {
       this.externalChange = true;
       this.notice = '文件已在其他地方更新；当前修改已保留。请先导出备份，再重新载入文件。';
@@ -90,6 +122,7 @@ export class ResourceSession {
     if (!this.document || changed || discard) {
       this.document = document;
       this.baseline = content.text;
+      this.localText = serializeCanvas(document);
       this.etag = etag;
       this.dirty = false;
       this.revision += 1;
@@ -103,7 +136,7 @@ export class ResourceSession {
   async save(document: JSONCanvasDocument) {
     if (this.disposed) throw new Error('文件会话已经关闭。');
     if (this.saving) throw new Error('正在保存，请稍后重试。');
-    if (!this.writable || !this.etag) throw new Error('当前宿主资源不可安全写入。');
+    if (!this.writable || !this.versionAvailable || !this.etag) throw new Error('当前宿主资源不可安全写入。');
     const text = serializeCanvas(document);
     // A read started before this write must never reintroduce an old etag or
     // document after the write has completed, even if it was a discard reload.

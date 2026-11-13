@@ -46,6 +46,10 @@ Every save includes `ifMatch`. A conflict keeps the unsaved graph and old versio
 token; repeated Save cannot silently replace the newer file. Clean external
 updates reload automatically; dirty graphs remain open with a notice. Reloading
 a dirty graph requires explicit discard, and reload is blocked during a save.
+Edits made after a reload begins are retained instead of being discarded by its
+late response. Missing version metadata on a later read revokes writing even
+when local edits retain an older baseline. File subscriptions are changed in
+order so reopening a file cannot lose its external-update notifications.
 File read/parse errors, write failures and host size limits retain the editor's
 current document. There is no automatic browser draft recovery for host files.
 
@@ -66,6 +70,12 @@ app and official `AppBridge` protocol in an iframe. It simulates an opaque host
 resource **in memory**, exposes read-only, conflict and external-update controls,
 and never changes the example file. Use it for interaction checks; it is not a
 ChatGPT desktop substitute and is excluded from the packaged plugin.
+
+`Pause next read` and `Pause next write` hold one operation until
+`Release pending operation` is clicked. Use a clean document to start a delayed
+reload, edit before releasing it, and check that the new text remains. During a
+delayed save, inline inputs should become read-only and the page panel should
+block document edits; both should become editable again after release.
 
 The design and desktop validation record live in
 [`docs/mechanisms/paperstream-design.md`](../docs/mechanisms/paperstream-design.md).

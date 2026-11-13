@@ -13,8 +13,18 @@ let writable = true;
 let saved = 0;
 let bridge: AppBridge;
 let conflictNext = false;
+let holdRead = false;
+let holdWrite = false;
+const pendingOperations: Array<() => void> = [];
 const status = document.getElementById('status')!;
 function report(detail: string) { status.textContent = `version=${revision} saved=${saved} writable=${writable} · ${detail}`; }
+async function waitForRelease(kind: 'read' | 'write') {
+  const held = kind === 'read' ? holdRead : holdWrite;
+  if (!held) return;
+  if (kind === 'read') holdRead = false; else holdWrite = false;
+  report(`${kind} paused; use Release pending operation`);
+  await new Promise<void>(resolve => { pendingOperations.push(resolve); });
+}
 async function mount() {
   if (bridge) await bridge.close();
   const previous = document.querySelector('iframe');
@@ -28,12 +38,14 @@ async function mount() {
   }, { hostContext: { theme: 'light', displayMode: 'fullscreen' } });
   bridge.onreadresource = async ({ uri: requested }) => {
     if (requested !== uri) throw new Error('Unknown test URI');
+    await waitForRelease('read');
     report('resource read');
     return { contents: [{ uri, text, mimeType: 'application/json', _meta: { 'openai/resource': { etag: String(revision), writable } } }] };
   };
   bridge.setRequestHandler(SubscribeRequestSchema, async () => { report('subscribed'); return {}; });
   bridge.setRequestHandler(UnsubscribeRequestSchema, async () => ({}));
   bridge.setRequestHandler(z.object({ method: z.literal('openai/resources/write'), params: OpenAIResourceWriteParamsSchema }), async ({ params }) => {
+    await waitForRelease('write');
     if (!writable) throw new Error('Read-only test resource');
     if (conflictNext) { revision++; conflictNext = false; }
     if (params.ifMatch !== String(revision)) {
@@ -66,5 +78,11 @@ document.getElementById('inspect')!.onclick = () => {
   const output = document.getElementById('content')!;
   output.textContent = text;
   (output.parentElement as HTMLDetailsElement).open = true;
+};
+document.getElementById('hold-read')!.onclick = () => { holdRead = true; report('next read will pause'); };
+document.getElementById('hold-write')!.onclick = () => { holdWrite = true; report('next write will pause'); };
+document.getElementById('release')!.onclick = () => {
+  pendingOperations.splice(0).forEach(resolve => resolve());
+  report('pending operation released');
 };
 await mount();
