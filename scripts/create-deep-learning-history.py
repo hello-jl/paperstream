@@ -93,12 +93,12 @@ def create(output: Path) -> dict:
     # Each edge is an explicit technical link, not a claim that adjacent dates
     # or all models form a single direct inheritance chain.
     relations = [
-        ("dl_bp_to_lenet", "dl_backprop_1986", "dl_lenet_1989", "训练方法进入视觉实践", "right", "left", [], {"x": 435, "y": 300}),
+        ("dl_bp_to_lenet", "dl_backprop_1986", "dl_lenet_1989", "反传训练", "right", "left", [], {"x": 435, "y": 300}),
         ("dl_lenet_to_alexnet", "dl_lenet_1989", "dl_alexnet_2012", "卷积网络扩大规模", "bottom", "top", [{"x": 675, "y": 500}, {"x": 195, "y": 500}], {"x": 435, "y": 500}),
         ("dl_lstm_to_seq2seq", "dl_lstm_1997", "dl_seq2seq_2014", "使用深层 LSTM", "bottom", "top", [], {"x": 1155, "y": 500}),
         ("dl_alexnet_to_resnet", "dl_alexnet_2012", "dl_resnet_2015", "更深的视觉网络", "bottom", "bottom", [{"x": 195, "y": 905}, {"x": 1635, "y": 905}], {"x": 480, "y": 905}),
         ("dl_seq2seq_to_transformer", "dl_seq2seq_2014", "dl_transformer_2017", "序列转换：改用注意力", "bottom", "top", [{"x": 1155, "y": 875}, {"x": 675, "y": 875}], {"x": 870, "y": 875}),
-        ("dl_transformer_to_gpt3", "dl_transformer_2017", "dl_gpt3_2020", "自回归语言建模", "right", "left", [], {"x": 915, "y": 1080}),
+        ("dl_transformer_to_gpt3", "dl_transformer_2017", "dl_gpt3_2020", "自回归", "right", "left", [], {"x": 915, "y": 1080}),
         ("dl_gpt3_to_instructgpt", "dl_gpt3_2020", "dl_instructgpt_2022", "在 GPT-3 上微调", "bottom", "top", [{"x": 1155, "y": 1280}, {"x": 675, "y": 1280}], {"x": 915, "y": 1280}),
     ]
     routing = {}
