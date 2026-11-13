@@ -577,7 +577,7 @@
       "fromNode": "dl_alexnet_2012",
       "toNode": "dl_resnet_2015",
       "toEnd": "arrow",
-      "label": "更深的视觉网络",
+      "label": "残差学习，缓解退化",
       "fromSide": "bottom",
       "toSide": "bottom",
       "paperstreamStyle": {
@@ -596,6 +596,10 @@
           "x": 480,
           "y": 905
         }
+      },
+      "paperstreamRelation": {
+        "type": "other",
+        "evidence": "视觉网络不断加深后，单纯堆层会出现训练误差反而上升的退化。ResNet 通过学习残差映射，使深层网络更容易优化。这条阅读线索省略 VGG 等中间工作。\n依据：Deep Residual Learning for Image Recognition，§1、§3.1。\nhttps://arxiv.org/abs/1512.03385"
       }
     },
     {
@@ -664,6 +668,40 @@
         "labelPosition": {
           "x": 915,
           "y": 1280
+        }
+      }
+    },
+    {
+      "id": "dl_resnet_to_transformer",
+      "fromNode": "dl_resnet_2015",
+      "toNode": "dl_transformer_2017",
+      "toEnd": "arrow",
+      "label": "沿用残差连接",
+      "paperstreamRelation": {
+        "type": "inheritance",
+        "evidence": "Transformer 在编码器与解码器的注意力、前馈子层外使用残差连接，并明确引用 He 等人的 ResNet。此边表示残差组件的复用；注意力的序列建模路线另见 Seq2Seq → Transformer。\n依据：Attention Is All You Need，2017 NeurIPS 会议版，§3.1，第 3 页。\nhttps://papers.nips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf"
+      },
+      "fromSide": "left",
+      "toSide": "top",
+      "paperstreamStyle": {
+        "strokeWidth": 1.5,
+        "waypoints": [
+          {
+            "x": 1395,
+            "y": 690
+          },
+          {
+            "x": 1395,
+            "y": 855
+          },
+          {
+            "x": 675,
+            "y": 855
+          }
+        ],
+        "labelPosition": {
+          "x": 1280,
+          "y": 855
         }
       }
     }

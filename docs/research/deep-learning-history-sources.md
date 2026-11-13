@@ -27,6 +27,14 @@
 
 关系 `dl_bp_to_lenet` 的短标签“反传训练”表示反向传播训练方法进入视觉识别实践；`dl_transformer_to_gpt3` 的“自回归”表示以 Transformer 架构进行自回归语言建模。短标签用于适配卡片间的 90 px 空隙，详细含义保留于此；不把有限显示宽度当作删减技术含义的理由。
 
+### 从深层卷积网络到注意力子层：两种不同的联系
+
+- **AlexNet → ResNet（`dl_alexnet_to_resnet`）：残差学习，缓解退化。** 这条阅读线索概括视觉网络不断加深后的优化挑战，省略 VGG 等中间工作。ResNet 原论文的 §1、§3.1 讨论：单纯增加层数可能让训练误差反而上升，残差学习使深层网络更容易优化。这比笼统的 “stabilize” 更能说明机制，也不把优化退化等同于所有梯度消失问题。[ResNet 原论文](https://arxiv.org/html/1512.03385)
+- **ResNet → Transformer（`dl_resnet_to_transformer`）：沿用残差连接。** Transformer 在注意力与前馈子层外使用残差连接；2017 年会议版 §3.1（第 3 页）明确引用 He 等人的 ResNet。该线表示架构组件的复用，不表示图像分类网络整体演变成了 Transformer。[Transformer 会议原文](https://papers.nips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf)
+- **Seq2Seq → Transformer（`dl_seq2seq_to_transformer`）：序列转换，改用注意力。** 保留已有注意力路线：从以深层 LSTM 编码、解码序列的模型，到以注意力为核心的 Transformer。ResNet 并非注意力机制的提出者，Transformer 之前也已有注意力工作；这张精选图省略了相应中间节点。
+
+前两条线的较长解释与原文链接同时保存在边的 `paperstreamRelation.evidence` 中，可以在画布中打开关系详情查看。此次仅更新既有 AlexNet → ResNet 标签及依据，并新增 ResNet → Transformer；原有卡片、肖像、布局和其余关系保留。
+
 ## 真实肖像与许可
 
 照片仅用于研究史说明，不表示所摄人物、摄影者或机构为 Paperstream 背书。照片拍摄时间不等于论文发表时间，现代照片没有被描述成历史现场。已沿用 Commons 上现成裁剪版本，下载 Wikimedia 提供的约 250 px 缩略图，不作本地裁剪、修饰或 AI 改脸。Ilya Sutskever 与 Pieter Abbeel 当前是包含人物的真实照片，未伪称为新拍摄的大头照；可在获得更合适的开放肖像后替换。

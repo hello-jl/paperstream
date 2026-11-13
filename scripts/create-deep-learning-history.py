@@ -80,6 +80,17 @@ MILESTONES = [
      "- Ouyang 等；图示共作者 Christiano\n- 示范、偏好与强化学习结合", "christiano", "Paul Christiano"),
 ]
 
+RELATION_EVIDENCE = {
+    "dl_alexnet_to_resnet": {
+        "type": "other",
+        "evidence": "视觉网络不断加深后，单纯堆层会出现训练误差反而上升的退化。ResNet 通过学习残差映射，使深层网络更容易优化。这条阅读线索省略 VGG 等中间工作。\n依据：Deep Residual Learning for Image Recognition，§1、§3.1。\nhttps://arxiv.org/abs/1512.03385",
+    },
+    "dl_resnet_to_transformer": {
+        "type": "inheritance",
+        "evidence": "Transformer 在编码器与解码器的注意力、前馈子层外使用残差连接，并明确引用 He 等人的 ResNet。此边表示残差组件的复用；注意力的序列建模路线另见 Seq2Seq → Transformer。\n依据：Attention Is All You Need，2017 NeurIPS 会议版，§3.1，第 3 页。\nhttps://papers.nips.cc/paper_files/paper/2017/file/3f5ee243547dee91fbd053c1c4a845aa-Paper.pdf",
+    },
+}
+
 
 def create(output: Path) -> dict:
     asset_root = ROOT / "assets/history/deep-learning"
@@ -96,10 +107,11 @@ def create(output: Path) -> dict:
         ("dl_bp_to_lenet", "dl_backprop_1986", "dl_lenet_1989", "反传训练", "right", "left", [], {"x": 435, "y": 300}),
         ("dl_lenet_to_alexnet", "dl_lenet_1989", "dl_alexnet_2012", "卷积网络扩大规模", "bottom", "top", [{"x": 675, "y": 500}, {"x": 195, "y": 500}], {"x": 435, "y": 500}),
         ("dl_lstm_to_seq2seq", "dl_lstm_1997", "dl_seq2seq_2014", "使用深层 LSTM", "bottom", "top", [], {"x": 1155, "y": 500}),
-        ("dl_alexnet_to_resnet", "dl_alexnet_2012", "dl_resnet_2015", "更深的视觉网络", "bottom", "bottom", [{"x": 195, "y": 905}, {"x": 1635, "y": 905}], {"x": 480, "y": 905}),
+        ("dl_alexnet_to_resnet", "dl_alexnet_2012", "dl_resnet_2015", "残差学习，缓解退化", "bottom", "bottom", [{"x": 195, "y": 905}, {"x": 1635, "y": 905}], {"x": 480, "y": 905}),
         ("dl_seq2seq_to_transformer", "dl_seq2seq_2014", "dl_transformer_2017", "序列转换：改用注意力", "bottom", "top", [{"x": 1155, "y": 875}, {"x": 675, "y": 875}], {"x": 870, "y": 875}),
         ("dl_transformer_to_gpt3", "dl_transformer_2017", "dl_gpt3_2020", "自回归", "right", "left", [], {"x": 915, "y": 1080}),
         ("dl_gpt3_to_instructgpt", "dl_gpt3_2020", "dl_instructgpt_2022", "在 GPT-3 上微调", "bottom", "top", [{"x": 1155, "y": 1280}, {"x": 675, "y": 1280}], {"x": 915, "y": 1280}),
+        ("dl_resnet_to_transformer", "dl_resnet_2015", "dl_transformer_2017", "沿用残差连接", "left", "top", [{"x": 1395, "y": 690}, {"x": 1395, "y": 855}, {"x": 675, "y": 855}], {"x": 1280, "y": 855}),
     ]
     routing = {}
     for identity, source, target, label, from_side, to_side, points, position in relations:
@@ -131,6 +143,8 @@ def create(output: Path) -> dict:
             }]}
     for edge in document["edges"]:
         edge.update(routing[edge["id"]])
+        if edge["id"] in RELATION_EVIDENCE:
+            edge["paperstreamRelation"] = RELATION_EVIDENCE[edge["id"]].copy()
 
     def note(identity: str, label: str, text: str, x: int, y: int, width: int, height: int):
         return {"id": identity, "type": "text", "x": x, "y": y,

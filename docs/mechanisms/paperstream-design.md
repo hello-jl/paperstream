@@ -2,6 +2,12 @@
 
 更新日期：2026-11-13。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器及 DSH 面板已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实 DSH 验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
 
+## 历史关系的机制与依据（2026-11-13）
+
+按用户要求细化深度学习样例：先由 `show --raw` 读取完整图，在同一个 CanvasGraph 实例中将 `dl_alexnet_to_resnet` 标签改为“残差学习，缓解退化”，新增 `dl_resnet_to_transformer`（`dl_resnet_2015` → `dl_transformer_2017`）“沿用残差连接”，再用 `set_document` 补入现有 `paperstreamRelation.evidence` 约定支持的长说明、类型与原文链接。前者概括视觉网络加深后的优化挑战，省略 VGG 等中间工作；后者依据 Transformer 2017 会议版 §3.1 明确引用 ResNet 的残差连接，表达组件复用。注意力路线继续由 Seq2Seq → Transformer 表达，未把 ResNet 归因为注意力的提出者。
+
+一次校验与保存后重新加载，对比确认全部 17 张卡片、肖像、坐标尺寸、原边数组顺序、其余六条关系与根扩展完整保留；总关系由 7 条增为 8 条。新增路径放在行间空隙，沿用原布局。同步生成脚本与来源说明，临时目录再生成结果与现有样例整图相等，拒绝覆盖已有输出。Python 93 项检查通过；8 个完整标签框与 17 个卡片矩形无交集，导出 3000×2655 PNG 与自含 SVG 并实际查看。本次未修改编辑器实现或用户未保存的宿主草稿。
+
 ## MIT 许可与文件架构（2026-11-13）
 
 维护者明确选择 MIT。根 `LICENSE` 使用标准完整文本，版权声明为 `2026 Paperstream contributors`；web、DSH、Codex、Claude 的 npm metadata 与已有锁文件、Claude 插件清单同步声明 MIT。各端构建将根 LICENSE 由可选资料改为必需输入，分发完整文本并核对字节，不以 package metadata 替代许可原文。第三方依赖、人物肖像、社区角色设定等继续保留各自归属和许可，不因项目选择 MIT 改变。
