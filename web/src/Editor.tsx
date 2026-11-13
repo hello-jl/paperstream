@@ -248,6 +248,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   useEffect(() => onMeta({ fileName, dirty }), [fileName, dirty, onMeta]);
   useLayoutEffect(() => { host?.onDirtyChange?.(dirty); }, [dirty, host?.onDirtyChange]);
   useLayoutEffect(() => { host?.onDocumentChange?.(canvas); }, [canvas, host?.onDocumentChange]);
+  useLayoutEffect(() => { host?.onInputChange?.(form); }, [form, host?.onInputChange]);
 
   const draftSnapshot = useRef({ canvas, fileName, saved, selection, form, formDirty, inlineField, fileBindingId });
   draftSnapshot.current = { canvas, fileName, saved, selection, form, formDirty, inlineField, fileBindingId };

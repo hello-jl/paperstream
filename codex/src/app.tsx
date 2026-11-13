@@ -117,6 +117,7 @@ function HostEditor() {
   const session = view?.session;
   const onDirtyChange = useCallback((dirty: boolean) => session?.setDirty(dirty), [session]);
   const onDocumentChange = useCallback((document: JSONCanvasDocument) => session?.noteLocalDocument(document), [session]);
+  const onInputChange = useCallback((form: Readonly<Record<string, string>>) => session?.noteLocalInput(form), [session]);
   const onSave = useCallback(async (document: JSONCanvasDocument) => {
     if (!session) throw new Error('文件会话尚未准备好。');
     await session.save(document);
@@ -134,7 +135,7 @@ function HostEditor() {
     {view && <section className="ps-codex-editor">
       <PaperstreamEmbeddedEditor key={`${view.file.resourceUri}:${view.snapshot.revision}`}
         document={view.snapshot.document} fileName={view.file.name} readOnly={view.snapshot.readOnly}
-        onSave={onSave} onDirtyChange={onDirtyChange} onDocumentChange={onDocumentChange}
+        onSave={onSave} onDirtyChange={onDirtyChange} onDocumentChange={onDocumentChange} onInputChange={onInputChange}
         onReload={() => void reload()} reloadDisabled={view.snapshot.saving}
         openExternal={async url => { await app.openLink({ url }); }} />
     </section>}

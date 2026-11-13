@@ -37,6 +37,7 @@ export class ResourceSession {
   private request = 0;
   private localRevision = 0;
   private localText = '';
+  private localInput = '[]';
   private disposed = false;
   private externalChange = false;
   private document: JSONCanvasDocument | undefined;
@@ -76,6 +77,17 @@ export class ResourceSession {
     const text = serializeCanvas(document);
     if (text !== this.localText) {
       this.localText = text;
+      this.localRevision += 1;
+    }
+  }
+
+  /** Invalid in-progress fields can change without changing the Canvas or the
+   * dirty boolean. A reload may only discard input present at confirmation. */
+  noteLocalInput(form: Readonly<Record<string, string>>) {
+    if (this.disposed) return;
+    const text = JSON.stringify(Object.keys(form).sort().map(key => [key, form[key]]));
+    if (text !== this.localInput) {
+      this.localInput = text;
       this.localRevision += 1;
     }
   }
@@ -123,6 +135,7 @@ export class ResourceSession {
       this.document = document;
       this.baseline = content.text;
       this.localText = serializeCanvas(document);
+      this.localInput = '[]';
       this.etag = etag;
       this.dirty = false;
       this.revision += 1;

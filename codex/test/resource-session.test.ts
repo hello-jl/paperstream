@@ -211,6 +211,53 @@ test('discard reload cannot discard edits made after confirmation, even when alr
   }
 });
 
+test('discard reload preserves new invalid field text even when the document was already dirty', async () => {
+  const f = fixture();
+  await f.session.refresh();
+  f.session.setDirty(true);
+  f.session.noteLocalDocument({ ...f.initial, local: 'before confirmation' });
+  f.session.noteLocalInput({ alias: 'Paper', year: '2024' });
+  const revision = f.snapshot().revision;
+  f.external(serializeCanvas({ ...f.initial, external: 'newer' }));
+  const incoming = await f.resources.read({ uri, representation: 'text' });
+  let resolve!: (value: typeof incoming) => void;
+  f.resources.read = () => new Promise(done => { resolve = done; });
+  const reload = f.session.refresh(true);
+  // Parsing this year fails in Editor: only its input draft changes, while
+  // Canvas and dirty=true both remain unchanged.
+  f.session.noteLocalInput({ alias: 'Paper', year: '202x' });
+  f.session.setDirty(true);
+  resolve(incoming);
+  await reload;
+  assert.equal(f.snapshot().revision, revision, 'do not remount the form and erase its newer invalid text');
+  assert.equal(f.snapshot().dirty, true);
+  assert.equal(f.snapshot().externalChange, true);
+  assert.match(f.snapshot().notice, /新的修改.*已保留/);
+  await assert.rejects(f.session.save({ ...f.initial, local: 'before confirmation' }), /冲突/);
+  assert.equal(f.writes[0].ifMatch, 'v1', 'input protection must not adopt the external save token');
+});
+
+test('empty initial and semantically unchanged input notifications do not cancel a confirmed reload', async () => {
+  for (const form of [{}, { alias: 'Paper', year: '2024' }]) {
+    const f = fixture();
+    await f.session.refresh();
+    f.session.noteLocalInput(form);
+    f.session.setDirty(true);
+    const revision = f.snapshot().revision;
+    f.external(serializeCanvas({ ...f.initial, external: 'newer' }));
+    const incoming = await f.resources.read({ uri, representation: 'text' });
+    let resolve!: (value: typeof incoming) => void;
+    f.resources.read = () => new Promise(done => { resolve = done; });
+    const reload = f.session.refresh(true);
+    f.session.noteLocalInput(Object.fromEntries(Object.entries(form).reverse()));
+    resolve(incoming);
+    await reload;
+    assert.equal(f.snapshot().revision, revision + 1);
+    assert.equal(f.snapshot().dirty, false);
+    assert.equal(f.snapshot().document.external, 'newer');
+  }
+});
+
 test('late failures of superseded or disposed reads cannot report errors for the active file', async () => {
   const f = fixture();
   await f.session.refresh();

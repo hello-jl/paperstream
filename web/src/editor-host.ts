@@ -11,6 +11,8 @@ export interface EditorHost {
   onSave: (document: JSONCanvasDocument) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
   onDocumentChange?: (document: JSONCanvasDocument) => void;
+  /** Include incomplete form text that has not yet become valid Canvas data. */
+  onInputChange?: (form: Readonly<Record<string, string>>) => void;
 }
 
 /** Do not hydrate browser drafts over a resource supplied by another host. */
