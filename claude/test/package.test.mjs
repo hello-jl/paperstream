@@ -15,6 +15,8 @@ test('portable plugin has its own manifest, manual skill and one browser resourc
   assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
   assert.equal(typeof manifest.description, 'string');
   assert.equal(typeof manifest.author.name, 'string');
+  assert.equal(manifest.license, 'MIT');
+  assert.deepEqual(await readFile(join(plugin, 'LICENSE')), await readFile(join(root, '../LICENSE')));
   assert.equal(manifest.interface, undefined);
   const skill = await readFile(join(plugin, 'skills/open/SKILL.md'), 'utf8');
   assert.match(skill, /^---\nname: open\n/);

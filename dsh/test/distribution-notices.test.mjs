@@ -12,13 +12,13 @@ async function fixture(t) {
   const destination = join(root, 'artifact');
   await mkdir(join(repository, 'licenses', 'third-party'), { recursive: true });
   await writeFile(join(repository, 'THIRD_PARTY_NOTICES.md'), '[License](licenses/third-party/example.txt)\n');
+  await writeFile(join(repository, 'LICENSE'), 'Repository owner license fixture.\n');
   await writeFile(join(repository, 'licenses', 'third-party', 'example.txt'), 'Original copyright\r\nLicense fixture.\r\n');
   return { repository, destination };
 }
 
-test('distribution keeps complete notices and optional repository license at their linked paths', async t => {
+test('distribution keeps complete notices and required repository license at their linked paths', async t => {
   const { repository, destination } = await fixture(t);
-  await writeFile(join(repository, 'LICENSE'), 'Repository owner license fixture.\n');
   await copyDistributionNotices(repository, destination);
   await verifyDistributionNotices(repository, destination);
   const source = await readFile(join(repository, 'licenses', 'third-party', 'example.txt'));
@@ -26,10 +26,8 @@ test('distribution keeps complete notices and optional repository license at the
   assert.equal(await readFile(join(destination, 'LICENSE'), 'utf8'), 'Repository owner license fixture.\n');
 
   await rm(join(repository, 'LICENSE'));
-  await assert.rejects(verifyDistributionNotices(repository, destination), /removed repository license/);
-  await copyDistributionNotices(repository, destination);
-  await verifyDistributionNotices(repository, destination);
-  await assert.rejects(readFile(join(destination, 'LICENSE')), { code: 'ENOENT' });
+  await assert.rejects(verifyDistributionNotices(repository, destination), { code: 'ENOENT' });
+  await assert.rejects(copyDistributionNotices(repository, destination), { code: 'ENOENT' });
 });
 
 test('prepack detects stale or incomplete license copies and rebuild removes obsolete files', async t => {

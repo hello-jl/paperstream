@@ -1,6 +1,7 @@
 {
   "name": "paperstream",
   "version": "0.1.0",
+  "license": "MIT",
   "description": "Open and safely edit local paper graphs with Paperstream's browser canvas and Python API.",
   "author": {
     "name": "Paperstream contributors"

@@ -12,6 +12,7 @@ const plugin = join(root, 'dist/plugin');
 test('portable Codex package contains the shared agent skill and dependency-free document runtime', async () => {
   const manifest = JSON.parse(await readFile(join(plugin, '.codex-plugin/plugin.json'), 'utf8'));
   assert.equal(manifest.skills, './skills/');
+  assert.deepEqual(await readFile(join(plugin, 'LICENSE')), await readFile(join(root, '../LICENSE')));
   for (const path of ['SKILL.md', 'references/api.md', 'agents/openai.yaml']) {
     assert.equal(await readFile(join(plugin, 'skills/paperstream', path), 'utf8'),
       await readFile(join(root, '../skills/paperstream', path), 'utf8'));

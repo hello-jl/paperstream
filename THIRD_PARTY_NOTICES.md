@@ -1,8 +1,10 @@
 # Third-party notices
 
 Paperstream bundles third-party software in its browser editor and host adapters.
+Paperstream's original code and documentation are licensed under the
+[MIT License](LICENSE), Copyright (c) 2026 Paperstream contributors.
 This inventory records the locked versions checked on 2026-11-13. It is separate
-from the license of Paperstream itself and does not change any upstream license.
+from that license and does not change any upstream license.
 The original license files, including copyright statements, are preserved under
 [`licenses/third-party/`](licenses/third-party/).
 
@@ -73,7 +75,7 @@ Build and test dependencies that are absent from runtime output are not listed.
 
 Include this file and the entire `licenses/third-party/` directory alongside
 released Web, DSH, Codex, and Claude artifacts. Also include Paperstream's own
-LICENSE when the repository owner has selected it. Keep the build's existing
+MIT LICENSE. Keep the build's existing
 legal comments; comments alone are not a substitute for these license files.
 This document records upstream declarations and provenance, not a legal
 compatibility opinion or a blanket compliance certification.
@@ -83,3 +85,18 @@ artifact membership, copied-file SHA-256 values, and provenance. When lockfiles,
 entry points, or bundling rules change, regenerate and review this inventory
 before distributing updated artifacts. Dependency package metadata and license
 files, rather than a global assumed license, remain the source of truth.
+
+## Illustrations and historical portraits
+
+The MIT license for Paperstream's original code and documentation does not
+replace the separate licenses of third-party images or grant rights to community
+character designs, brand marks, or the people depicted. In the source repository,
+historical portraits retain the individual credits and license terms recorded
+in `docs/research/computing-ai-history-sources.md` and
+`docs/research/deep-learning-history-sources.md`, with machine-readable attribution
+in `assets/history/`. When sharing those
+example canvases or their image exports, include the corresponding source and
+attribution records. The generated classroom illustration's references and
+character-design boundary are recorded in the source repository's
+`docs/assets/paperstream-classroom-promo-v2-prompt.md`. These example assets are
+not bundled in the editor plugin packages.

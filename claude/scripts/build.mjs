@@ -53,11 +53,7 @@ await cp(join(repository, 'paperstream'), join(plugin, 'paperstream'), {
 });
 await copyFile(join(repository, 'THIRD_PARTY_NOTICES.md'), join(plugin, 'THIRD_PARTY_NOTICES.md'));
 await cp(join(repository, 'licenses'), join(plugin, 'licenses'), { recursive: true });
-try {
-  await copyFile(join(repository, 'LICENSE'), join(plugin, 'LICENSE'));
-} catch (error) {
-  if (error.code !== 'ENOENT') throw error;
-}
+await copyFile(join(repository, 'LICENSE'), join(plugin, 'LICENSE'));
 try {
   await copyFile(join(root, 'README.md'), join(plugin, 'README.md'));
 } catch (error) {
