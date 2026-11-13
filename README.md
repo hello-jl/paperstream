@@ -2,7 +2,7 @@
 
 用独立的 `.canvas` 纯文本文件管理论文关系。React Flow 提供拖动与编辑界面；Python API 和 CLI 让 agent 维护同一格式。无需 Obsidian。新工作以 Canvas 为主，旧 Mermaid API 和示例作为兼容入口保留，不做双向同步。
 
-**当前状态：** Canvas 文件 API、React Flow 编辑器和 DSH 面板插件已实现。真实 macOS / Chrome / DSH Web 0.2.2-rc.1 已验证编辑、保存、智能竖排、共享标签、外观设置和图片导出；2026-11-07 补充验证中文原位编辑、滚轮始终缩放、独立粗细滑块与系统剪贴板图片粘贴。新增 [Codex 桌面文件编辑器适配](codex/README.md)，已通过本地安装、协议测试及浏览器 AppBridge 集成检查，**尚未在 ChatGPT 桌面原生文件面板实测**。2026-11-13 按用户要求移除 PPTX、演示分页和放映，保留 PNG/SVG 图片导出。详细验证边界见 [设计记录](docs/mechanisms/paperstream-design.md) 和 [DSH 说明](dsh/README.md)。
+**当前状态：** Canvas 文件 API、React Flow 编辑器和 DSH 面板插件已实现。真实 macOS / Chrome / DSH Web 0.2.2-rc.1 已验证编辑、保存、智能竖排、共享标签、外观设置和图片导出。[Codex 桌面文件编辑器适配](codex/README.md) 已通过本地安装、协议与模拟宿主检查，原生面板已确认显示画布和打开详情，最新版原生保存仍待验收。[Claude Code 本地适配](claude/README.md) 提供插件、独立文件桥和同一画布，已在无登录的隔离配置中通过官方校验与安装，普通浏览器文件读写通过；真实 Claude 会话尚未验收。PPTX、演示分页和放映已按用户要求移除，保留 PNG/SVG。详细边界见 [设计记录](docs/mechanisms/paperstream-design.md) 和 [DSH 说明](dsh/README.md)。
 
 ## 打开图形编辑器
 
@@ -36,6 +36,19 @@ Esc 的当前设计也是结束编辑，不撤销已生效文字。测试机 Chr
 卡片直接提供 HTTP(S) 原文入口。本机 DSH Web 在 macOS 已实测通过宿主调用系统默认浏览器；独立编辑器使用普通浏览器链接。远程场景或不支持的宿主可右键普通原文链接，在客户端浏览器打开。不会给每张卡片嵌入 PDF 或加载原文网页。已有普通备注、文件卡片、链接、分组及未知字段会保留；文件卡片显示路径，不解析本地附件或渲染完整 Markdown/Obsidian 白板样式；分组框不自动带动框内卡片移动。
 
 顶部右侧齿轮打开全局设置，提供苔绿、纸白、夜间主题，以及直角、圆角、曲线三种连线路径，默认苔绿与圆角。DSH Web 将偏好保存到 `DSH_HOME/paperstream/preferences.json`，各画布共用，不写入 `.canvas`；独立编辑器使用浏览器同源存储。DSH 同步失败会提示“设置未同步”，面板内可重试保存，当前回退外观仍可使用。
+
+## Claude Code 本地适配
+
+在已有 web 构建依赖的环境中执行：
+
+```sh
+npm --prefix claude run build
+python3 claude/dist/plugin/scripts/paperstream.py serve /absolute/path/papers.canvas --port 3817
+```
+
+打开命令输出的完整本机 URL，即可直接编辑该文件，不用再次通过文件选择器关联。画布写入仍需显式保存，并检查外部版本。`claude/dist/plugin/` 可离开源码目录独立运行；ZIP 包也会自动生成，运行只需 Python 标准库。
+
+有 Claude CLI 时可用 `claude --plugin-dir ./claude/dist/plugin` 加载，然后调用 `/paperstream:open 文件路径`。桌面 Code 会话采用 Browser 预览通道，配置与无账号验收范围见 [Claude 说明](claude/README.md)。它不接管 Claude 的原生文件面板，也不要求为插件本身提供模型 API key。
 
 ## Canvas 的 Python API 与 CLI
 

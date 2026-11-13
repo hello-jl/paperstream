@@ -80,7 +80,7 @@ Fig 保存与调整：`paperstreamCard.figures` 存放图片数组，每张包�
 
 关系说明使用可换行、可点击编辑的 HTML 标签，连接路径和箭头仍由 SVG 绘制。通过自然尺寸测量和可见卡片边界计算标签位置，按稳定的边 ID 顺序避开卡片与已放置的标签，并留出间距；优先靠近原连接线；主线直接经过标签中心，文本框遮住框内线段，不再用虚线牵引。用于避让的测量基于未绕行的基础路线，避免文本位置与线形互相反馈。拖动卡片或内容尺寸改变后重新布局，仅影响界面，不修改卡片坐标或 Canvas 的 `label`。首次显示及“适应视图”合并卡片和标签的边界，包含负坐标；后续拖动不会自动改变用户视角。
 
-手工关系布局：拖动关系文字可固定其图坐标，保存为边的 `paperstreamStyle.labelPosition: { x, y }`；手工位置优先于自动避让，并作为其他自动标签的障碍；主线同样经过文本框中心。选中关系后显示路径控制柄，可拖动添加或移动折点，也可 Shift+双击路径添加，折点双击或按 Delete 删除；普通双击关系文字仍用于编辑。折点依序存为 `paperstreamStyle.waypoints: [{ x, y }]`，折点保留顺序，使用所选的直角、圆角或曲线外观。屏幕与 SVG/PNG/PPTX 共用 `connection-path.ts`；导出使用精确贝塞尔边界，PPTX 连接线为可编辑自定义几何，标签有不透明背景。文字和折点拖动只在本地预览，松手提交一次；取消手势不写入。关系详情提供恢复自动布局的入口，清除手工标签位置和折点时只删除对应布局键，不修改 relation、端点、线重、箭头或未知扩展。适应视图和图片/PPTX 导出都将手工标签及路径控制点纳入范围，避免被裁掉。
+手工关系布局：拖动关系文字可固定其图坐标，保存为边的 `paperstreamStyle.labelPosition: { x, y }`；手工位置优先于自动避让，并作为其他自动标签的障碍；主线同样经过文本框中心。选中关系后显示路径控制柄，可拖动添加或移动折点，也可 Shift+双击路径添加，折点双击或按 Delete 删除；普通双击关系文字仍用于编辑。折点依序存为 `paperstreamStyle.waypoints: [{ x, y }]`，折点保留顺序，使用所选的直角、圆角或曲线外观。屏幕与 SVG/PNG 共用 `connection-path.ts`；导出使用精确贝塞尔边界，标签有不透明背景。文字和折点拖动只在本地预览，松手提交一次；取消手势不写入。关系详情提供恢复自动布局的入口，清除手工标签位置和折点时只删除对应布局键，不修改 relation、端点、线重、箭头或未知扩展。适应视图和图片导出都将手工标签及路径控制点纳入范围，避免被裁掉。
 
 箭头方向相对于已有 `fromNode → toNode` 端点定义为 `forward`、`reverse`、`both`、`none`，分别映射到标准 Canvas 的 `fromEnd`/`toEnd`。切换时显式设置两端以清除旧箭头，保持边 ID、端点和其他字段；双向关系不增加一条伪反向边。未指定端点样式时遵循 Canvas 默认值：起点无箭头、终点有箭头。
 
@@ -364,6 +364,12 @@ API 的基础读写比现有 Mermaid 解析直接，但业务字段仍需要约�
 运行开销取决于显示的节点/连线数量、卡片复杂度以及更新方式；官方性能文档特别指出拖动触发的无效重绘、过多节点和复杂样式的影响。[React Flow 性能建议](https://reactflow.dev/learn/advanced-use/performance) 对本项目可先采用简短文字卡片、按需显示详细内容、减少动画，并在面板不用时停止不必要的订阅或渲染。开发端会增加 JavaScript/TypeScript 的依赖与构建流程，但开发依赖目录体积不能当作插件下载大小或运行内存。插件现已构建并运行，仍未测量内存、启动时间或大图拖动性能，不提供未经测量的 MB 数字或容量上限。
 
 ## ChatGPT、Codex 与 Claude 桌面端适配与调研
+
+2026-11-13 Claude Code 本地插件：`claude/` 新增官方插件清单、手动调用的 `/paperstream:open` Skill、本地 marketplace 与便携构建；前端复用 `PaperstreamEmbeddedEditor`，HTTP 传输复用 Codex 的纯 `ResourceSession` 状态机，不加载 OpenAI SDK。完整插件和 ZIP 包含单 HTML、Python 标准库包及启动器，可移出源码目录使用，运行不需 Node、Vite 或模型 API key。Skill 通过 `${CLAUDE_PLUGIN_ROOT}` 定位启动器，文件变更继续要求经过 CLI/API。Claude Code 桌面使用官方 Browser 预览通道；未宣称注册原生 `.canvas` 文件侧栏或另做 Mods 画布。[插件规范](https://code.claude.com/docs/en/plugins/create)、[桌面预览配置](https://code.claude.com/docs/en/desktop#configure-preview-servers)。
+
+桥接前端按编辑器规则规范化读取的 JSON 字符串，消除 Python `1e-07` 与 JavaScript `1e-7` 的表示差异，同时保留原始磁盘 etag，避免保存后误报外改。后台聚焦读取与显式重载共用刷新协调器：显式重载优先，旧请求和销毁后的回调不污染当前界面，重试成功清除旧错误；读取期间新输入仍受资源会话保护。随机令牌仅存 URL fragment 与当前标签页 sessionStorage，成功保存令牌后才清除 fragment，禁用存储时仍可刷新。
+
+无登录验收：官方 Claude CLI 2.1.323 在仓库内隔离配置中完成严格插件校验、本地 marketplace 安装及启用，未改变用户全局配置或调用模型。官方目录检查另提示缺少 LICENSE 和图标，当前只做私下本地测试，未擅自选择仓库许可证或公开上架。真实普通浏览器经打包服务完成简称编辑、智能竖排、保存、干净外改重载；有未保存输入时，连续两次冲突保存均保留草稿及磁盘外部修改，未知扩展和小数值保留。证据为 `.local/claude-local-verified-20261113.jpg` 与测试副本，不是 Claude 原生界面截图。Claude 16 项、Python 93 项、web 204 项、DSH 15 项、Codex 21 项检查及各端构建、Python/TypeScript 往返通过。真实 Claude 会话发现并执行 Skill、权限交互及桌面 Browser 尚需有官方账号后验收；CLI 的 API/云凭据渠道不等于桌面订阅登录。[认证渠道](https://code.claude.com/docs/en/authentication)。
 
 2026-11-13 本地单文件桥：新增 `python3 -m paperstream serve 文件.canvas`，供桌面 Browser 或普通浏览器承载同一编辑器，不增加新的画布实现。Python 标准库服务只绑定 127.0.0.1 和启动时明确选择的一份现有 Canvas，静态页面为预构建单 HTML；随机令牌放在 URL fragment，文档 GET/PUT 另需 Bearer。写入还检查 Host、同源 Origin、精确 If-Match、64 MiB 请求边界，不提供目录、任意路径、创建或删除接口。`CanvasGraph.source_revision` 从同次读取的原始字节产生版本，`set_json` 复用严格解析，保存继续走原有锁、外改检查及原子替换。路径守卫拒绝后出现的符号链接或父目录替换，但不把本地服务称为抵御恶意本机进程的隔离沙箱。
 

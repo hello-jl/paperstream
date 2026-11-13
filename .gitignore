@@ -11,6 +11,7 @@ node_modules/
 # Build output
 web/dist/
 dsh/dist/
+claude/dist/
 *.tsbuildinfo
 
 # Local OS files and package-manager diagnostics

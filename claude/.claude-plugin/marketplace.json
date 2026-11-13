@@ -1,0 +1,8 @@
+{
+  "name": "paperstream-local",
+  "description": "Local Paperstream canvas editor and Python API for Claude Code.",
+  "owner": { "name": "Paperstream contributors" },
+  "plugins": [
+    { "name": "paperstream", "source": "./dist/plugin", "description": "Edit a local paper graph with the Paperstream browser canvas and Python API." }
+  ]
+}
