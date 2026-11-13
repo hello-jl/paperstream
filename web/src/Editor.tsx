@@ -38,6 +38,7 @@ import { downloadGraph } from './graph-export';
 import { zoomAt, wheelIntent } from './wheel-controls';
 import { editField } from './live-edit';
 import { preserveNodeMeasurements } from './flow-node-sync';
+import { sameCanvasSnapshot } from './canvas-snapshot';
 import { createHostNodeEdits } from './host-node-edits';
 import { createDraftWriter } from './draft-writer';
 import { restoreEditorDraft } from './draft-recovery';
@@ -370,9 +371,9 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   const commit = useCallback((next: JSONCanvasDocument, followLabels = true) => {
     if (readOnlyRef.current) throw new Error('当前文件为只读，无法修改。');
     if (followLabels) next = followRelationPositions(current.current, next);
-    if (JSON.stringify(next) === JSON.stringify(current.current)) return;
-    liveGesture.current = null;
     validateCanvas(next); // Validate without allocating another serialized copy.
+    if (sameCanvasSnapshot(next, current.current)) return;
+    liveGesture.current = null;
     hostEditedNodes.current.markChanges(current.current, next);
     const previous = current.current;
     setPast(items => [...items.slice(-49), previous]);
@@ -386,10 +387,10 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     // Every intermediate edit can resize an endpoint or a shared label. Keep
     // routes in sync even when this edit joins the previous undo step.
     next = followRelationPositions(current.current, next);
-    if (JSON.stringify(next) === JSON.stringify(current.current)) return;
+    validateCanvas(next);
+    if (sameCanvasSnapshot(next, current.current)) return;
     const now = Date.now();
     if (liveGesture.current?.key === key && now - liveGesture.current.time < 1100) {
-      validateCanvas(next);
       hostEditedNodes.current.markChanges(current.current, next);
       current.current = next; setCanvas(next); setFuture([]);
     } else commit(next, false);
