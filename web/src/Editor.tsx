@@ -36,6 +36,7 @@ import { appendFiguresPatch, extractClipboardImages, readClipboardFigures } from
 import { downloadGraph } from './graph-export';
 import { zoomAt, wheelIntent } from './wheel-controls';
 import { editField } from './live-edit';
+import { preserveNodeMeasurements } from './flow-node-sync';
 import { createDraftWriter } from './draft-writer';
 import { restoreEditorDraft } from './draft-recovery';
 import type { RecoveredSelection } from './draft-recovery';
@@ -432,13 +433,13 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     return ids;
   }, [canvas, focusId]);
   useEffect(() => {
-    setNodes(canvas.nodes.map((node, index) => ({
+    setNodes(previous => preserveNodeMeasurements(previous, canvas.nodes.map((node, index) => ({
       id: node.id, type: 'paper', position: { x: node.x, y: node.y },
       width: node.width, height: node.height, style: { width: node.width, height: node.height },
       data: { raw: node, resize, busy: busy || readOnly, fitHeight, startInteraction, measurePass, actions, editing: null, draft: null },
       selected: false,
       hidden: !visible.has(node.id), zIndex: index,
-    })));
+    }))));
   }, [canvas, visible, resize, busy, readOnly, fitHeight, startInteraction, measurePass, actions]);
   // Controlled input values must reach React Flow in this render. Mirroring
   // form into nodes via an effect leaves the textarea one event behind and
@@ -688,6 +689,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     setRecoveryError('');
     interacting.current = false;
     pendingInitialFit.current = true;
+    setNodes([]); // A different document must measure its own nodes, even if IDs overlap.
     setContentHeights({});
     current.current = next; setCanvas(next); setSaved(serializeCanvas(next)); setFileName(name);
     rememberBinding(handle ? { handle, snapshot: text } : null);
