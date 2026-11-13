@@ -1,159 +1,107 @@
 # Paperstream
 
-**把论文读成一条研究脉络，让人和 agent 共同维护同一张图。**
+**把读过的论文，连成自己的研究脉络。**
 
-Paperstream 是一个本地论文关系画布。每张卡片记下一篇论文最值得保留的认识，每条线说明两项工作之间的联系。**人通过可视画布手工操作，AI 通过 Python API 或 CLI 整理；共同维护一份独立的 `.canvas` JSON 文件。** 文件可以直接复制、备份、用 Git 管理，也可以带到其他电脑或宿主继续使用。
+读完一篇论文，你可能记住了一个方法、一个结果，或一个值得继续追问的问题。读到十篇、几十篇时，这些认识散落在笔记和记忆里：新工作解决了前人的什么困难？两篇看起来相近的文章，究竟差在哪里？下次回到这个方向，又该从哪一篇接着读？
 
-![Paperstream：鲸娘讲解 AI 历史，白龙娘与 Claude 娘旁听](docs/assets/paperstream-classroom-promo-v2.png)
+Paperstream 为这些认识留出一张画布。用卡片记下论文最值得留下的内容，用带文字的连线写清它们之间的联系，把要点、插图和原文入口放在一起。随着阅读推进，这张图也逐步长成你对一个领域的理解。
+
+你可以亲手排布、编辑和判断，也可以请 AI 带着明确的任务和资料，帮助整理同一张图。**人用画布，AI 用 API；成果保存在独立的 JSON 文件里。**
+
+![Paperstream 课堂：一起看见论文之间的联系](docs/assets/paperstream-classroom-promo-v2.png)
 
 宣传插画由 AI 生成，角色参考 ZipZipPipe 的社区拟人设定。[角色来源与生成记录](docs/assets/paperstream-classroom-promo-v2-prompt.md)
 
-## 为什么做它
+## 把论文之间的联系也读出来
 
-论文越读越多，难点常常从“保存在哪里”变成“这篇解决了什么问题，它和之前的工作有什么关系”。单独的文献条目不容易展示脉络，长篇笔记也很难一眼比较不同方法。让 agent 直接重写画布文件，又容易丢掉手工布局、笔记和未知字段。
+论文列表告诉你读过什么，研究脉络还需要留下你怎样理解它们。Paperstream 的卡片突出你写下的核心认识，完整标题、年份和原文入口随时可查；旁边可以放一张关键图，也可以留一张 Note，记下暂时没有答案的问题。
 
-Paperstream 把这件事拆成两个互补的操作：**人用画布理解和调整，agent 用 API 读取和修改**。两者围绕同一份文件工作；切换操作前先保存、核对版本，有冲突就保留修改并重新核对。
+连线值得写得具体一点。“相关”可以继续追问：沿用了哪种结构，缓解了什么困难，还是提供了另一种解法？这些说明让你再次打开画布时，能够找回当时的判断。
 
-- **认识优先。** 画面突出简称、takeaway、年份和关系，完整原题与原文入口放在就近详情中。
-- **手工整理顺手。** 原位编辑、自动伸缩卡片、图片粘贴、竖向布局和可调整的连线，服务于真实阅读过程。
-- **agent 可精确修改。** 按稳定 ID 更新指定字段，保留其余节点、坐标、顺序和未知扩展；多项相关修改可以一次保存。
-- **资料是自己的文件。** 主格式为独立 JSON Canvas，Python 运行时只用标准库。编辑器不内置模型调用，也不要求云端数据库。
+例如，在[深度学习发展史](examples/deep-learning-history.canvas)里，可以沿着两条不同的线理解 Transformer：
 
-关系可以表示继承、比较、支持或你自己的判断；一条箭头不会自动证明引用、因果或学术贡献。Paperstream 提供记录与核对这些判断的地方，论文原文仍是依据。
+| 连接 | 留在图上的认识 |
+| --- | --- |
+| AlexNet → ResNet | 从大规模卷积网络，走向用残差学习缓解加深后的训练退化 |
+| ResNet → Transformer | 残差连接被沿用到注意力与前馈子层中 |
+| Seq2Seq → Transformer | 序列建模从循环计算转向以注意力为核心的架构 |
 
-## 一张画布，两种操作方式
+一条线可以表示方法复用、问题回应、比较，也可以只是你想进一步核实的联系。图上的解释来自你的阅读与来源依据，可以随认识加深继续修改。上面例子的[原论文与关系说明](docs/research/deep-learning-history-sources.md)随样例保留，也可以直接[查看完整图片](docs/assets/deep-learning-history.png)。
 
-![Paperstream 架构：人用可视画布，AI 用 API，共同读写独立的 JSON Canvas 文件](docs/assets/paperstream-architecture.svg)
+![Paperstream 实际编辑界面：论文要点、图片与关系放在同一张画布中](docs/assets/paperstream.jpg)
 
-人负责阅读、判断和手工组织，agent 可以按稳定 ID 批量整理卡片与关系。可视编辑器和 API 各自读取、保存同一份文档，图的长期存档就是这个文件。切换操作前保存当前修改，再核对文件版本；尚未保存的 UI 草稿不在 API 的读取范围内。
+## 让人和 AI 各自做擅长的事
 
-**画布可直接随文件迁移。** Paperstream 插入或粘贴的图片内嵌在 JSON 中，随 `.canvas` 一起带走；普通文件卡片引用的本地附件需要一起复制，外部链接需要来源仍可访问。在支持的 Paperstream 宿主中可继续编辑；支持 JSON Canvas 的工具可读取其标准结构，但不保证同样渲染论文表单或图片扩展。主题等使用偏好保存在各自环境中，不随单张画布迁移。[下载架构图 PNG](docs/assets/paperstream-architecture.png)
+阅读中有些工作适合亲手完成：把关键论文挪到中心，在两篇文章之间添一句比较，圈定下一轮要读的方向。拖动、连线、双击编辑，都直接发生在画布上，细节在卡片附近展开。
 
-## 先试一张图
+也有一些整理工作可以交给 AI：根据你提供的论文资料补齐卡片，把零散笔记整理成要点，或者为指定的两项工作补上关系说明。例如，你可以给自己的 agent 这样的任务：
 
-构建界面需要 Node.js **22.18+**。在仓库根目录运行：
+> 读取我的画布和这几篇论文资料，为新论文补一张卡片，写三条核心认识；把它与已有的两项工作连接起来，并说明关系依据。保留现在的布局和其他笔记。
+
+AI 通过 Paperstream 的 API 或命令行修改文件；你回到画布上检查、修正，再继续阅读。这样，批量整理和手工思考可以接续进行，你积累的布局与笔记也能继续保留。
+
+Paperstream 本身不调用模型。你可以使用具有本地执行能力的 agent，搭配仓库提供的操作指南；论文解释和关系判断仍需要回到来源核对。交接给 AI 前，先保存当前画布。
+
+## 从第一篇论文，慢慢长成一张研究地图
+
+你可以只放三四篇文章开始，不必一次整理完整个领域。
+
+1. **刚进入一个方向时，先搭起轮廓。** 放入几篇代表工作，用自己的话各写一两句，留下你已经看清的联系。
+2. **精读时，把理解补进去。** 添几条要点，粘贴一张关键图，记下方法的适用条件，或用 Note 留住一个疑问。
+3. **读到新工作时，放到已有脉络里比较。** 它接着解决了什么？哪些结构被沿用？用一条有说明的线把判断留下来，也可以调整卡片与连线的粗细，突出你当前关注的部分。
+4. **回顾或交流时，把整张图拿出来。** 搜索定位、只看附近的关系，或导出 PNG／SVG，向别人讲清你看到的研究路线。
+
+画布会跟着你的认识变化。先记下一个粗略联系，后来再改得准确一些，也是整理的一部分。
+
+## 文件就是你能带走的成果
+
+每张画布都是一份独立的 **`.canvas` JSON 文件**，论文、笔记、关系和布局一起保存。你可以放进自己的研究文件夹，复制给同事，做好备份，或用 Git 记录变化；换一台电脑、换一个支持的 Paperstream 宿主，仍可以继续编辑这份文件。
+
+![Paperstream 架构：人通过可视画布，AI 通过 API，共同维护独立的 JSON Canvas 文件](docs/assets/paperstream-architecture.svg)
+
+存档不依赖 Paperstream 的云端账号或数据库。插入、粘贴到卡片里的图片也内嵌在 JSON 中，随文件一起迁移；普通文件卡片引用的本地附件需要一并带走。JSON Canvas 的标准结构方便其他支持该格式的工具读取，Paperstream 的论文卡片与图片样式则需要相应支持。[文件迁移与兼容说明](docs/guide.md#文件格式与迁移)
+
+## 打开一张图试试
+
+当前可以从源码启动独立浏览器版。准备 Node.js **22.18+**，在仓库根目录运行：
 
 ```sh
 npm ci --prefix web
 npm --prefix web run dev
 ```
 
-打开终端显示的本机地址，从文件菜单选择一个示例：
+打开终端显示的本机地址，从文件菜单打开一个示例，再另存为自己的文件：
 
-- [ResNet、DenseNet、ResNeXt](examples/resnet.canvas)：三篇论文，适合快速了解卡片与关系。
-- [CNN 演进](examples/cnn-evolution.canvas)：LeNet 等经典工作。
-- [量子力学经典论文](examples/quantum-foundations.canvas)与 [DeepH 阅读路线](examples/deeph-reading.canvas)。
-- [从电子计算到 AI](examples/computing-ai-history.canvas)：16 个里程碑，含人物肖像；[查看整图 PNG](docs/assets/computing-ai-history.png)。
-- [深度学习的几条发展线](examples/deep-learning-history.canvas)：从 Hinton 参与的反传工作到 Transformer、生成模型与语言模型；[查看整图 PNG](docs/assets/deep-learning-history.png)。
+- **先从三篇论文开始：** [ResNet、DenseNet 与 ResNeXt](examples/resnet.canvas)，适合尝试编辑卡片、修改关系和手工排布。
+- **沿着一条技术线阅读：** [CNN 演进](examples/cnn-evolution.canvas)、[深度学习的几条发展线](examples/deep-learning-history.canvas)。
+- **把研究史展开来看：** [从电子计算到 AI](examples/computing-ai-history.canvas)，含精选里程碑和人物肖像；[查看整图](docs/assets/computing-ai-history.png)。
+- **换一个领域：** [量子力学经典论文](examples/quantum-foundations.canvas)、[DeepH 阅读路线](examples/deeph-reading.canvas)。
 
-历史图均通过 CanvasGraph API 创建，可继续编辑，不是只供观看的海报。人物与论文来源、逐图署名和许可分别记录在 [计算机与 AI 来源表](docs/research/computing-ai-history-sources.md)、[深度学习来源表](docs/research/deep-learning-history-sources.md)；分享导出图片时请带上相应来源表。
+历史样例中的论文事实与肖像来源分别记录在[计算机与 AI 来源表](docs/research/computing-ai-history-sources.md)、[深度学习来源表](docs/research/deep-learning-history-sources.md)。分享这些样例或导出图片时，请附上相应来源表。
 
-建议另存为自己的文件后开始整理。支持文件句柄的浏览器可保存回原文件；其他环境使用下载副本。草稿恢复不能替代正式保存。
+常用操作很少：双击文字直接编辑，拖动连接点建立关系，选中卡片后粘贴图片；滚轮缩放，拖动空白处平移。有效编辑立即进入当前文档，**完成后记得保存文件**。更多操作、快捷键和本地文件服务见[使用指南](docs/guide.md)。
 
-如果希望页面直接绑定一个文件，而不使用文件选择器，可构建本地桥。还需要 Python **3.10+**：
+## 选择你习惯的入口
 
-```sh
-npm --prefix claude run build
-python3 -m paperstream serve examples/resnet.canvas --read-only --port 3817
-```
+几个入口复用同一套画布编辑器，你可以按自己的工作环境选择。
 
-打开命令输出的**完整本机链接**。去掉 `--read-only` 才可写入；请改用你自己的文件路径。服务仅监听 `127.0.0.1`，只授权启动时指定的文件，前台进程用 Ctrl-C 停止。该浏览器入口不需要 Claude 账号。
-
-## 手工整理
-
-双击简称、takeaway 或 relation 就地编辑；点击卡片的文档图标，或右键卡片／边，打开附近的详情。有效修改立即进入当前文档，**保存文件仍是单独操作**，没有“应用更改”步骤。Enter 结束单行编辑，Ctrl/Cmd+Enter 结束多行编辑，恢复已生效内容使用撤销。
-
-| 要做什么 | 操作 |
+| 入口 | 使用方式 |
 | --- | --- |
-| 新增内容 | 空白处双击或底部“插入”，选择论文、Note 或共享关系标签 |
-| 连线 | 拖动连接点，或选起点后点击“连线”再点目标；说明可为空 |
-| 调整关系 | 右键设置方向、双向箭头、线型、箭头形状、依据与人工权重；多条线可共用一个标签 |
-| 调整重要程度 | 节点边框与关系线宽在各自详情中独立调节；权重也独立保存 |
-| 加图 | 选中卡片后 Ctrl/Cmd+V，或在详情导入 PNG/JPEG/WebP；拖图片右下角调宽度 |
-| 看全局 | 智能竖排、搜索、只看附近、适应视图；滚轮缩放，拖空白处平移 |
-| 导出与外观 | 文件菜单导出全图 PNG/SVG；右上角设置切换主题与直角／圆角／曲线路径 |
+| 独立浏览器 | 从上面的命令开始，也可用本地服务直接打开指定文件；见[使用指南](docs/guide.md#开始使用) |
+| DSH Web | 在主面板整理画布；见[安装说明](dsh/README.md) |
+| ChatGPT／Codex 桌面文件面板 | 在支持文件编辑扩展的桌面会话中打开 `.canvas`；见[本地插件说明](codex/README.md) |
+| Claude Code | 通过插件在本地 Browser 页面使用画布；见[接入说明](claude/README.md) |
 
-卡片随内容增减自动调整高度，年份贴在卡片内部右下角；手动调整尺寸后可保留留白。takeaway 支持 `- ` 分点。图片默认铺满内容宽度，不显示上传文件名；每张上限 8 MB、3200 万像素、单边 16384。当前只保留 PNG/SVG 导出，不提供 PPT 或放映。
+目前已在本机 Codex 文件面板、DSH Web 和普通浏览器完成实际编辑与保存验证。Claude Code 已完成本地打包和浏览器链路检查，真实 Claude 账号会话尚待验证；其他系统和宿主版本的范围见[验收记录](docs/mechanisms/paperstream-design.md#开源前验收2026-11-13)。
 
-实际编辑器如下；上方宣传图是插画，不是界面截图：
+## 让你的 agent 学会整理画布
 
-![Paperstream 实际编辑界面](docs/assets/paperstream.jpg)
+仓库提供一份可分发的 [Paperstream Skill](skills/paperstream/SKILL.md)，说明怎样读取画布、按要求修改、保留其他内容并核验结果。安装时请带上整个 `skills/paperstream/` 目录；Codex／Claude 插件构建包已包含它和 Python 启动器。
 
-## 让 agent 帮忙整理
+如果你准备编写自己的自动化流程，继续阅读 [API 参考](skills/paperstream/references/api.md)与[操作指南](docs/guide.md#让-agent-操作画布)。参与本仓库开发的 agent 还应遵循 [AGENTS.md](AGENTS.md)。API、MCP 与 Skill 的分工及当前接入边界记录在[交互审查](docs/research/agent-interaction-audit.md)，开发与检查命令见[使用指南](docs/guide.md#开发与验证)。
 
-可以让 agent 做这样的任务：“读取这张图，把这篇论文的认识更新为我提供的三点，再补一条方法比较关系；保留已有布局和其他笔记。”先给它明确的文件路径与来源资料，保存当前 UI 修改后，再让它操作文件。
+## 许可与参与
 
-本仓库同时提供两份不同用途的约定：
+Paperstream 的自有代码与文档采用 [MIT License](LICENSE)。第三方依赖、人物肖像和社区角色素材保留各自许可，详见[第三方声明](THIRD_PARTY_NOTICES.md)及对应来源记录。
 
-- [AGENTS.md](AGENTS.md)：在这个仓库工作的 agent 应遵循的改图与开发约定。
-- [Paperstream Skill](skills/paperstream/SKILL.md)：可分发的画布操作流程，带 [API 参考](skills/paperstream/references/api.md)。将整个 `skills/paperstream/` 目录安装到所用客户端的技能入口；只复制 `SKILL.md` 会丢失参考资料。Codex／Claude 插件构建产物已带入该 Skill 与 Python 启动器，单独分发 Skill 时仍需现有 Paperstream 运行时。
-
-API 的基本用法如下。示例只修改已存在的 ID；实际 ID 要从读取结果取得：
-
-```sh
-python3 -m paperstream show examples/resnet.canvas --raw
-python3 -m paperstream validate examples/resnet.canvas
-# 对你自己的文件执行修改，使用上一步读到的真实 ID：
-python3 -m paperstream update-node /path/to/papers.canvas ACTUAL_NODE_ID --alias '自定义简称'
-```
-
-多项相关修改使用同一个实例，校验后只保存一次：
-
-```python
-from paperstream import CanvasGraph
-
-graph = CanvasGraph.load("papers.canvas")
-# ID 来自先前对同一文档的读取；以下为占位符。
-graph.update_node("ACTUAL_NODE_ID", takeaway="- 核心贡献\n- 适用边界")
-graph.update_edge("ACTUAL_EDGE_ID", relation="比较两种连接方式")
-graph.validate()
-graph.save()
-```
-
-CLI 成功返回 JSON；失败返回非零退出码和结构化错误。API 保存检查读取时的磁盘版本，使用协作锁与原子替换；它不是实时协作或自动合并系统。遇到外改不能强行覆盖，也不能删除其他写入者的锁。完整命令见 `python3 -m paperstream --help`。
-
-### API、MCP、Skill 分别负责什么
-
-API 是读写与校验的内核，CLI 让有本地执行能力的 agent 调用它；Skill 告诉 agent 如何整理、核对来源和处理冲突；AGENTS.md 约束当前仓库的工作方式。
-
-MCP 可以把 API 包装成可发现的工具，但不会自动实现这些业务规则。**当前 Codex MCP 仅提供画布 UI 资源和文件入口，没有供模型增删改图的通用工具**；Claude 接入使用 Skill、CLI 与本地文件桥。首发沿用现有 API，不再建立第二套写入逻辑。若以后需要没有 shell 的客户端接入，再考虑带版本检查的薄 MCP 工具层。详见 [交互方式审查](docs/research/agent-interaction-audit.md)。
-
-## 在其他宿主中使用
-
-| 入口 | 用途与当前验收范围 | 说明 |
-| --- | --- | --- |
-| 独立浏览器 | 完整编辑器；本地桥的真实文件读写、外改及冲突已验收 | 上面的快速开始 |
-| DSH Web | 复用宿主 React 的主面板插件；macOS／Chrome／DSH 0.2.2-rc.1 已实测 | [构建、安装和限制](dsh/README.md) |
-| ChatGPT／Codex 桌面文件面板 | 原生侧栏显示同一画布；本机 Codex 会话已实测编辑、撤销重做、写盘、外改与冲突 | [本地插件安装](codex/README.md) |
-| Claude Code | 插件加本地 Browser 页面；包校验、隔离安装、浏览器读写通过，真实 Claude 会话待验收 | [插件与账号边界](claude/README.md) |
-
-Codex 插件 UI 运行需 Node.js 22.18+，其 agent CLI 另需 Python 3.10+。Claude 便携包运行只需 Python 3.10+；构建仍需 web 依赖。DSH 的当前宿主版本要求 Node.js 24.9+。插件不提供模型账号，也不把 Claude Browser 入口描述成原生文件查看器。
-
-## 文件格式与边界
-
-主格式是 `.canvas`。论文存于标准 text 卡片的 fenced JSON，`paperstream: 1` 是模板版本，业务字段为 `name`、`alias`、`takeaway`、`url`、`year`；关系使用边的标准 `label`。`name` 保留完整原始标题，`year` 对应所链接版本；未知资料留空，不猜测年份或原文地址。
-
-普通文本、文件卡片、链接、分组及未知字段会保留；本项目不完整复刻 Obsidian 的附件／Markdown 体验。JSON 缩进可能改变，但未请求修改的数据应保持。旧 Mermaid API 与 `.mmd` 档案保留，`export-canvas` 可单向生成新 Canvas，不自动同步或删除旧文件。
-
-当前未完成验证的范围包括 Claude 账号内使用、DSH Desktop、其他操作系统和大规模画布。原生宿主仍观察到 ResizeObserver 循环告警，根因未解决，尚未观察到它造成保存失败。远程宿主、本地文件、浏览器草稿各有权限和版本边界，不能互相冒充。最近的检查结果与已知限制见 [验收记录](docs/mechanisms/paperstream-design.md#开源前验收2026-11-13)。
-
-## 开发与验证
-
-```sh
-python3 -m unittest discover -s tests -v
-npm --prefix web test
-npm --prefix web run test:interop
-npm --prefix web run build
-npm --prefix dsh run build
-npm --prefix dsh test
-node dsh/verify-build.mjs
-# 桌面适配另按各自 README 安装依赖、typecheck、build 和 test。
-```
-
-Python 运行时无第三方依赖。界面基于 React Flow，智能布局使用 ELK。构建和自动测试不能替代宿主验收；修改读写或交互行为时，请在临时副本中核对保存结果，保留冲突和失败路径的覆盖。
-
-## 许可与贡献
-
-项目自有代码与文档采用 [MIT License](LICENSE)，可以使用、修改和再分发，按许可证保留版权与许可声明。第三方软件、历史肖像及社区角色素材仍适用各自的许可与来源要求，见 [第三方声明](THIRD_PARTY_NOTICES.md)、[许可原文](licenses/third-party/) 和相应素材来源记录。各端构建产物携带完整 MIT 许可证与第三方许可资料。
-
-欢迎围绕论文整理过程提交问题与小改进。报告问题时请提供可复现步骤、宿主／版本和脱敏后的最小图；不要提交本机运行目录、访问令牌、个人草稿或论文附件。格式与保存机制的设计记录维护在 [设计文档](docs/mechanisms/paperstream-design.md)。
+欢迎分享你怎样用它整理一个方向，也欢迎提出那些打断阅读和思考的小问题。报告 bug 时，附上复现步骤、使用环境和脱敏后的最小画布，会更容易定位。想了解实现与设计取舍，可以继续阅读[设计记录](docs/mechanisms/paperstream-design.md)。
