@@ -98,5 +98,6 @@ in `assets/history/`. When sharing those
 example canvases or their image exports, include the corresponding source and
 attribution records. The generated classroom illustration's references and
 character-design boundary are recorded in the source repository's
-`docs/assets/paperstream-classroom-promo-v2-prompt.md`. These example assets are
+`docs/assets/paperstream-classroom-promo-v3-prompt.md`, which links the earlier
+character-reference record. These example assets are
 not bundled in the editor plugin packages.

@@ -8,6 +8,8 @@
 
 将原首页中的细致操作、快捷键、图片边界、文件服务、API／CLI 示例、MCP 职责、宿主验收与开发命令合并到 `docs/guide.md`，首页通过相应锚点进入，避免用协议与测试记录打断理念介绍。README 与指南由独立 agent 审读，文件链接、标题锚点和代码围栏检查通过；未改运行时代码或宿主配置。
 
+宣传图按新反馈从 v2 编辑为 v3：DeepSeek 面向课堂自然讲解，GPT 睁眼托腮、会意微笑，Claude 持书看向老师；让三人的视线与表情对应同一堂课，移除无缘由的夸张大笑。黑板同时补入 AlexNet → ResNet 的“train deeper”和 ResNet → Transformer 的“residual links”，后者经卡片下方 U 形连线指向 Transformer，避免暗示 ResNet 提出了注意力。已实际查看三人、视线、文字及连线；README 选用 v3，保留旧图与角色来源链，完整提示词见 `docs/assets/paperstream-classroom-promo-v3-prompt.md`。第三方角色设定仍不属于项目自有 MIT 授权范围。
+
 ## 历史关系的机制与依据（2026-11-13）
 
 按用户要求细化深度学习样例：先由 `show --raw` 读取完整图，在同一个 CanvasGraph 实例中将 `dl_alexnet_to_resnet` 标签改为“残差学习，缓解退化”，新增 `dl_resnet_to_transformer`（`dl_resnet_2015` → `dl_transformer_2017`）“沿用残差连接”，再用 `set_document` 补入现有 `paperstreamRelation.evidence` 约定支持的长说明、类型与原文链接。前者概括视觉网络加深后的优化挑战，省略 VGG 等中间工作；后者依据 Transformer 2017 会议版 §3.1 明确引用 ResNet 的残差连接，表达组件复用。注意力路线继续由 Seq2Seq → Transformer 表达，未把 ResNet 归因为注意力的提出者。
