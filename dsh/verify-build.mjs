@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
+import { verifyDistributionNotices } from '../web/scripts/distribution-notices.mjs'
 
 const directory = dirname(fileURLToPath(import.meta.url))
 const manifest = JSON.parse(await readFile(join(directory, 'package.json'), 'utf8'))
@@ -19,4 +20,5 @@ vm.runInNewContext(client, {
 if (registration?.id !== manifest.name || typeof registration.factory !== 'function') {
   throw new Error('The browser artifact is not a DSH module-loader factory for this package.')
 }
+await verifyDistributionNotices(dirname(directory), directory)
 console.log('Verified DSH package artifacts and loader registration; this is not a host integration test.')

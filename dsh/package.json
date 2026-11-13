@@ -10,7 +10,7 @@
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
-  "files": ["lib/index.js", "lib/client.js", "cordis.patch.yml", "README.md"],
+  "files": ["lib/index.js", "lib/client.js", "cordis.patch.yml", "README.md", "THIRD_PARTY_NOTICES.md", "licenses/", "LICENSE"],
   "engines": {
     "dsh": "0.2.2-rc.1"
   },

@@ -1,2 +1,5 @@
 lib/
 *.tgz
+/THIRD_PARTY_NOTICES.md
+/licenses/
+/LICENSE

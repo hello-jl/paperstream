@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { copyDistributionNotices } from '../web/scripts/distribution-notices.mjs'
 
 const packageDir = dirname(fileURLToPath(import.meta.url))
 const webDir = join(packageDir, '..', 'web')
@@ -62,4 +63,5 @@ const client = [
 await mkdir(join(packageDir, 'lib'), { recursive: true })
 await writeFile(join(packageDir, 'lib', 'client.js'), client)
 await copyFile(join(packageDir, 'src', 'index.mjs'), join(packageDir, 'lib', 'index.js'))
+await copyDistributionNotices(dirname(packageDir), packageDir)
 console.log('Built dsh/lib/client.js and dsh/lib/index.js using web/node_modules.')
