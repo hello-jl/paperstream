@@ -1,0 +1,375 @@
+{
+  "checked": "2026-11-13",
+  "method": "Actual esbuild output inputs with bytesInOutput > 0; package versions verified against committed web/codex lockfiles. DSH React externals are supplied by the host. Includes CSS inputs.",
+  "packages": [
+    {
+      "package": "@cfworker/json-schema",
+      "version": "4.1.6",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "codex-server"
+      ],
+      "upstream": "https://github.com/cfworker/cfworker",
+      "licenseFile": "licenses/third-party/cfworker-json-schema-4.1.6-LICENSE.txt",
+      "licenseSource": "https://raw.githubusercontent.com/cfworker/cfworker/1a0aa37471850c28a4673e12e871e010ea6c26e0/LICENSE.md",
+      "licenseSha256": "376944252ab78ca6b41aee44ddea8894927ee67891e77e61eb9d59af63e35094",
+      "sourceRevision": "1a0aa37471850c28a4673e12e871e010ea6c26e0",
+      "upstreamNotices": "licenses/third-party/cfworker-json-schema-4.1.6-THIRD_PARTY_NOTICES.md",
+      "upstreamNoticesSource": "https://raw.githubusercontent.com/cfworker/cfworker/1a0aa37471850c28a4673e12e871e010ea6c26e0/THIRD_PARTY_NOTICES.md"
+    },
+    {
+      "package": "@modelcontextprotocol/core",
+      "version": "2.4.0",
+      "declaredLicense": "Apache-2.0",
+      "surfaces": [
+        "codex-server"
+      ],
+      "upstream": "https://github.com/modelcontextprotocol/typescript-sdk",
+      "licenseFile": "licenses/third-party/modelcontextprotocol-core-2.4.0-LICENSE.txt",
+      "licenseSource": "codex/node_modules/@modelcontextprotocol/core/LICENSE",
+      "licenseSha256": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a"
+    },
+    {
+      "package": "@modelcontextprotocol/ext-apps",
+      "version": "1.7.5",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/modelcontextprotocol/ext-apps",
+      "licenseFile": "licenses/third-party/modelcontextprotocol-ext-apps-1.7.5-LICENSE.txt",
+      "licenseSource": "codex/node_modules/@modelcontextprotocol/ext-apps/LICENSE",
+      "licenseSha256": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a"
+    },
+    {
+      "package": "@modelcontextprotocol/sdk",
+      "version": "1.32.2",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/modelcontextprotocol/typescript-sdk",
+      "licenseFile": "licenses/third-party/modelcontextprotocol-sdk-1.32.2-LICENSE.txt",
+      "licenseSource": "codex/node_modules/@modelcontextprotocol/sdk/LICENSE",
+      "licenseSha256": "5e13dbbc1d120fc2a03cecde7c91424ae2d7de11b63d58ded2f4431e261ee50d"
+    },
+    {
+      "package": "@modelcontextprotocol/server",
+      "version": "2.4.0",
+      "declaredLicense": "Apache-2.0",
+      "surfaces": [
+        "codex-server"
+      ],
+      "upstream": "https://github.com/modelcontextprotocol/typescript-sdk",
+      "licenseFile": "licenses/third-party/modelcontextprotocol-server-2.4.0-LICENSE.txt",
+      "licenseSource": "codex/node_modules/@modelcontextprotocol/server/LICENSE",
+      "licenseSha256": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a"
+    },
+    {
+      "package": "@openai/mcp-extensions",
+      "version": "0.2.1",
+      "declaredLicense": "Apache-2.0",
+      "surfaces": [
+        "codex-ui",
+        "codex-server"
+      ],
+      "upstream": "https://github.com/openai/mcp-extensions",
+      "licenseFile": "licenses/third-party/openai-mcp-extensions-0.2.1-LICENSE.txt",
+      "licenseSource": "codex/node_modules/@openai/mcp-extensions/LICENSE",
+      "licenseSha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "package": "@xyflow/react",
+      "version": "12.12.1",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/xyflow/xyflow",
+      "licenseFile": "licenses/third-party/xyflow-react-12.12.1-LICENSE.txt",
+      "licenseSource": "web/node_modules/@xyflow/react/LICENSE",
+      "licenseSha256": "023119ac20fb1c8c9930abe0bcd196989a1960388529a96fc43cebf96f07c9ff"
+    },
+    {
+      "package": "@xyflow/system",
+      "version": "0.0.84",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/xyflow/xyflow",
+      "licenseFile": "licenses/third-party/xyflow-system-0.0.84-LICENSE.txt",
+      "licenseSource": "web/node_modules/@xyflow/system/LICENSE",
+      "licenseSha256": "023119ac20fb1c8c9930abe0bcd196989a1960388529a96fc43cebf96f07c9ff"
+    },
+    {
+      "package": "classcat",
+      "version": "5.0.5",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "jorgebucaran/classcat",
+      "licenseFile": "licenses/third-party/classcat-5.0.5-LICENSE.txt",
+      "licenseSource": "web/node_modules/classcat/LICENSE.md",
+      "licenseSha256": "f101c761d255d0dddc77dd8a9327733b03d381798ec54a1bb718367207b48a8e"
+    },
+    {
+      "package": "d3-color",
+      "version": "3.1.1",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-color",
+      "licenseFile": "licenses/third-party/d3-color-3.1.1-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-color/LICENSE",
+      "licenseSha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+    },
+    {
+      "package": "d3-dispatch",
+      "version": "3.0.2",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-dispatch",
+      "licenseFile": "licenses/third-party/d3-dispatch-3.0.2-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-dispatch/LICENSE",
+      "licenseSha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+    },
+    {
+      "package": "d3-drag",
+      "version": "3.0.1",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-drag",
+      "licenseFile": "licenses/third-party/d3-drag-3.0.1-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-drag/LICENSE",
+      "licenseSha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+    },
+    {
+      "package": "d3-ease",
+      "version": "3.0.2",
+      "declaredLicense": "BSD-3-Clause",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-ease",
+      "licenseFile": "licenses/third-party/d3-ease-3.0.2-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-ease/LICENSE",
+      "licenseSha256": "82f2a38e51f9013690c0cea086e901b33e51b5f0c3ba837941d7a58073c72917"
+    },
+    {
+      "package": "d3-interpolate",
+      "version": "3.0.2",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-interpolate",
+      "licenseFile": "licenses/third-party/d3-interpolate-3.0.2-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-interpolate/LICENSE",
+      "licenseSha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+    },
+    {
+      "package": "d3-selection",
+      "version": "3.0.1",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-selection",
+      "licenseFile": "licenses/third-party/d3-selection-3.0.1-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-selection/LICENSE",
+      "licenseSha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+    },
+    {
+      "package": "d3-timer",
+      "version": "3.0.2",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-timer",
+      "licenseFile": "licenses/third-party/d3-timer-3.0.2-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-timer/LICENSE",
+      "licenseSha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+    },
+    {
+      "package": "d3-transition",
+      "version": "3.0.2",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-transition",
+      "licenseFile": "licenses/third-party/d3-transition-3.0.2-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-transition/LICENSE",
+      "licenseSha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+    },
+    {
+      "package": "d3-zoom",
+      "version": "3.0.1",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/d3/d3-zoom",
+      "licenseFile": "licenses/third-party/d3-zoom-3.0.1-LICENSE.txt",
+      "licenseSource": "web/node_modules/d3-zoom/LICENSE",
+      "licenseSha256": "2a6d2d5f32ba0b755ddbc1c833f766e30cdbe6ebe9a6d4e3e24427721f0b63d3"
+    },
+    {
+      "package": "elkjs",
+      "version": "0.12.1",
+      "declaredLicense": "EPL-2.0 OR GPL-3.0-or-later",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/kieler/elkjs",
+      "licenseFile": "licenses/third-party/elkjs-0.12.1-LICENSE.txt",
+      "licenseSource": "web/node_modules/elkjs/LICENSE.md",
+      "licenseSha256": "637e81f4a1b6b4079535c499fca05e238cf7605c1ff5b76d60d7da7ce96700c9",
+      "sourceRevision": "624ae90aa37110033a8af59c5ccbb292708b4317"
+    },
+    {
+      "package": "react",
+      "version": "18.3.1",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "web",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/facebook/react",
+      "licenseFile": "licenses/third-party/react-18.3.1-LICENSE.txt",
+      "licenseSource": "web/node_modules/react/LICENSE",
+      "licenseSha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+    },
+    {
+      "package": "react-dom",
+      "version": "18.3.1",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "web",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/facebook/react",
+      "licenseFile": "licenses/third-party/react-dom-18.3.1-LICENSE.txt",
+      "licenseSource": "web/node_modules/react-dom/LICENSE",
+      "licenseSha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+    },
+    {
+      "package": "scheduler",
+      "version": "0.23.2",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "web",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/facebook/react",
+      "licenseFile": "licenses/third-party/scheduler-0.23.2-LICENSE.txt",
+      "licenseSource": "web/node_modules/scheduler/LICENSE",
+      "licenseSha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+    },
+    {
+      "package": "use-sync-external-store",
+      "version": "1.7.0",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/react/react",
+      "licenseFile": "licenses/third-party/use-sync-external-store-1.7.0-LICENSE.txt",
+      "licenseSource": "web/node_modules/use-sync-external-store/LICENSE",
+      "licenseSha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
+    },
+    {
+      "package": "zod",
+      "version": "4.6.6",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "codex-ui",
+        "codex-server"
+      ],
+      "upstream": "https://github.com/colinhacks/zod",
+      "licenseFile": "licenses/third-party/zod-4.6.6-LICENSE.txt",
+      "licenseSource": "codex/node_modules/zod/LICENSE",
+      "licenseSha256": "3f1189b28e3866e0d979968d466b78f813f76827cfdca1fbb124cc0a5c8841f8"
+    },
+    {
+      "package": "zod-to-json-schema",
+      "version": "3.25.2",
+      "declaredLicense": "ISC",
+      "surfaces": [
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/StefanTerdell/zod-to-json-schema",
+      "licenseFile": "licenses/third-party/zod-to-json-schema-3.25.2-LICENSE.txt",
+      "licenseSource": "codex/node_modules/zod-to-json-schema/LICENSE",
+      "licenseSha256": "80d3168ad2f70f6f5bb2ab22b23414707abf6f0a392034891481ae36a1a429d4"
+    },
+    {
+      "package": "zustand",
+      "version": "4.5.7",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "web",
+        "dsh",
+        "claude",
+        "codex-ui"
+      ],
+      "upstream": "https://github.com/pmndrs/zustand",
+      "licenseFile": "licenses/third-party/zustand-4.5.7-LICENSE.txt",
+      "licenseSource": "web/node_modules/zustand/LICENSE",
+      "licenseSha256": "c1e6e266563517467b1bf874817d23e426f3149252bd7d42758cd697514b8417"
+    }
+  ]
+}
