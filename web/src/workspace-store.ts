@@ -20,6 +20,10 @@ function workspaceState(value: unknown): WorkspaceState | null {
   const ids = [...new Set(candidate.ids)];
   return { ids, active: typeof candidate.active === 'string' && ids.includes(candidate.active) ? candidate.active : ids[0] };
 }
+function workspaceTimestamp(value: unknown): number {
+  const timestamp = value && typeof value === 'object' ? (value as { _workspaceUpdatedAt?: unknown })._workspaceUpdatedAt : undefined;
+  return typeof timestamp === 'number' && Number.isSafeInteger(timestamp) && timestamp >= 0 ? timestamp : 0;
+}
 function draftCopy(value: unknown): unknown {
   // History is deliberately session-local. Repeating embedded figures in an
   // unbounded undo stack would exhaust browser storage surprisingly quickly.
@@ -153,10 +157,18 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
           const storedTabs = await storage.get(`tabs:${baseKey}`);
           const persisted = workspaceState(storedTabs);
           if (storedTabs !== undefined && !persisted) throw new Error('原工作区页签清单无效，已暂停覆盖它。');
-          const legacyTabs = persisted ? undefined : readLegacy(`${baseKey}:tabs`);
+          // The session copy is written synchronously before the durable
+          // transaction. A failed/unfinished tab-list write must not hide a
+          // newly-created tab whose draft is already recoverable there.
+          let legacyTabs: unknown;
+          try { legacyTabs = readLegacy(`${baseKey}:tabs`); }
+          catch (error) { if (!persisted) throw error; }
           const legacyState = workspaceState(legacyTabs);
-          if (legacyTabs !== undefined && !legacyState) throw new Error('原工作区页签清单无效，已暂停覆盖它。');
-          const next = persisted ?? legacyState ?? workspaceState(fallback)!;
+          if (!persisted && legacyTabs !== undefined && !legacyState) throw new Error('原工作区页签清单无效，已暂停覆盖它。');
+          const durableTime = workspaceTimestamp(storedTabs), sessionTime = legacyState ? workspaceTimestamp(legacyTabs) : 0;
+          lastTimestamp = Math.max(lastTimestamp, durableTime, sessionTime);
+          const preferSession = Boolean(legacyState && (!persisted || sessionTime > durableTime));
+          const next = preferSession ? legacyState! : persisted ?? workspaceState(fallback)!;
           await Promise.all(next.ids.map(async id => {
             const key = tabDraftKey(baseKey, id);
             const durable = storedDraft(await storage.get(`draft:${key}`));
@@ -173,7 +185,7 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
             const binding = bindingValue(await storage.get(`file:${key}`));
             if (binding && !bindings.has(key)) bindings.set(key, binding);
           }));
-          if (!persisted) await storage.set(`tabs:${baseKey}`, next);
+          if (!persisted || preferSession) await storage.set(`tabs:${baseKey}`, { ...next, _workspaceUpdatedAt: sessionTime || timestamp() });
           unreadableNamespaces.delete(baseKey); errors.delete(`hydrate:${baseKey}`); publish();
           return next;
         })().catch(error => { hydrated.delete(baseKey); unreadableNamespaces.add(baseKey); report(`hydrate:${baseKey}`, error); throw error; });
@@ -217,8 +229,9 @@ export function createWorkspaceStore(storage: WorkspaceStorage, legacy?: LegacyS
       if (!snapshot) return Promise.reject(new Error('无法保存无效的页签清单。'));
       try { ensureReadable(baseKey); } catch (error) { return Promise.reject(error); }
       hydrated.set(baseKey, Promise.resolve(snapshot));
-      try { legacy?.setItem?.(`${baseKey}:tabs`, JSON.stringify(snapshot)); } catch { /* Durable persistence still proceeds. */ }
-      return enqueue(`tabs:${baseKey}`, () => storage.set(`tabs:${baseKey}`, snapshot));
+      const record = { ...snapshot, _workspaceUpdatedAt: timestamp() };
+      try { legacy?.setItem?.(`${baseKey}:tabs`, JSON.stringify(record)); } catch { /* Durable persistence still proceeds. */ }
+      return enqueue(`tabs:${baseKey}`, () => storage.set(`tabs:${baseKey}`, record));
     },
     async deleteDraft(key: string): Promise<void> {
       ensureReadable(key);

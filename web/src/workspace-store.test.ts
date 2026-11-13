@@ -67,6 +67,56 @@ test('legacy drafts migrate once and a newer session copy wins over an older com
   assert.ok(!Object.hasOwn(reopened.getRestoredDraft('project') as object, '_workspaceUpdatedAt'));
 });
 
+test('newer session tab manifest restores a tab after its durable manifest write fails', async () => {
+  const { adapter, records } = memory(), session = legacyMemory();
+  const first = createWorkspaceStore(adapter, session);
+  await first.hydrateWorkspace('project');
+  const originalSet = adapter.set;
+  adapter.set = async (key, value) => {
+    if (key === 'tabs:project') throw new Error('manifest transaction aborted');
+    await originalSet(key, value);
+  };
+  const next = { ids: ['initial', 'new-paper'], active: 'new-paper' };
+  await assert.rejects(first.persistWorkspace('project', next), /transaction aborted/);
+  await first.persistDraft('project:new-paper', { form: { takeaway: 'new tab precious text' } });
+  assert.deepEqual((records.get('tabs:project') as { ids: string[] }).ids, ['initial']);
+  adapter.set = originalSet;
+
+  const reopened = createWorkspaceStore(adapter, session);
+  assert.deepEqual(await reopened.hydrateWorkspace('project'), next);
+  assert.deepEqual(reopened.getRestoredDraft('project:new-paper'), { form: { takeaway: 'new tab precious text' } });
+  const durableOnly = createWorkspaceStore(adapter);
+  assert.deepEqual(await durableOnly.hydrateWorkspace('project'), next, 'successful recovery repairs the older durable manifest');
+});
+
+test('newer session tab deletion does not resurrect a closed tab after an interrupted manifest write', async () => {
+  const { adapter } = memory(), session = legacyMemory(), first = createWorkspaceStore(adapter, session);
+  const original = { ids: ['initial', 'closed'], active: 'closed' };
+  await first.hydrateWorkspace('project');
+  await first.persistWorkspace('project', original);
+  await first.persistDraft('project:closed', { form: { text: 'closed intentionally' } });
+  const originalSet = adapter.set;
+  adapter.set = async (key, value) => { if (key === 'tabs:project') throw new Error('interrupted'); await originalSet(key, value); };
+  await assert.rejects(first.persistWorkspace('project', { ids: ['initial'], active: 'initial' }), /interrupted/);
+  await first.deleteDraft('project:closed');
+  adapter.set = originalSet;
+  const reopened = createWorkspaceStore(adapter, session);
+  assert.deepEqual(await reopened.hydrateWorkspace('project'), { ids: ['initial'], active: 'initial' });
+});
+
+test('a newer durable tab manifest wins over a stale session, including future writes after recovery', async () => {
+  const { adapter, records } = memory(), session = legacyMemory();
+  const future = Date.now() + 60_000;
+  records.set('tabs:project', { ids: ['durable'], active: 'durable', _workspaceUpdatedAt: future });
+  session.setItem('project:tabs', JSON.stringify({ ids: ['stale'], active: 'stale', _workspaceUpdatedAt: future - 1 }));
+  const restored = createWorkspaceStore(adapter, session);
+  assert.deepEqual(await restored.hydrateWorkspace('project'), { ids: ['durable'], active: 'durable' });
+  await restored.persistWorkspace('project', { ids: ['durable', 'next'], active: 'next' });
+  assert.ok((records.get('tabs:project') as { _workspaceUpdatedAt: number })._workspaceUpdatedAt > future);
+  const reopened = createWorkspaceStore(adapter, session);
+  assert.deepEqual(await reopened.hydrateWorkspace('project'), { ids: ['durable', 'next'], active: 'next' });
+});
+
 test('file binding identity survives reopening while legacy records stay identifiable as unpaired', async () => {
   const { adapter } = memory(), first = createWorkspaceStore(adapter), binding = file();
   await first.hydrateWorkspace('project');
