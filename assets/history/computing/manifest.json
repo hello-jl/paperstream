@@ -1,0 +1,162 @@
+{
+  "checked": "2026-11-13",
+  "portraits": {
+    "mauchly": {
+      "file": "assets/history/computing/mauchly.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:John_Mauchly.jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a8/John_Mauchly.jpg/250px-John_Mauchly.jpg",
+      "author": "Unknown photographer",
+      "license": "Public domain in the United States (published without notice)",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/Commons:Public_domain",
+      "sourceCredit": "https://www.computerhistory.org/revolution/birth-of-the-computer/4/80/329",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "4f9bfb4da4b00f25de678673fa09136979b7ad1bce102143a3e976fd2dde3630",
+      "bytes": 25545,
+      "jurisdictionNote": "Commons declares PD-US-no-notice. This is a U.S. determination, not a claim of worldwide public-domain status."
+    },
+    "turing": {
+      "file": "assets/history/computing/turing.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Alan_Turing_(1951).jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f8/Alan_Turing_%281951%29.jpg/250px-Alan_Turing_%281951%29.jpg",
+      "author": "Elliott & Fry",
+      "license": "Public domain",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/Commons:Public_domain",
+      "sourceCredit": "https://www.computerhistory.org/timeline/1949/",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "f0b04fa07024770d94c08e72f3c514b3880af45ec923be138b4f80a5238cb41c",
+      "bytes": 21916
+    },
+    "mccarthy": {
+      "file": "assets/history/computing/mccarthy.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:John_McCarthy_Stanford.jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/49/John_McCarthy_Stanford.jpg/250px-John_McCarthy_Stanford.jpg",
+      "author": "\"null0\"",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "sourceCredit": "https://www.flickr.com/photos/null0/272015955/",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "d612eed46e8103734d41c6ef000cc8bd64f3a564dc7c5dde996c5683e701605b",
+      "bytes": 24472
+    },
+    "rosenblatt": {
+      "file": "assets/history/computing/rosenblatt.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Frank_Rosenblatt.jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/3/3b/Frank_Rosenblatt.jpg/250px-Frank_Rosenblatt.jpg",
+      "author": "Unknown photographer (source: Heinz Nixdorf MuseumsForum)",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "sourceCredit": "Heinz Nixdorf MuseumsForum\n\nhttps://blog.hnf.de/frank-rosenblatt-und-das-perceptron/",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "60dc3fd230b68830284ada4288a4255006d72b7a5ba3a449360283d2cc9f430e",
+      "bytes": 24113
+    },
+    "weizenbaum": {
+      "file": "assets/history/computing/weizenbaum.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Weizenbaum_1982.jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/fd/Weizenbaum_1982.jpg/250px-Weizenbaum_1982.jpg",
+      "author": "Rochester Institute of Technology",
+      "license": "Public domain",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/Commons:Public_domain",
+      "sourceCredit": "News & Events 1982 at the RIT Digital Archive",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "4132dae8bc57408afe6e65f9f6bf493009bd6797cf3f8ed5803c3bf89ccba5a1",
+      "bytes": 29585
+    },
+    "hinton": {
+      "file": "assets/history/computing/hinton.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Geoffrey_Hinton_in_2026.jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/82/Geoffrey_Hinton_in_2026.jpg/250px-Geoffrey_Hinton_in_2026.jpg",
+      "author": "Cmichel67",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "sourceCredit": "Own work",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "b1b415e64ca0c67326a802610abc54c18d9e2b8f556011b7dea96dba8b2bd93b",
+      "bytes": 14956
+    },
+    "kasparov": {
+      "file": "assets/history/computing/kasparov.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Garry_Kasparov.jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8d/Garry_Kasparov.jpg/250px-Garry_Kasparov.jpg",
+      "author": "Unknown photographer; uploaded by Sergei",
+      "license": "Public domain",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/Commons:Public_domain",
+      "sourceCredit": "Own work",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "8098be02be820266fe8994db1b0afd0a5943154f239140f530f932de55c73373",
+      "bytes": 11709
+    },
+    "lecun": {
+      "file": "assets/history/computing/lecun.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Yann_LeCun_-_2018_(cropped).jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/22/Yann_LeCun_-_2018_%28cropped%29.jpg/250px-Yann_LeCun_-_2018_%28cropped%29.jpg",
+      "author": "Jérémy Barande",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+      "sourceCredit": "CMAP – Institut DATAIA Data Science Summer School",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "85fe0dc063cddcc8a5119c5d7f80c61a38138c95e995c74c12d07432c75e4aa0",
+      "bytes": 21361
+    },
+    "goodfellow": {
+      "file": "assets/history/computing/goodfellow.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Ian_Goodfellow_(cropped).jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Ian_Goodfellow_%28cropped%29.jpg/250px-Ian_Goodfellow_%28cropped%29.jpg",
+      "author": "Ian Goodfellow",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "sourceCredit": "Own work",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "796258ac6a8343689c2f9a88cb57b43ef3ee839ddacd6f0109dedc45aff8cfbc",
+      "bytes": 20412
+    },
+    "hassabis": {
+      "file": "assets/history/computing/hassabis.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Demis_Hassabis_in_2025_by_Christopher_Michel_A.jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/94/Demis_Hassabis_in_2025_by_Christopher_Michel_A.jpg/250px-Demis_Hassabis_in_2025_by_Christopher_Michel_A.jpg",
+      "author": "Cmichel67",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "sourceCredit": "Own work",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "d7c6ab0d0e6db2ca7ab9301fb04a6dea7d59d901323a800a427d658d41c5d2d7",
+      "bytes": 13480
+    },
+    "gomez": {
+      "file": "assets/history/computing/gomez.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Aidan_Gomez_at_%22ALL_IN%22_2025_06.jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/46/Aidan_Gomez_at_%22ALL_IN%22_2025_06.jpg/250px-Aidan_Gomez_at_%22ALL_IN%22_2025_06.jpg",
+      "author": "Gabriel Hutchinson",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "sourceCredit": "Own work",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "840c8d808a9bdc4e01adad9d25cd4ad76f282b5eb3cc51b77c18591147f5b0b1",
+      "bytes": 17875
+    },
+    "christiano": {
+      "file": "assets/history/computing/christiano.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_(cropped).jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_%28cropped%29.jpg/250px-Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_%28cropped%29.jpg",
+      "author": "Institute for Pure & Applied Mathematics (IPAM)",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+      "sourceCredit": "Screenshot from 34:09 of \"Paul Christiano - Mechanistic Estimation - IPAM at UCLA\" (https://www.youtube.com/watch?v=_BPsuomAcoI)",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "53a3c452b122b712cd22611ea70effe821ac87e8972428d06b715ed785288bb4",
+      "bytes": 10695
+    },
+    "amodei": {
+      "file": "assets/history/computing/amodei.jpg",
+      "commons": "https://commons.wikimedia.org/wiki/File:Dario_Amodei_at_TechCrunch_Disrupt_2023_02_(close_up_cropped).jpg",
+      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c3/Dario_Amodei_at_TechCrunch_Disrupt_2023_02_%28close_up_cropped%29.jpg/250px-Dario_Amodei_at_TechCrunch_Disrupt_2023_02_%28close_up_cropped%29.jpg",
+      "author": "TechCrunch",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "sourceCredit": "https://www.flickr.com/photos/techcrunch/53201734641/",
+      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
+      "sha256": "3e583cc010bcace98b920bbffc9b960b9cd2ea43cffe25922684e7cc4a1eafe1",
+      "bytes": 21893
+    }
+  }
+}
