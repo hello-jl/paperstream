@@ -9,6 +9,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import asdict
 from decimal import Decimal, DecimalException
+import hashlib
 import json
 import math
 import os
@@ -283,6 +284,20 @@ class CanvasGraph:
 
     def to_json(self) -> str:
         return _dumps(self._data)
+
+    @property
+    def source_revision(self) -> str | None:
+        """Content revision of the loaded/saved bytes, not unsaved changes.
+
+        Hosts can associate an optimistic-concurrency token with the exact
+        snapshot read by this graph without reopening the path and racing a
+        second reader. Unsaved new graphs have no source revision yet.
+        """
+        return hashlib.sha256(self._snapshot).hexdigest() if self._snapshot is not None else None
+
+    def set_json(self, text: str) -> None:
+        """Validate a complete JSON update without losing duplicate fields."""
+        self.set_document(_loads(text))
 
     def set_document(self, data: dict) -> None:
         try:

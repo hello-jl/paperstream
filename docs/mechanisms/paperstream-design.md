@@ -365,6 +365,10 @@ API 的基础读写比现有 Mermaid 解析直接，但业务字段仍需要约�
 
 ## ChatGPT、Codex 与 Claude 桌面端适配与调研
 
+2026-11-13 本地单文件桥：新增 `python3 -m paperstream serve 文件.canvas`，供桌面 Browser 或普通浏览器承载同一编辑器，不增加新的画布实现。Python 标准库服务只绑定 127.0.0.1 和启动时明确选择的一份现有 Canvas，静态页面为预构建单 HTML；随机令牌放在 URL fragment，文档 GET/PUT 另需 Bearer。写入还检查 Host、同源 Origin、精确 If-Match、64 MiB 请求边界，不提供目录、任意路径、创建或删除接口。`CanvasGraph.source_revision` 从同次读取的原始字节产生版本，`set_json` 复用严格解析，保存继续走原有锁、外改检查及原子替换。路径守卫拒绝后出现的符号链接或父目录替换，但不把本地服务称为抵御恶意本机进程的隔离沙箱。
+
+新增 16 项真实 HTTP 与 2 项 API 回归覆盖并发旧版本仅一个成功、未知字段/顺序保留、读取和保存之间外改、错误认证/来源、只读、无效 JSON/重复键、原子失败完整性和路径替换；完整 Python 93 项通过。服务不自动打开浏览器、联网安装依赖或改写未请求的文件，Ctrl-C 停止。前端缺失时明确要求先构建。
+
 2026-11-13 ChatGPT App 适配复核：官方当前把 Chat、Work、Codex 描述为同一桌面 App 中的入口，插件目录共用；本机 `ChatGPT.app` 的显示名称与 `com.openai.codex` bundle ID 不能单独证明或排除某种入口能力。[桌面产品说明](https://learn.chatgpt.com/docs/use-chatgpt#compare-work-mode-and-codex-on-desktop)、[插件支持范围](https://learn.chatgpt.com/docs/plugins)。现有 `codex/` 对应正式的文件编辑器扩展，支持提供 `openai/resource` 的桌面会话时可以复用，无需另写 React Flow 编辑器，也无需另开 HTTP 浏览器服务；普通聊天 `@` 工具、云端远程 MCP 与本地文件面板不是同一验收范围。[文件编辑器入口](https://developers.openai.com/plugins/build/extensions#file-viewers-and-editors)。个人本地 marketplace 安装已有正式路径，公开分发本地 MCP 的合作伙伴限制不等同于禁止个人本地测试。[本地安装](https://developers.openai.com/plugins/build/plugins#install-a-local-plugin-manually)、[公开分发限制](https://developers.openai.com/plugins/deploy/desktop-only)。本轮更新包后可通过正式 App 文件打开接口请求在当前聊天右侧打开样例；打开请求不返回画布渲染结果，因此原生加载、编辑、保存仍需单独验收，不能用模拟 AppBridge 或 CLI 状态代替。
 
 同日宿主通知开销优化：`onDocumentChange(document, canonicalSource)` 传递编辑器本轮已生成的规范文本，ResourceSession 用该不可变字符串跟踪本地修订，避免每字重新序列化内嵌图片。此通知只用于慢读保护，不成为保存或文档数据来源；公共 `noteLocalDocument` 仍逐次校验和序列化，支持同对象原地改写的外部调用，保存独立读取并序列化当前文档。新增 3 项回归，ResourceSession 17 项通过；模拟宿主实际验证干净状态启动延迟读取、等待中编辑简称、释放后保留新输入，再保存达到版本 2、计数 1、“已保存”。

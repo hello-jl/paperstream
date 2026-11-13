@@ -1,6 +1,7 @@
 """JSON Canvas contract, portability, and failure-integrity checks."""
 
 from copy import deepcopy
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -163,6 +164,32 @@ class CanvasTests(unittest.TestCase):
         fresh = CanvasGraph.from_dict(self.path, before)
         before["nodes"].clear()
         self.assertEqual(len(fresh.nodes()), 2)
+
+    def test_source_revision_tracks_exact_saved_bytes_not_unsaved_document(self):
+        graph, first, _ = self.pair()
+        self.assertIsNone(graph.source_revision)
+        graph.save()
+        original = hashlib.sha256(self.path.read_bytes()).hexdigest()
+        self.assertEqual(graph.source_revision, original)
+        graph.update_node(first.id, alias="Unsaved")
+        self.assertEqual(graph.source_revision, original)
+        graph.save()
+        self.assertNotEqual(graph.source_revision, original)
+        self.assertEqual(graph.source_revision, CanvasGraph.load(self.path).source_revision)
+        with self.assertRaises(AttributeError):
+            graph.source_revision = "forged"
+
+    def test_set_json_reuses_strict_parser_and_keeps_failed_update_transactional(self):
+        graph, _, _ = self.pair()
+        before = graph.to_dict()
+        for invalid in ('{"nodes":[],"nodes":[]}', '{"unknown":NaN}', '{bad',
+                        '{"nodes":[{"id":"a","type":"text","x":0,"y":0,"width":0,"height":1}]}'):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises((FormatError, ValidationError)):
+                    graph.set_json(invalid)
+                self.assertEqual(graph.to_dict(), before)
+        graph.set_json(json.dumps({**before, "future": {"kept": [None, 1]}}))
+        self.assertEqual(graph.to_dict()["future"], {"kept": [None, 1]})
 
     def test_external_change_lock_and_atomic_replace_failures_preserve_data(self):
         graph, first, _ = self.pair()

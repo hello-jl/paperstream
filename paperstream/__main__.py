@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict
 import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -46,6 +47,10 @@ def _parser() -> argparse.ArgumentParser:
     show = command("show", "Read all paper and edge fields as JSON")
     show.add_argument("--raw", action="store_true", help="Include the complete Canvas document")
     command("validate", "Check document syntax, fields, IDs and references")
+
+    serve = command("serve", "Open one existing Canvas through a local browser editor")
+    serve.add_argument("--port", type=int, default=0, help="Loopback port; 0 chooses an available port")
+    serve.add_argument("--read-only", action="store_true", help="Display the document without allowing saves")
 
     add_node = command("add-node", "Add a paper node")
     add_node.add_argument("--alias", required=True)
@@ -189,6 +194,8 @@ def main(argv: list[str] | None = None) -> int:
             stream.reconfigure(encoding="utf-8")
     parser = _parser()
     args = parser.parse_args(argv)
+    if args.command == "serve" and not 0 <= args.port <= 65535:
+        parser.error("--port must be between 0 and 65535")
     if args.command == "update-node" and all(
         getattr(args, field) is None for field in ("alias", "takeaway", "name", "url", "year")
     ):
@@ -198,6 +205,20 @@ def main(argv: list[str] | None = None) -> int:
     ):
         parser.error("update-edge requires --source, --target or --relation")
     try:
+        if args.command == "serve":
+            from paperstream.preview import create_preview_server
+            app = Path(os.environ.get("PAPERSTREAM_APP_PATH", Path(__file__).resolve().parent.parent / "claude/dist/app.html"))
+            if not app.is_file():
+                raise ValidationError("Browser editor not built. Run npm --prefix claude run build first.")
+            with create_preview_server(args.file, app, port=args.port, read_only=args.read_only) as server:
+                _write_json({"ok": True, "operation": "serve", "file": server.file_name, "url": server.url,
+                             "message": "Local file editor; keep this process running. Ctrl-C stops it."})
+                sys.stdout.flush()
+                try:
+                    server.serve_forever()
+                except KeyboardInterrupt:
+                    pass
+            return 0
         result = _run(args)
     except (PaperstreamError, OSError) as exc:
         _write_json(
