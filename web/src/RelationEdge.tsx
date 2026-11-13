@@ -183,7 +183,7 @@ export const RelationEdge = memo(function RelationEdge({
           userSelect: data?.editing ? undefined : 'none' }}
         onPointerDown={event => { if (!(event.target as Element).closest('textarea, input, .ps-inline-actions')) begin(event, 'label'); }}
         onContextMenu={event => { event.preventDefault(); event.stopPropagation(); data?.onDetails({ x: event.clientX, y: event.clientY }); }}>
-        {data?.editing ? <InlineTextEditor label="关系说明" value={data.draft}
+        {data?.editing ? <InlineTextEditor label="关系说明" value={data.draft} readOnly={data.busy}
           onChange={data.onChange} onFinish={data.onFinish} />
           : <button type="button" className="ps-relation-text" disabled={data?.busy}
               aria-label={`编辑关系：${text}`} aria-pressed={Boolean(selected)} title="拖动移动关系文字；双击编辑；右键查看详情"

@@ -12,10 +12,12 @@ export interface PagePanelProps {
   onFocus: (nodeIds: string[]) => void;
   onClose: () => void;
   selectedNodeIds?: string[];
+  busy?: boolean;
+  readOnly?: boolean;
 }
 
 /** Page membership is separate from the graph: removing a slide never removes research. */
-export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeIds = [] }: PagePanelProps) {
+export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeIds = [], busy = false, readOnly = false }: PagePanelProps) {
   const { connectionStyle } = useAppearancePreferences();
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -27,7 +29,9 @@ export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeId
   const current = pages.find(page => page.id === currentId) ?? pages[0];
   const currentIndex = current ? pages.indexOf(current) : -1;
   const known = new Set(document.nodes.map(node => node.id));
+  const editDisabled = busy || readOnly;
   function change(operation: () => JSONCanvasDocument, field?: string) {
+    if (editDisabled) return;
     try { onChange(operation(), field); setError(''); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   }
@@ -41,9 +45,9 @@ export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeId
     <aside className={`ps-pages-panel${pages.length ? '' : ' is-empty'}`} role="dialog" aria-label="演示页面">
       <header><strong>演示页面</strong><button aria-label="关闭演示页面" onClick={onClose}>×</button></header>
       <div className="ps-pages-actions">
-        <button onClick={() => add(selectedNodeIds.filter(id => known.has(id)))}>＋ 页面</button>
-        <button onClick={() => add(document.nodes.map(node => node.id), '整图')}>＋ 整图页</button>
-        <button disabled={!document.nodes.some(node => (node.paperstreamCard as { kind?: string } | undefined)?.kind === 'page')}
+        <button disabled={editDisabled} onClick={() => add(selectedNodeIds.filter(id => known.has(id)))}>＋ 页面</button>
+        <button disabled={editDisabled} onClick={() => add(document.nodes.map(node => node.id), '整图')}>＋ 整图页</button>
+        <button disabled={editDisabled || !document.nodes.some(node => (node.paperstreamCard as { kind?: string } | undefined)?.kind === 'page')}
           onClick={() => change(() => {
             let next = document;
             for (const node of document.nodes.filter(node => (node.paperstreamCard as { kind?: string } | undefined)?.kind === 'page')) {
@@ -56,21 +60,22 @@ export function PagePanel({ document, onChange, onFocus, onClose, selectedNodeId
         onClick={() => setCurrentId(page.id)}><span>{index + 1}</span>{page.title || '未命名页面'}<small>{page.nodeIds.filter(id => known.has(id)).length} 张卡片</small></button>)}</nav>
       {!pages.length && <p className="ps-pages-help">尚未分页时导出整图。新增页面后，可选择卡片并调整顺序，PPTX 会按此列表生成多张幻灯片。</p>}
       {current && <section className="ps-page-fields">
-        <label>页面标题<input aria-label="页面标题" value={current.title} onChange={event => change(() => updatePresentationPage(document, current.id, { title: event.target.value }), `page-title:${current.id}`)} /></label>
+        <label>页面标题<input aria-label="页面标题" readOnly={editDisabled} value={current.title} onChange={event => change(() => updatePresentationPage(document, current.id, { title: event.target.value }), `page-title:${current.id}`)} /></label>
         <div className="ps-pages-actions">
-          <button disabled={currentIndex === 0} onClick={() => change(() => movePresentationPage(document, current.id, -1))}>上移</button>
-          <button disabled={currentIndex === pages.length - 1} onClick={() => change(() => movePresentationPage(document, current.id, 1))}>下移</button>
+          <button disabled={editDisabled || currentIndex === 0} onClick={() => change(() => movePresentationPage(document, current.id, -1))}>上移</button>
+          <button disabled={editDisabled || currentIndex === pages.length - 1} onClick={() => change(() => movePresentationPage(document, current.id, 1))}>下移</button>
           <button onClick={() => onFocus(current.nodeIds.filter(id => known.has(id)))}>定位本页</button>
-          <button onClick={() => change(() => removePresentationPage(document, current.id))} title="只删除页面配置，画布卡片保留">删除页</button>
+          <button disabled={editDisabled} onClick={() => change(() => removePresentationPage(document, current.id))} title="只删除页面配置，画布卡片保留">删除页</button>
         </div>
-        <fieldset><legend>本页卡片</legend>{document.nodes.map(node => <label key={node.id} className="ps-page-member"><input type="checkbox" checked={current.nodeIds.includes(node.id)}
+        <fieldset disabled={editDisabled}><legend>本页卡片</legend>{document.nodes.map(node => <label key={node.id} className="ps-page-member"><input type="checkbox" checked={current.nodeIds.includes(node.id)}
           onChange={event => change(() => updatePresentationPage(document, current.id, { nodeIds: event.target.checked
             ? [...current.nodeIds.filter(id => known.has(id)), node.id] : current.nodeIds.filter(id => known.has(id) && id !== node.id) }))} />
           <span>{readPaper(node)?.alias ?? node.label ?? node.file ?? node.url ?? node.text?.slice(0, 45) ?? '卡片'}</span></label>)}</fieldset>
         {current.nodeIds.some(id => !known.has(id)) && <p className="ps-pages-help">本页有 {current.nodeIds.filter(id => !known.has(id)).length} 张卡片已不在画布中；重新选择成员会清理这些失效引用。</p>}
       </section>}
       {error && <p className="ps-pages-error" role="alert">{error}</p>}
-      <footer><button onClick={() => setPlaying(true)}>▶ 放映</button><button disabled={exporting} onClick={() => {
+      <footer><button disabled={busy} onClick={() => setPlaying(true)}>▶ 放映</button><button disabled={busy || exporting} onClick={() => {
+        if (busy || exporting) return;
         setExporting(true); void downloadGraph(document, 'pptx', typeof document.title === 'string' ? document.title : 'paperstream-pages', { connectionStyle }).catch(cause => setError(String(cause))).finally(() => setExporting(false));
       }}>{exporting ? '导出中…' : '导出多页 PPTX'}</button></footer>
     </aside>
