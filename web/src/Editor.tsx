@@ -44,8 +44,6 @@ import type { RecoveredSelection } from './draft-recovery';
 import { getRestoredDraft, getRestoredFileBinding, persistDraft, persistFileBinding, recoverFileBinding } from './workspace-store';
 import type { FileBinding } from './workspace-store';
 import { edgeRoutingPatch, readEdgeRouting } from './edge-routing';
-import { PagePanel } from './PagePanel';
-import { createPresentationPage } from './presentation-pages';
 import { RelationMetadataControls } from './RelationMetadataControls';
 import '@xyflow/react/dist/style.css';
 import './editor.css';
@@ -247,7 +245,6 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   const [connectSource, setConnectSource] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [createMenu, setCreateMenu] = useState<PopoverPoint | null>(null);
-  const [pagesOpen, setPagesOpen] = useState(false);
   useEffect(() => onMeta({ fileName, dirty }), [fileName, dirty, onMeta]);
   useLayoutEffect(() => { host?.onDirtyChange?.(dirty); }, [dirty, host?.onDirtyChange]);
   useLayoutEffect(() => { host?.onDocumentChange?.(canvas); }, [canvas, host?.onDocumentChange]);
@@ -733,7 +730,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     } catch (err) { if (!(err instanceof DOMException && err.name === 'AbortError')) setError(message(err)); }
     finally { setBusy(false); }
   }
-  async function exportDocument(format: 'png' | 'svg' | 'pptx') {
+  async function exportDocument(format: 'png' | 'svg') {
     if (busy || formDirty) return;
     setBusy(true); setError('');
     try { await downloadGraph(current.current, format, fileName, { connectionStyle }); setNotice(`已导出 ${format.toUpperCase()}。`); }
@@ -757,15 +754,14 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     const handle = file.current.handle; setBusy(true);
     try { replace(await (await handle.getFile()).text(), handle.name, handle); } catch (err) { setError(message(err)); } finally { setBusy(false); }
   }
-  function insertCard(kind: 'paper' | 'note' | 'page' | 'relation', anchor = defaultAnchor()) {
+  function insertCard(kind: 'paper' | 'note' | 'relation', anchor = defaultAnchor()) {
     if (busy || readOnly || !discardForm()) return;
     const point = flow.screenToFlowPosition(anchor);
-    const placement = { x: Math.round(point.x), y: Math.round(point.y), width: kind === 'page' ? 480 : 360, height: 180 };
+    const placement = { x: Math.round(point.x), y: Math.round(point.y), width: 360, height: 180 };
     const node: CanvasNode = kind === 'paper' ? createPaperNode({ alias: '新论文', takeaway: '双击填写你的认识' }, placement)
       : kind === 'relation' ? createRelationNode('', { x: placement.x, y: placement.y })
-      : { id: crypto.randomUUID().replaceAll('-', ''), type: 'text', ...placement, label: kind === 'page' ? '插页' : 'Note', text: '- 在这里记录想法', paperstreamCard: { kind } };
+      : { id: crypto.randomUUID().replaceAll('-', ''), type: 'text', ...placement, label: 'Note', text: '- 在这里记录想法', paperstreamCard: { kind } };
     let next = addNode(current.current, node);
-    if (kind === 'page') next = createPresentationPage(next, { title: node.label || '插页', nodeIds: [node.id] });
     if (next.paperstreamLayout === 'vertical') next = manualRelations(next) ? { ...next, paperstreamLayout: 'manual' } : layoutVertical(next);
     commit(next); setFocusId(null); setCreateMenu(null);
     select({ kind: 'node', id: node.id }, true);
@@ -784,7 +780,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   useEffect(() => {
     const element = workspace.current; if (!element) return;
     const wheel = (event: WheelEvent) => {
-      if (!(event.target instanceof Element) || event.target.closest('.ps-pages-panel, .ps-presentation-screen')) return;
+      if (!(event.target instanceof Element)) return;
       const overControls = Boolean(event.target.closest('input, textarea, select, .ps-inspector, .ps-create-menu'));
       if (wheelIntent(event, overControls) === 'scroll') return;
       event.preventDefault(); event.stopPropagation(); if (busy) return;
@@ -846,9 +842,8 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
         {!host && <button disabled={busy} onClick={() => void open()}>打开文件…</button>}
         <button disabled={busy || readOnly || formDirty} onClick={() => void save()}>保存</button>
         {!host && <button disabled={busy || formDirty} onClick={() => void save(true)}>另存为…</button>}
-        {(['png', 'svg', 'pptx'] as const).map(format => <button key={format} disabled={busy || formDirty || !canvas.nodes.length} onClick={() => void exportDocument(format)}>导出 {format.toUpperCase()}</button>)}
+        {(['png', 'svg'] as const).map(format => <button key={format} disabled={busy || formDirty || !canvas.nodes.length} onClick={() => void exportDocument(format)}>导出 {format.toUpperCase()}</button>)}
         {!host && <button disabled={busy || !file.current} onClick={() => void reloadFile()}>重新读取文件</button>}
-        <button disabled={busy || readOnly || formDirty} onClick={() => setPagesOpen(value => !value)}>演示页面…</button>
         {pendingBinding && <button disabled={busy} onClick={() => void authorizeFile()}>重新授权原文件…</button>}
       </div></details></header>
     <div className="ps-workspace" ref={workspace}>
@@ -913,10 +908,9 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
         {focusId && <div className="ps-view-note">局部视图 · 保存仍包含完整关系图</div>}
         {connectSource && <div className="ps-view-note">点击目标卡片建立连线 <button onClick={() => setConnectSource(null)}>取消</button></div>}
         {createMenu && <div className="ps-create-menu" style={{ left: Math.max(8, Math.min(workspaceSize.width - 170, createMenu.x - (workspace.current?.getBoundingClientRect().left ?? 0))), top: Math.max(8, Math.min(workspaceSize.height - 180, createMenu.y - (workspace.current?.getBoundingClientRect().top ?? 0))) }}>
-          <button disabled={busy || readOnly} onClick={() => insertCard('paper', createMenu)}>＋ 论文</button><button disabled={busy || readOnly} onClick={() => insertCard('note', createMenu)}>＋ Note</button><button disabled={busy || readOnly} onClick={() => insertCard('page', createMenu)}>＋ 插页</button><button disabled={busy || readOnly} onClick={() => insertCard('relation', createMenu)}>＋ 共享关系标签</button>
+          <button disabled={busy || readOnly} onClick={() => insertCard('paper', createMenu)}>＋ 论文</button><button disabled={busy || readOnly} onClick={() => insertCard('note', createMenu)}>＋ Note</button><button disabled={busy || readOnly} onClick={() => insertCard('relation', createMenu)}>＋ 共享关系标签</button>
         </div>}
       </main>
-      {pagesOpen && <PagePanel document={canvas} busy={busy} readOnly={readOnly} onChange={(next, field) => { if (busy || readOnly) return; try { if (field) commitContinuous(next, field); else commit(next); } catch (err) { setError(message(err)); } }} onClose={() => setPagesOpen(false)} selectedNodeIds={selection?.kind === 'node' ? [selection.id] : []} onFocus={ids => { setFocusId(null); void flow.fitView({ nodes: ids.map(id => ({ id })), maxZoom: 1, duration: 0 }); }} />}
       {detailsAnchor && selection && <aside ref={details} className="ps-inspector" role="dialog" aria-label="详情编辑" aria-modal="false"
         style={{ left: detailsPosition.x, top: detailsPosition.y, width: Math.min(340, Math.max(0, workspaceSize.width - 24)), maxHeight: Math.max(0, workspaceSize.height - 24) }}>
         <div className="ps-inspector-heading" tabIndex={-1}><span>{sharedRelation ? '共享关系标签' : paperForm ? '论文详情' : relationForm ? '关系详情' : '卡片详情'}</span>
@@ -1022,9 +1016,8 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     </div>
     <footer className={`ps-status ${error ? 'has-error' : ''}`}>
       <div className="ps-status-tools">
-        <details className="ps-insert-menu"><summary>＋ 插入</summary><div className="ps-menu-items" onClick={event => { if ((event.target as Element).closest('button')) event.currentTarget.closest('details')?.removeAttribute('open'); }}><button disabled={busy || readOnly} onClick={() => insertCard('paper')}>论文</button><button disabled={busy || readOnly} onClick={() => insertCard('note')}>Note</button><button disabled={busy || readOnly} onClick={() => insertCard('page')}>插页</button><button disabled={busy || readOnly} onClick={() => insertCard('relation')}>共享关系标签</button></div></details>
+        <details className="ps-insert-menu"><summary>＋ 插入</summary><div className="ps-menu-items" onClick={event => { if ((event.target as Element).closest('button')) event.currentTarget.closest('details')?.removeAttribute('open'); }}><button disabled={busy || readOnly} onClick={() => insertCard('paper')}>论文</button><button disabled={busy || readOnly} onClick={() => insertCard('note')}>Note</button><button disabled={busy || readOnly} onClick={() => insertCard('relation')}>共享关系标签</button></div></details>
         <button disabled={busy || readOnly || !selectedNode} title="先选起点，再点目标；也可拖动卡片连接点" onClick={() => { if (selectedNode && discardForm()) setConnectSource(selectedNode.id); }}>↗ 连线</button>
-        <button disabled={busy || readOnly || formDirty} onClick={() => setPagesOpen(value => !value)}>演示</button>
         {pendingBinding && <button disabled={busy} onClick={() => void authorizeFile()}>授权文件</button>}
         <button disabled={busy || readOnly || !past.length} onClick={() => travel(true)} title="撤销">↶</button><button disabled={busy || readOnly || !future.length} onClick={() => travel(false)} title="重做">↷</button>
         <button disabled={busy || readOnly || !canvas.nodes.length} onClick={() => void arrangeGraph()} title={hasManualRelations ? '重新竖排并计算线路与标签，替换手工位置和折点；可以撤销' : '联合排列卡片、连线路径和关系文字；可以撤销'}>智能竖排</button>

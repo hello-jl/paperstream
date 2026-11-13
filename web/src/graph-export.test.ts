@@ -2,15 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { addEdge, addNode, createCanvas, createEdge, createPaperNode } from './canvas.ts';
 import type { CanvasNode, JSONCanvasDocument } from './canvas.ts';
-import { buildExportScene, createStoredZip, exportGraphPptx, exportGraphSvg, validatePresentationImageSize, wrapExportText } from './graph-export.ts';
-import { MAX_FIGURE_BYTES } from './card-media.ts';
-import { createPresentationPage, movePresentationPage } from './presentation-pages.ts';
+import { buildExportScene, downloadGraph, exportGraphSvg, wrapExportText } from './graph-export.ts';
 import { createRelationNode } from './graph-relations.ts';
 
 // Complete RGBA PNGs with valid IHDR/IDAT/IEND chunks and CRCs, not placeholder bytes.
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGMwmJDwH4QBEOMEP0iNvQ8AAAAASUVORK5CYII=';
 const TALL_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAACCAYAAACZgbYnAAAAEElEQVR4nGMwmJDwnwFEAAATAwQ/Rjt83AAAAABJRU5ErkJggg==';
-const PNG_BYTES = Uint8Array.from(atob(PNG.split(',')[1]), character => character.charCodeAt(0));
 
 function sample(): JSONCanvasDocument {
   let graph = createCanvas();
@@ -21,19 +18,6 @@ function sample(): JSONCanvasDocument {
   const edge = createEdge(first.id, second.id, 'Shared <relation> & comparison');
   edge.fromEnd = 'arrow'; edge.toEnd = 'arrow'; edge.paperstreamStyle = { strokeWidth: 2.5, lineStyle: 'dashed' };
   return addEdge(graph, edge);
-}
-function unzipStored(bytes: Uint8Array): Map<string, Uint8Array> {
-  const entries = new Map<string, Uint8Array>(); let offset = 0;
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength), decoder = new TextDecoder();
-  while (view.getUint32(offset, true) === 0x04034b50) {
-    assert.equal(view.getUint16(offset + 8, true), 0);
-    const length = view.getUint32(offset + 18, true), nameLength = view.getUint16(offset + 26, true), extraLength = view.getUint16(offset + 28, true);
-    const start = offset + 30, name = decoder.decode(bytes.subarray(start, start + nameLength));
-    const payload = start + nameLength + extraLength;
-    entries.set(name, bytes.subarray(payload, payload + length)); offset = payload + length;
-  }
-  assert.equal(view.getUint32(offset, true), 0x02014b50);
-  return entries;
 }
 type Rect = { x: number; y: number; width: number; height: number };
 function contains(outer: Rect, inner: Rect, label: string) {
@@ -49,15 +33,6 @@ function assertSceneContainsContent(scene: ReturnType<typeof buildExportScene>) 
       if (block?.height) contains(scene.bounds, block, node.id);
     }
   }
-}
-function pptxShapeRects(slide: string): Map<string, Rect> {
-  const rectangles = new Map<string, Rect>();
-  for (const match of slide.matchAll(/<p:(sp|pic)>([\s\S]*?)<\/p:\1>/g)) {
-    const name = /<p:cNvPr[^>]*name="([^"]*)"/.exec(match[2])?.[1];
-    const rect = /<a:xfrm><a:off x="(-?\d+)" y="(-?\d+)"\/><a:ext cx="(\d+)" cy="(\d+)"\/>/.exec(match[2]);
-    if (name && rect) rectangles.set(name, { x: Number(rect[1]), y: Number(rect[2]), width: Number(rect[3]), height: Number(rect[4]) });
-  }
-  return rectangles;
 }
 
 test('compact shared relations export only centered text inside the original 44px card', () => {
@@ -75,12 +50,6 @@ test('compact shared relations export only centered text inside the original 44p
   const svg = exportGraphSvg(graph, { padding: 0 });
   assert.match(svg, /text-anchor="middle"/);
   assert.doesNotMatch(svg, />关系<\/tspan>/);
-  const entries = unzipStored(exportGraphPptx(graph, { padding: 0 }));
-  const slide = new TextDecoder().decode(entries.get('ppt/slides/slide1.xml'));
-  const rectangles = pptxShapeRects(slide);
-  contains(rectangles.get('Card relation')!, rectangles.get('Takeaway relation')!, 'PPTX relation');
-  assert.equal(rectangles.has('Title relation'), false);
-  assert.match(slide, /algn="ctr"/);
   assert.equal(JSON.stringify(graph), before);
 });
 
@@ -101,8 +70,6 @@ test('long and multiline shared labels expand export bounds without moving cards
     const svg = exportGraphSvg(graph, { padding: 0 });
     const viewBox = /viewBox="([^\"]+)" role="img"/.exec(svg)![1].split(' ').map(Number);
     contains({ x: viewBox[0], y: viewBox[1], width: viewBox[2], height: viewBox[3] }, exported.body, 'SVG multiline label');
-    const slide = new TextDecoder().decode(unzipStored(exportGraphPptx(graph, { padding: 0 })).get('ppt/slides/slide1.xml'));
-    for (const [name, rect] of pptxShapeRects(slide)) contains({ x: -1, y: -1, width: 12192002, height: 6858002 }, rect, name);
     assert.equal(JSON.stringify(graph), before);
   }
 });
@@ -126,15 +93,10 @@ test('figure captions use figure width and overflowing text, media and year all 
   assert.ok(exported.year!.y >= caption.y + caption.height + 10);
   assert.equal(exported.height, node.height);
   assertSceneContainsContent(scene);
-  const slide = new TextDecoder().decode(unzipStored(exportGraphPptx(graph, { padding: 0 })).get('ppt/slides/slide1.xml'));
-  const rects = pptxShapeRects(slide);
-  assert.equal(rects.get('Figure 1')!.width, rects.get('Caption media 0')!.width);
-  assert.ok(rects.get('Year media')!.y > rects.get('Caption media 0')!.y + rects.get('Caption media 0')!.height);
-  for (const [name, rect] of rects) contains({ x: -1, y: -1, width: 12192002, height: 6858002 }, rect, name);
   assert.equal(JSON.stringify(graph), before);
 });
 
-test('legacy filename captions stay stored but are absent from image and presentation exports', () => {
+test('legacy filename captions stay stored but are absent from image exports', () => {
   const node = createPaperNode({ alias: 'Figure paper', takeaway: '' }, { id: 'figures' });
   node.paperstreamCard = { figures: ['screen shot.PNG', '结果.jpeg', 'A useful comparison', '使用 result.png\n观察模型变化'].map((caption, index) => ({
     id: `fig-${index}`, src: PNG, caption, widthPercent: 100, naturalWidth: 2, naturalHeight: 1,
@@ -146,11 +108,8 @@ test('legacy filename captions stay stored but are absent from image and present
   assert.match(scene.nodes[0].captions[0].lines.join(' '), /useful comparison/);
   assert.match(scene.nodes[0].captions[1].lines.join(' '), /result\.png/);
   const svg = exportGraphSvg(graph);
-  const slide = new TextDecoder().decode(unzipStored(exportGraphPptx(graph)).get('ppt/slides/slide1.xml'));
-  for (const output of [svg, slide]) {
-    assert.ok(!output.includes('screen shot.PNG'));
-    assert.ok(!output.includes('结果.jpeg'));
-  }
+  assert.ok(!svg.includes('screen shot.PNG'));
+  assert.ok(!svg.includes('结果.jpeg'));
   assert.equal(JSON.stringify(graph), before);
 });
 
@@ -172,17 +131,8 @@ test('paper, note, page, group, file and link retain their distinct content with
   assert.equal(scene.nodes[3].group, true);
   assert.equal(scene.nodes[5].url, 'https://example.org');
   assertSceneContainsContent(scene);
-  exportGraphSvg(graph); exportGraphPptx(graph);
+  exportGraphSvg(graph);
   assert.equal(JSON.stringify(graph), before);
-});
-
-test('converted presentation images fail explicitly at the same byte limit as card figures', () => {
-  assert.doesNotThrow(() => validatePresentationImageSize(1));
-  assert.doesNotThrow(() => validatePresentationImageSize(MAX_FIGURE_BYTES));
-  assert.throws(() => validatePresentationImageSize(MAX_FIGURE_BYTES + 1), /PNG 超过 8 MB/);
-  for (const size of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, 1.5]) {
-    assert.throws(() => validatePresentationImageSize(size), /PNG 数据为空或无效/);
-  }
 });
 
 test('SVG includes negative-coordinate cards, links, bullets and both independent strokes without mutating input', () => {
@@ -213,6 +163,31 @@ test('empty graphs, unlabeled edges and long unbroken text have usable exports',
   assert.deepEqual(wrapExportText('- one\n- 二', 300, 13), ['• one', '• 二']);
 });
 
+test('unsupported export formats fail before browser allocation or file download', async () => {
+  for (const format of ['pptx', 'pdf', '', undefined]) {
+    await assert.rejects(downloadGraph(createCanvas(), format as never, 'papers.canvas'), /请选择 SVG 或 PNG/);
+  }
+});
+
+test('oversized graphs reject PNG before raster allocation while remaining exportable as SVG', async () => {
+  const graph = { nodes: [createPaperNode({ alias: 'Wide graph', takeaway: '' }, { id: 'wide', width: 20_000, height: 100 })], edges: [] };
+  const before = JSON.stringify(graph);
+  await assert.rejects(downloadGraph(graph, 'png', 'papers.canvas'), /图片过大.*SVG/);
+  assert.match(exportGraphSvg(graph), /data-node-id="wide"/);
+  assert.equal(JSON.stringify(graph), before);
+});
+
+test('SVG ignores legacy presentation metadata and preserves every unknown field', () => {
+  const graph = { ...sample(), paperstreamPresentation: { version: 1, pages: [
+    { id: 'old-page', title: 'Old page', nodeIds: ['first'], unknown: { nested: [7, 'keep'] } },
+  ], future: { enabled: true } } }, before = JSON.stringify(graph);
+  const scene = buildExportScene(graph), svg = exportGraphSvg(graph);
+  assert.deepEqual(scene.nodes.map(node => node.id), ['first', 'second']);
+  assert.match(svg, /data-node-id="first"/);
+  assert.match(svg, /data-node-id="second"/);
+  assert.equal(JSON.stringify(graph), before);
+});
+
 test('only portable raster images are embedded, with per-figure dimensions and no remote image request', () => {
   const graph = sample();
   graph.nodes[0].paperstreamCard = { figures: [
@@ -229,60 +204,7 @@ test('only portable raster images are embedded, with per-figure dimensions and n
   assert.doesNotMatch(svg, /tracking\.png|image\/svg\+xml;base64/);
 });
 
-test('PPTX is a real package with editable cards, text, connectors, arrow ends, links and images', () => {
-  const graph = sample();
-  graph.nodes[0].paperstreamCard = { figures: [{ id: 'fig', src: PNG, caption: '', widthPercent: 100, naturalWidth: 2, naturalHeight: 1 }] };
-  const before = JSON.stringify(graph), entries = unzipStored(exportGraphPptx(graph));
-  assert.equal(JSON.stringify(graph), before);
-  for (const name of ['[Content_Types].xml', '_rels/.rels', 'ppt/presentation.xml', 'ppt/slides/slide1.xml', 'ppt/slideMasters/slideMaster1.xml', 'ppt/slideLayouts/slideLayout1.xml', 'ppt/theme/theme1.xml']) assert.ok(entries.has(name), name);
-  const text = new TextDecoder().decode(entries.get('ppt/slides/slide1.xml'));
-  assert.match(text, /<p:cxnSp>/);
-  assert.match(text, /<a:stCxn id="2" idx="2"\/>/);
-  assert.match(text, /<a:endCxn id="3" idx="0"\/>/);
-  assert.match(text, /name="Card first"/);
-  assert.match(text, /<a:t xml:space="preserve">A &lt; B &amp; &quot;C&quot;<\/a:t>/);
-  assert.match(text, /<a:headEnd type="triangle"/);
-  assert.match(text, /<a:tailEnd type="triangle"/);
-  assert.match(text, /<p:pic>/);
-  const links = new TextDecoder().decode(entries.get('ppt/slides/_rels/slide1.xml.rels'));
-  assert.match(links, /TargetMode="External"/);
-  assert.match(links, /Target="https:\/\/example.org\/\?a=1&amp;b=2"/);
-  assert.deepEqual(entries.get('ppt/media/image1.png'), PNG_BYTES);
-});
-
-test('three-page PPTX follows page order and filters cards, connections and image relationships independently', () => {
-  let graph = sample();
-  graph.nodes[0].paperstreamCard = { figures: [{ id: 'fig', src: PNG, caption: '', widthPercent: 100, naturalWidth: 2, naturalHeight: 1 }] };
-  graph = createPresentationPage(graph, { id: 'all', title: 'Overview & details', nodeIds: ['first', 'second'] });
-  graph = createPresentationPage(graph, { id: 'next', title: 'Only Next', nodeIds: ['second'] });
-  graph = createPresentationPage(graph, { id: 'again', title: 'First again', nodeIds: ['first'] });
-  graph = movePresentationPage(graph, 'again', -1);
-  const before = JSON.stringify(graph), entries = unzipStored(exportGraphPptx(graph));
-  assert.equal(JSON.stringify(graph), before);
-  const decode = (name: string) => new TextDecoder().decode(entries.get(name));
-  assert.deepEqual([...entries.keys()].filter(name => /^ppt\/slides\/slide\d+\.xml$/.test(name)), ['ppt/slides/slide1.xml', 'ppt/slides/slide2.xml', 'ppt/slides/slide3.xml']);
-  const slides = [1, 2, 3].map(number => decode(`ppt/slides/slide${number}.xml`));
-  assert.match(slides[0], /<p:cSld name="Overview &amp; details">/);
-  assert.match(slides[0], /name="Card first"/); assert.match(slides[0], /name="Card second"/); assert.match(slides[0], /<p:cxnSp>/);
-  assert.match(slides[1], /<p:cSld name="First again">/); assert.match(slides[1], /name="Card first"/); assert.doesNotMatch(slides[1], /name="Card second"|<p:cxnSp>/);
-  assert.match(slides[2], /<p:cSld name="Only Next">/); assert.match(slides[2], /name="Card second"/); assert.doesNotMatch(slides[2], /name="Card first"|<p:cxnSp>|<p:pic>/);
-  assert.match(decode('ppt/presentation.xml'), /<p:sldId id="256" r:id="rId1"\/><p:sldId id="257" r:id="rId2"\/><p:sldId id="258" r:id="rId3"\/>/);
-  assert.match(decode('ppt/presentation.xml'), /<p:sldMasterId id="2147483648" r:id="rId4"\/>/);
-  assert.match(decode('ppt/_rels/presentation.xml.rels'), /Id="rId4"[^>]+Target="slideMasters\/slideMaster1.xml"/);
-  for (const number of [1, 2, 3]) {
-    assert.match(decode('[Content_Types].xml'), new RegExp(`PartName="/ppt/slides/slide${number}\\.xml"`));
-    assert.match(decode('ppt/_rels/presentation.xml.rels'), new RegExp(`Target="slides/slide${number}\\.xml"`));
-    const ids = [...slides[number - 1].matchAll(/<p:cNvPr id="(\d+)"/g)].map(match => match[1]);
-    assert.equal(new Set(ids).size, ids.length, 'shape IDs are unique within each slide');
-    const relationships = decode(`ppt/slides/_rels/slide${number}.xml.rels`);
-    for (const match of relationships.matchAll(/Target="\.\.\/media\/([^"]+)"/g)) assert.ok(entries.has(`ppt/media/${match[1]}`), match[1]);
-  }
-  assert.deepEqual(entries.get('ppt/media/slide1-image1.png'), PNG_BYTES);
-  assert.deepEqual(entries.get('ppt/media/slide2-image1.png'), PNG_BYTES);
-  assert.equal(entries.has('ppt/media/slide3-image1.png'), false);
-});
-
-test('manual relation labels and routing export at their saved positions with editable custom connectors', () => {
+test('manual relation labels and routing export at their saved positions', () => {
   const graph = sample();
   graph.edges[0].paperstreamStyle = { ...graph.edges[0].paperstreamStyle as object, labelPosition: { x: 750, y: -600 }, waypoints: [{ x: 1300, y: -1000 }, { x: 1300, y: 900 }] };
   const before = JSON.stringify(graph), scene = buildExportScene(graph), label = scene.edges[0].label!;
@@ -293,20 +215,37 @@ test('manual relation labels and routing export at their saved positions with ed
   assert.ok(first > 0 && points.findIndex(point => point.x === 1300 && point.y === 900) > first);
   assert.ok(scene.edges[0].commands.some(command => command.point.x === 750 && command.point.y === -600));
   assert.ok(scene.bounds.x + scene.bounds.width > 1300 && scene.bounds.y < -1000 && scene.bounds.y + scene.bounds.height > 900);
-  const svg = exportGraphSvg(graph), entries = unzipStored(exportGraphPptx(graph));
+  const svg = exportGraphSvg(graph);
   assert.ok(svg.includes(`d="${scene.edges[0].path}"`));
-  const slide = new TextDecoder().decode(entries.get('ppt/slides/slide1.xml'));
-  assert.match(slide, /<p:cxnSp>/); assert.match(slide, /<a:custGeom>/);
-  assert.equal([...slide.matchAll(/<a:lnTo>/g)].length, scene.edges[0].commands.filter(command => command.kind === 'L').length);
-  assert.match(slide, /name="Relation box /);
   assert.equal(JSON.stringify(graph), before);
 });
 
-test('ZIP store writer supports Unicode names and preserves bytes', () => {
-  const entries = unzipStored(createStoredZip([{ name: '图/原文.txt', bytes: new TextEncoder().encode('量子力学') }]));
-  assert.equal(new TextDecoder().decode(entries.get('图/原文.txt')), '量子力学');
+test('SVG replaces unsupported XML characters without corrupting Unicode or source content', () => {
+  const text = '中文 😀 e\u0301\t\n' + '\u0000\u0001\u000b\u000c\u001f\ufffe\uffff';
+  const node: CanvasNode = { id: 'note', type: 'text', x: 0, y: 0, width: 400, height: 300,
+    text, label: text, paperstreamCard: { figures: [{ id: 'fig', src: PNG,
+      caption: text, widthPercent: 100, naturalWidth: 2, naturalHeight: 1 }] } };
+  const graph = { nodes: [node], edges: [] }, before = JSON.stringify(graph);
+  const svg = exportGraphSvg(graph);
+  assert.doesNotMatch(svg, /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ud800-\udfff\ufffe\uffff]/u);
+  assert.ok(svg.includes('中文 😀 e\u0301'));
+  assert.ok(svg.includes('\ufffd'), 'unrepresentable characters have an explicit replacement');
+  assert.equal(JSON.stringify(graph), before);
 });
 
+test('invalid optional image dimension metadata cannot create infinite or zero export geometry', () => {
+  for (const [naturalWidth, naturalHeight] of [[1e-308, 100], [100, 1e-308], [0, 0], [-1, 10], [.5, 1.5]]) {
+    const graph = sample();
+    graph.nodes[0].paperstreamCard = { figures: [{ id: 'fig', src: PNG, caption: '',
+      widthPercent: 100, naturalWidth, naturalHeight }] };
+    const before = JSON.stringify(graph), scene = buildExportScene(graph), figure = scene.nodes[0].figures[0];
+    for (const value of [figure.width, figure.height, scene.bounds.width, scene.bounds.height]) {
+      assert.ok(Number.isFinite(value) && value > 0);
+    }
+    assert.doesNotMatch(exportGraphSvg(graph), /NaN|Infinity/);
+    assert.equal(JSON.stringify(graph), before);
+  }
+});
 
 test('mixed-language wrapping keeps fitting English words and numbers intact', () => {
   const lines = wrapExportText('中文 ImageNet 训练 152 层，结合 ReLU 和 Dropout。', 80, 13);
@@ -319,8 +258,7 @@ test('mixed-language wrapping keeps fitting English words and numbers intact', (
   assert.ok(wrapExportText('中文中文中文中文中文', 40, 13).length > 1);
 });
 
-
-test('all export formats share styled label-through paths and retain exact curve bounds', () => {
+test('SVG exports styled label-through paths and retains exact curve bounds', () => {
   const graph = sample(); graph.nodes[1].x += 400;
   graph.edges[0].paperstreamStyle = { labelPosition: { x: -700, y: -560 } };
   const before = JSON.stringify(graph), paths = new Set<string>();
@@ -332,12 +270,6 @@ test('all export formats share styled label-through paths and retain exact curve
     const svg = exportGraphSvg(graph, { connectionStyle });
     assert.ok(svg.includes(`d="${edge.path}"`));
     assert.doesNotMatch(svg, /relation-leader/);
-    const slide = new TextDecoder().decode(unzipStored(exportGraphPptx(graph, { connectionStyle })).get('ppt/slides/slide1.xml'));
-    const curveTag = connectionStyle === 'curved' ? 'cubicBezTo' : connectionStyle === 'rounded' ? 'quadBezTo' : 'lnTo';
-    assert.ok(slide.includes(`<a:${curveTag}>`));
-    assert.match(slide, /name="Relation box /);
-    assert.match(slide, /<a:headEnd type="triangle"/);
-    assert.match(slide, /<a:tailEnd type="triangle"/);
   }
   assert.equal(paths.size, 3);
   assert.equal(JSON.stringify(graph), before);
