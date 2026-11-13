@@ -38,6 +38,7 @@ import { downloadGraph } from './graph-export';
 import { zoomAt, wheelIntent } from './wheel-controls';
 import { editField } from './live-edit';
 import { preserveNodeMeasurements } from './flow-node-sync';
+import { createHostNodeEdits } from './host-node-edits';
 import { createDraftWriter } from './draft-writer';
 import { restoreEditorDraft } from './draft-recovery';
 import type { RecoveredSelection } from './draft-recovery';
@@ -187,7 +188,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   const [initial] = useState(() => host ? initialHostDraft(host) : initialState(draftKey));
   const readOnly = Boolean(host?.readOnly);
   const readOnlyRef = useRef(readOnly); readOnlyRef.current = readOnly;
-  const hostEditedNodes = useRef(new Set<string>());
+  const hostEditedNodes = useRef(createHostNodeEdits());
   const [canvas, setCanvas] = useState(initial.canvas);
   const current = useRef(canvas);
   current.current = canvas;
@@ -372,9 +373,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     if (JSON.stringify(next) === JSON.stringify(current.current)) return;
     liveGesture.current = null;
     serializeCanvas(next); // Validate before replacing the in-memory document.
-    for (const node of next.nodes) {
-      if (node !== current.current.nodes.find(previous => previous.id === node.id)) hostEditedNodes.current.add(node.id);
-    }
+    hostEditedNodes.current.markChanges(current.current, next);
     const previous = current.current;
     setPast(items => [...items.slice(-49), previous]);
     setFuture([]);
@@ -390,9 +389,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     if (JSON.stringify(next) === JSON.stringify(current.current)) return;
     const now = Date.now();
     if (liveGesture.current?.key === key && now - liveGesture.current.time < 1100) {
-      for (const node of next.nodes) {
-        if (node !== current.current.nodes.find(previous => previous.id === node.id)) hostEditedNodes.current.add(node.id);
-      }
+      hostEditedNodes.current.markChanges(current.current, next);
       serializeCanvas(next); current.current = next; setCanvas(next); setFuture([]);
     } else commit(next, false);
     liveGesture.current = { key, time: now };
@@ -418,7 +415,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     // Opening an embedded resource is read-only until a user edits it. Natural
     // measurements still protect display bounds, without immediately dirtying
     // the host file or blocking clean external updates on first render.
-    if (readOnlyRef.current || (host && !hostEditedNodes.current.has(node.id)) || !persist || interacting.current || nextHeight === node.height) return;
+    if (readOnlyRef.current || (host && !hostEditedNodes.current.has(node)) || !persist || interacting.current || nextHeight === node.height) return;
     try {
       let next = patchNode(current.current, node.id, { height: nextHeight,
         ...(isRelationNode(node) ? { y: Math.round(node.y + (node.height - nextHeight) / 2) } : {}) });
@@ -427,6 +424,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
         next = manual ? { ...next, paperstreamLayout: 'manual' } : layoutVertical(next);
       }
       next = followRelationPositions(current.current, next);
+      hostEditedNodes.current.inheritMeasurements(current.current, next);
       current.current = next;
       setCanvas(next);
     } catch (err) { setError(message(err)); }
