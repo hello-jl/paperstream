@@ -384,6 +384,9 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   }, []);
   const commitContinuous = useCallback((next: JSONCanvasDocument, key: string) => {
     if (readOnlyRef.current) throw new Error('当前文件为只读，无法修改。');
+    // Every intermediate edit can resize an endpoint or a shared label. Keep
+    // routes in sync even when this edit joins the previous undo step.
+    next = followRelationPositions(current.current, next);
     if (JSON.stringify(next) === JSON.stringify(current.current)) return;
     const now = Date.now();
     if (liveGesture.current?.key === key && now - liveGesture.current.time < 1100) {
@@ -391,7 +394,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
         if (node !== current.current.nodes.find(previous => previous.id === node.id)) hostEditedNodes.current.add(node.id);
       }
       serializeCanvas(next); current.current = next; setCanvas(next); setFuture([]);
-    } else commit(next);
+    } else commit(next, false);
     liveGesture.current = { key, time: now };
   }, [commit]);
   const startInteraction = useCallback(() => {

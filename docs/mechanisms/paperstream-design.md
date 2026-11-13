@@ -20,6 +20,8 @@ Python `CanvasGraph` 提供 create/load、论文与关系增删改、move_node/r
 
 2026-11-13 标签避让性能：对已经可放置的路径种子计算评分上界，候选与锚点的距离超过该上界时提前剪枝；保留原排序和同分坐标优先级，极大有限坐标走原回退。拥挤 500 卡片/500 标签的本机 Node CPU 基准由约 663 ms 降至约 125 ms，6 个规模场景及 100 组固定种子布局逐坐标一致；这不是浏览器帧率或实际容量承诺。`node --experimental-strip-types web/scripts/benchmark-label-layout.ts` 可复测当前算法；传入旧模块文件路径可比较布局与耗时。新增拥挤负坐标、同分边界和极大坐标回归通过。
 
+2026-11-13 共享标签跟随复查：端点逐像素往返移动时，分别取整每次相对位移会累计偏移；改为对新旧绝对质心取整后求差，负坐标、奇数尺寸、连续移动与一次移动结果一致。连续文字编辑在合并撤销步骤前也统一跟随标签与端点，标签增宽时清除受影响的旧 ELK 绝对折点，避免保留过期线路。15 项关系测试、前端与 DSH 构建通过；真实 DSH 验证共享标签连续增长到 280 px 后，线路仍连接其新边界。未把该局部验证当作所有复杂图布局通过。
+
 ELK 生成的路径标记为 `paperstreamStyle.routeSource: "elk"`。端点移动、尺寸变化或改接时，仅清除受影响的自动折点与标签位置，让当前渲染重新计算；包括自动跟随的共享标签所连接的线路。手动编辑标签或折点后移除该来源标记，保留人工路径，不把样式调整误当作几何编辑。未知来源标记保持不动。拖动期间从 React Flow 临时坐标派生预览；松手写入一次可撤销修改。`nodeDragThreshold: 0` 让第一次指针移动即更新节点，修复短拖动只改变选择而未移动的问题。
 
 选型依据：[ELK Layered](https://eclipse.dev/elk/reference/algorithms/org-eclipse-elk-layered.html)、[inline labels](https://eclipse.dev/elk/reference/options/org-eclipse-elk-edgeLabels-inline.html)、[ELK JSON 格式](https://eclipse.dev/elk/documentation/tooldevelopers/graphdatastructure/jsonformat.html) 和 [elkjs](https://github.com/kieler/elkjs)。浏览器按需导入 elkjs 0.12.1；独立构建的引擎块约 1.47 MB（gzip 448 KB），目前使用进程内 worker shim。尚未做大图压力测试，也未宣称完全消除主线程计算开销。

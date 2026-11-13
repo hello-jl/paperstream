@@ -66,13 +66,19 @@ export function followRelationPositions(previous: JSONCanvasDocument, next: JSON
     const oldNeighbors = neighborIds(previous, node.id);
     const neighbors = [...neighborIds(next, node.id)].filter(id => oldNeighbors.has(id) && before.has(id) && after.has(id));
     if (!neighbors.length) return node;
-    const delta = neighbors.reduce((sum, id) => {
+    const centroids = neighbors.reduce((sum, id) => {
       const a = center(before.get(id)!), b = center(after.get(id)!);
-      return { x: sum.x + b.x - a.x, y: sum.y + b.y - a.y };
-    }, { x: 0, y: 0 });
-    if (!delta.x && !delta.y) return node;
+      return { beforeX: sum.beforeX + a.x, beforeY: sum.beforeY + a.y,
+        afterX: sum.afterX + b.x, afterY: sum.afterY + b.y };
+    }, { beforeX: 0, beforeY: 0, afterX: 0, afterY: 0 });
+    // Round the two absolute centroids, not every movement delta. Rounding
+    // successive +0.5/-0.5 deltas separately would walk the label one pixel
+    // right/down every time an endpoint returned to its original position.
+    const dx = Math.round(centroids.afterX / neighbors.length) - Math.round(centroids.beforeX / neighbors.length);
+    const dy = Math.round(centroids.afterY / neighbors.length) - Math.round(centroids.beforeY / neighbors.length);
+    if (!dx && !dy) return node;
     changed = true;
-    return { ...node, x: Math.round(node.x + delta.x / neighbors.length), y: Math.round(node.y + delta.y / neighbors.length) };
+    return { ...node, x: node.x + dx, y: node.y + dy };
   });
   // Edge labels follow the final endpoints, including shared labels moved above.
   const followedNodes = new Map(nodes.map(node => [node.id, node]));

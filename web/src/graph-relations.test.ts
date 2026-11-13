@@ -208,6 +208,31 @@ test('odd widths and single-pixel endpoint movement always produce valid integer
     { x: 0.5, y: 0.5 });
 });
 
+test('repeated single-pixel moves and reversals never accumulate shared-label rounding drift', () => {
+  const original = attachedFixture(), before = serializeCanvas(original);
+  let graph = original;
+  const label = original.nodes.find(node => node.id === 'r')!;
+  for (let index = 0; index < 20; index++) {
+    graph = followRelationPositions(graph, patchNode(graph, 'a', { x: 1, y: 1 }));
+    graph = followRelationPositions(graph, patchNode(graph, 'a', { x: 0, y: 0 }));
+  }
+  assert.deepEqual(graph.nodes.find(node => node.id === 'r'), label);
+  assert.equal(serializeCanvas(original), before);
+
+  // Gradual keyboard movement and one final drag must agree, including odd
+  // endpoint dimensions and a negative origin where rounding crosses zero.
+  const odd = patchNode(patchNode(original, 'a', { x: -101, y: -71, width: 201, height: 101 }), 'b', { width: 203, height: 103 });
+  graph = odd;
+  for (let amount = 1; amount <= 25; amount++) {
+    graph = followRelationPositions(graph, patchNode(graph, 'a', { x: -101 + amount, y: -71 - amount }));
+  }
+  const single = followRelationPositions(odd, patchNode(odd, 'a', { x: -76, y: -96 }));
+  assert.deepEqual(graph.nodes.find(node => node.id === 'r'), single.nodes.find(node => node.id === 'r'));
+  graph = followRelationPositions(graph, patchNode(graph, 'a', { x: -101, y: -71 }));
+  assert.deepEqual(graph.nodes.find(node => node.id === 'r'), odd.nodes.find(node => node.id === 'r'));
+  assert.deepEqual(parseCanvas(serializeCanvas(graph)), graph);
+});
+
 test('moving endpoints invalidates only incident computed routes, including edges attached to followed shared text', () => {
   let graph = attachedFixture();
   graph = addEdge(graph, createEdge('b', 'c', 'unrelated', { id: 'bc' }));
