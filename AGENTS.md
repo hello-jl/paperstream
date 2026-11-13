@@ -1,23 +1,33 @@
-# paperstream agent 约定
+# Paperstream agent 约定
 
-本项目以独立 JSON Canvas 文档为新主格式，React Flow 提供可视编辑，Python 标准库 API 提供自动化。保留旧 Mermaid API 与档案。用户要求自动化操作统一经过 API。
+Paperstream 让人和 agent 维护同一份独立 JSON Canvas 文档：人用 React Flow 画布编辑，agent 用 Python 标准库 API 或 CLI 做可核对的修改。新工作使用 `.canvas`，旧 Mermaid API 与档案继续保留。自动化改图必须经过 API。
 
-## 图文档编辑
+本文件适用于本仓库的工作。可单独分发给其他 agent 的改图指南是 [skills/paperstream/SKILL.md](skills/paperstream/SKILL.md)；完整的命令样例、运行时定位与错误处理见其 [API 参考](skills/paperstream/references/api.md)。
+
+## 使用画布：读取、定点修改、核验
+
+1. 确认用户指定的文件与请求范围；操作 Canvas 时先运行 `python3 -m paperstream show <file> --raw` 读取完整文档，使用返回的稳定节点、边 ID。Mermaid 使用不带 `--raw` 的 `show`。`nodes()` / 普通 `show` 仅提供论文与关系摘要，不能作为整图重建来源。
+2. 普通字段使用 `update_node` / `update_edge` 或对应 CLI 子命令。多个相关变更优先在同一个 `CanvasGraph.load()` 实例内完成，`validate()` 后 `save()` 一次；Python 的 `with CanvasGraph.load(...)` 会在正常退出时保存。CLI 每个修改命令分别加载、保存，不是跨命令事务。
+3. 保存后重新读取，核验请求结果以及无关内容。向用户报告实际修改的 ID 和范围；未验证的宿主交互要单独说明。
+
+### 文档与 API 边界
 
 - 修改用户维护的 `.canvas`（包括样例）必须调用 `paperstream.CanvasGraph` 或 `python3 -m paperstream`。可用 `set_document` 处理标准布局和未知字段，但必须先加载原文档并保留未请求修改的数据。不能直接文本替换或手写文件绕过 API。
 - 新图优先 `.canvas`；通过 `export_canvas` 或 `export-canvas` 单向转换旧 `.mmd`，不自动双向同步或删除旧档案。
 - `.canvas` 论文数据只保存于标准 text 卡片的 fenced JSON，`paperstream: 1` 表示模板版本；边的 `label` 表示 relation。保留无关节点、未知字段、坐标、尺寸及数组顺序。不要把 React Flow 的 `toObject()` 结果当作 JSON Canvas 保存。
 - 修改用户维护的 `.mmd`（包括 `examples/` 中的样例）必须调用 `paperstream.Graph` 或 `python3 -m paperstream`。
-- 不使用 `apply_patch`、文本替换、重定向或直接文件写入绕过 API 编辑这些图。新建图也使用 `Graph.create` 或 CLI 的 `init`。
+- 不使用 `apply_patch`、文本替换、重定向或直接文件写入绕过 API 编辑这些图。新建 Canvas 使用 `CanvasGraph.create` 或 CLI 的 `init`；新建 Mermaid 使用 `Graph.create` 或 CLI 的 `init`。
 - 先读取图，通过稳定 ID 操作 `name`、`alias`、`takeaway`、`url`、`year`、`relation`，保持未请求修改的内容。`name` 是论文完整原始标题，`url` 是原文页面，`year` 是对应版本年份；缺失时保留为空，不猜测或编造。正式发表年份与预印本首次公开年份不得混淆。
 - API 报告不支持的语法时，保留原文件并报告原因。确有需要时，先完善 API 和对应测试，再通过 API 修改。
-- 冲突后重新读取和核对内容，不以原来的快照强制覆盖。不自动删除其他写入者的锁。
+- 冲突后保留本次编辑意图，重新读取最新内容并核对差异，只重新应用仍然合适的修改，不以原来的快照强制覆盖。不自动删除其他写入者的锁。
+- UI 中尚未保存的编辑不在磁盘 API 的视野中。不要用外部 API 假装接管这份草稿；先在当前宿主保存或导出草稿，并明确选择要操作的版本。未经用户授权不通过重载丢弃草稿。宿主提供的资源工具按其 revision / ETag 保存，不绕过宿主写一个同名本地文件。
+- CLI 成功在 stdout 输出 JSON，错误在 stderr 输出 `{"ok": false, "error": "...", "message": "..."}`；业务/读写错误退出码 1，用法错误 2。读取退出码和结构化错误，不把空输出当作成功；`--help` 是人工说明。不要把用户文本或路径当 shell 代码拼接。
 - 删除关联节点默认保留约束；只有用户授权删除相连关系时才使用 `cascade=True` 或 `--cascade`。
 - 人工仍可直接编辑文件。这些规则不是操作系统级权限隔离。
 
 测试可以在临时目录写入故意无效的 `.mmd` 作为输入，但不得把测试例外用于修改用户文档。
 
-## 实现与记录
+## 开发本仓库：实现、验证与记录
 
 - 保持 Python 运行时无第三方依赖，除非任务有明确需要。
 - 文档与重要机制更新到现有 `docs/mechanisms/paperstream-design.md`，相关内容尽量合并维护。

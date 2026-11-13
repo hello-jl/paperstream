@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paperstream"
+  short_description: "Read and edit local paper canvases through the API"
+  default_prompt: "Use $paperstream to update this paper canvas while preserving the existing layout and unrelated content."
