@@ -1,9 +1,10 @@
 import { build } from 'esbuild';
-import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { cp, mkdir, readFile, rm, writeFile, copyFile } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+const repository = dirname(root);
 const out = join(root, 'dist');
 await mkdir(out, { recursive: true });
 const app = await build({
@@ -24,13 +25,28 @@ await build({
   bundle: true, platform: 'node', format: 'esm', target: 'node22', minify: false,
   banner: { js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);' },
 });
-// A fully portable local marketplace package, containing no node_modules and
-// requiring only Node at runtime. The source tree remains the development copy.
+// The editor needs only Node. Agent document commands additionally use the
+// bundled standard-library Python runtime, without a global installation.
 const plugin = join(out, 'plugin');
+await rm(plugin, { recursive: true, force: true });
 await mkdir(join(plugin, '.codex-plugin'), { recursive: true });
 await mkdir(join(plugin, 'dist'), { recursive: true });
+await mkdir(join(plugin, 'scripts'), { recursive: true });
 for (const name of ['server.mjs', 'app.html']) await copyFile(join(out, name), join(plugin, 'dist', name));
 await copyFile(join(root, '.mcp.json'), join(plugin, '.mcp.json'));
 await copyFile(join(root, '.codex-plugin/plugin.json'), join(plugin, '.codex-plugin/plugin.json'));
+await copyFile(join(root, 'scripts/paperstream.py'), join(plugin, 'scripts/paperstream.py'));
+await cp(join(repository, 'skills/paperstream'), join(plugin, 'skills/paperstream'), { recursive: true });
+await cp(join(repository, 'paperstream'), join(plugin, 'paperstream'), {
+  recursive: true,
+  filter: path => basename(path) !== '__pycache__' && !/\.py[co]$/.test(path),
+});
+await copyFile(join(repository, 'THIRD_PARTY_NOTICES.md'), join(plugin, 'THIRD_PARTY_NOTICES.md'));
+await cp(join(repository, 'licenses'), join(plugin, 'licenses'), { recursive: true });
+try {
+  await copyFile(join(repository, 'LICENSE'), join(plugin, 'LICENSE'));
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
 const manifest = JSON.parse(await readFile(join(root, '.codex-plugin/plugin.json'), 'utf8'));
 console.log(`Built ${manifest.name} ${manifest.version}: ${plugin}`);

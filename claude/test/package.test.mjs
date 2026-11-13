@@ -20,6 +20,20 @@ test('portable plugin has its own manifest, manual skill and one browser resourc
   assert.match(skill, /^---\nname: open\n/);
   assert.match(skill, /^disable-model-invocation: true$/m);
   assert.ok(skill.includes('"${CLAUDE_PLUGIN_ROOT}/scripts/paperstream.py"'));
+  for (const path of ['SKILL.md', 'references/api.md', 'agents/openai.yaml']) {
+    assert.equal(await readFile(join(plugin, 'skills/paperstream', path), 'utf8'),
+      await readFile(join(root, '../skills/paperstream', path), 'utf8'));
+  }
+  assert.equal(await readFile(join(plugin, 'THIRD_PARTY_NOTICES.md'), 'utf8'),
+    await readFile(join(root, '../THIRD_PARTY_NOTICES.md'), 'utf8'));
+  async function checkLicenses(directory, relative = '') {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const path = join(relative, entry.name);
+      if (entry.isDirectory()) await checkLicenses(join(directory, entry.name), path);
+      else assert.deepEqual(await readFile(join(plugin, 'licenses', path)), await readFile(join(directory, entry.name)));
+    }
+  }
+  await checkLicenses(join(root, '../licenses'));
   const html = await readFile(join(plugin, 'app/app.html'), 'utf8');
   assert.match(html, /^<!doctype html>/i);
   assert.ok(html.includes('<div id="root"></div>'));

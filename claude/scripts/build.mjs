@@ -46,10 +46,18 @@ await copyFile(join(root, '.claude-plugin/plugin.json'), join(plugin, '.claude-p
 await copyFile(join(root, 'scripts/paperstream.py'), join(plugin, 'scripts/paperstream.py'));
 await copyFile(join(out, 'app.html'), join(plugin, 'app/app.html'));
 await cp(join(root, 'skills'), join(plugin, 'skills'), { recursive: true });
+await cp(join(repository, 'skills/paperstream'), join(plugin, 'skills/paperstream'), { recursive: true });
 await cp(join(repository, 'paperstream'), join(plugin, 'paperstream'), {
   recursive: true,
   filter: path => basename(path) !== '__pycache__' && !/\.py[co]$/.test(path),
 });
+await copyFile(join(repository, 'THIRD_PARTY_NOTICES.md'), join(plugin, 'THIRD_PARTY_NOTICES.md'));
+await cp(join(repository, 'licenses'), join(plugin, 'licenses'), { recursive: true });
+try {
+  await copyFile(join(repository, 'LICENSE'), join(plugin, 'LICENSE'));
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+}
 try {
   await copyFile(join(root, 'README.md'), join(plugin, 'README.md'));
 } catch (error) {
