@@ -5,7 +5,7 @@ import { readFigures } from './card-media.ts';
 import type { CardFigure } from './card-media.ts';
 import type { CanvasNode } from './canvas.ts';
 
-const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGMwmJDwH4QBEOMEP0iNvQ8AAAAASUVORK5CYII=', 'base64');
 function file(name = 'image.png', type = 'image/png') {
   return new File([png], name, { type, lastModified: 123 });
 }

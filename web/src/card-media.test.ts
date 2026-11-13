@@ -6,7 +6,7 @@ import {
 } from './card-media.ts';
 import type { CardFigure } from './card-media.ts';
 
-const image: CardFigure = { id: 'fig-1', src: 'data:image/png;base64,iVBORw0KGgo=', caption: '测试图',
+const image: CardFigure = { id: 'fig-1', src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGMwmJDwH4QBEOMEP0iNvQ8AAAAASUVORK5CYII=', caption: '测试图',
   widthPercent: 100, naturalWidth: 800, naturalHeight: 400 };
 const node = () => createPaperNode({ alias: 'Paper', takeaway: '- 第一条\n- 第二条' }, { id: 'paper' });
 
@@ -71,7 +71,7 @@ test('raster upload embeds original bytes and records decoded dimensions', async
   let closed = false;
   globalThis.createImageBitmap = (async () => ({ width: 800, height: 400, close: () => { closed = true; } })) as typeof createImageBitmap;
   try {
-    const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+    const bytes = Buffer.from(image.src.split(',')[1], 'base64');
     const figure = await figureFromFile(new File([bytes], '结果.png', { type: 'image/png' }));
     assert.equal(figure.src, image.src);
     assert.equal(figure.caption, '');

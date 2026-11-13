@@ -1,5 +1,6 @@
 import { CanvasError } from './canvas.ts';
 import type { CanvasNode } from './canvas.ts';
+import { rasterDimensions } from './image-dimensions.ts';
 
 export type CardKind = 'paper' | 'note' | 'relation' | 'page';
 export interface CardFigure {
@@ -12,6 +13,8 @@ export interface CardFigure {
   [key: string]: unknown;
 }
 export const MAX_FIGURE_BYTES = 8 * 1024 * 1024;
+export const MAX_FIGURE_PIXELS = 32_000_000;
+export const MAX_FIGURE_SIDE = 16384;
 const DATA_IMAGE = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/;
 
 /** Older imports used the source filename as a caption. Hide that visual noise
@@ -102,14 +105,29 @@ export async function figureFromFile(file: File): Promise<CardFigure> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   const mime = rasterMime(bytes);
   if (!mime) throw new CanvasError('只支持 PNG、JPEG 或 WebP 图片。');
+  const dimensions = rasterDimensions(bytes, mime);
+  if (!dimensions) throw new CanvasError('图片无法解码，请使用有效的 PNG、JPEG 或 WebP。');
+  function checkDimensions(width: number, height: number) {
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+      throw new CanvasError('图片尺寸无效，请使用有效的 PNG、JPEG 或 WebP。');
+    }
+    if (width > MAX_FIGURE_SIDE || height > MAX_FIGURE_SIDE || width * height > MAX_FIGURE_PIXELS) {
+      throw new CanvasError('图片像素过大，请缩小至 3200 万像素以内，且单边不超过 16384 像素。');
+    }
+  }
+  checkDimensions(dimensions.width, dimensions.height);
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch { throw new CanvasError('图片无法解码，请使用有效的 PNG、JPEG 或 WebP。'); }
+  let naturalWidth: number, naturalHeight: number;
+  try {
+    naturalWidth = bitmap.width; naturalHeight = bitmap.height;
+    checkDimensions(naturalWidth, naturalHeight);
+  } finally { bitmap.close(); }
   let binary = '';
   for (let offset = 0; offset < bytes.length; offset += 8192) binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192));
   const src = `data:${mime};base64,${btoa(binary)}`;
-  let naturalWidth: number, naturalHeight: number;
-  try {
-    const bitmap = await createImageBitmap(file);
-    naturalWidth = bitmap.width; naturalHeight = bitmap.height; bitmap.close();
-  } catch { throw new CanvasError('图片无法解码，请使用有效的 PNG、JPEG 或 WebP。'); }
   return { id: crypto.randomUUID().replaceAll('-', ''), src,
     caption: '', widthPercent: 100, naturalWidth, naturalHeight };
 }
