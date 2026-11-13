@@ -2,7 +2,7 @@
 
 **把论文读成一条研究脉络，让人和 agent 共同维护同一张图。**
 
-Paperstream 是一个本地论文关系画布。每张卡片记下一篇论文最值得保留的认识，每条线说明两项工作之间的联系。你可以手工拖动、编辑和排版，也可以让 agent 通过 Python API 或 CLI 整理同一份 `.canvas` 文件。
+Paperstream 是一个本地论文关系画布。每张卡片记下一篇论文最值得保留的认识，每条线说明两项工作之间的联系。**人通过可视画布手工操作，AI 通过 Python API 或 CLI 整理；共同维护一份独立的 `.canvas` JSON 文件。** 文件可以直接复制、备份、用 Git 管理，也可以带到其他电脑或宿主继续使用。
 
 ![Paperstream：鲸娘讲解 AI 历史，白龙娘与 Claude 娘旁听](docs/assets/paperstream-classroom-promo-v2.png)
 
@@ -20,6 +20,14 @@ Paperstream 把这件事拆成两个互补的操作：**人用画布理解和调
 - **资料是自己的文件。** 主格式为独立 JSON Canvas，Python 运行时只用标准库。编辑器不内置模型调用，也不要求云端数据库。
 
 关系可以表示继承、比较、支持或你自己的判断；一条箭头不会自动证明引用、因果或学术贡献。Paperstream 提供记录与核对这些判断的地方，论文原文仍是依据。
+
+## 一张画布，两种操作方式
+
+![Paperstream 架构：人用可视画布，AI 用 API，共同读写独立的 JSON Canvas 文件](docs/assets/paperstream-architecture.svg)
+
+人负责阅读、判断和手工组织，agent 可以按稳定 ID 批量整理卡片与关系。可视编辑器和 API 各自读取、保存同一份文档，图的长期存档就是这个文件。切换操作前保存当前修改，再核对文件版本；尚未保存的 UI 草稿不在 API 的读取范围内。
+
+**画布可直接随文件迁移。** Paperstream 插入或粘贴的图片内嵌在 JSON 中，随 `.canvas` 一起带走；普通文件卡片引用的本地附件需要一起复制，外部链接需要来源仍可访问。在支持的 Paperstream 宿主中可继续编辑；支持 JSON Canvas 的工具可读取其标准结构，但不保证同样渲染论文表单或图片扩展。主题等使用偏好保存在各自环境中，不随单张画布迁移。[下载架构图 PNG](docs/assets/paperstream-architecture.png)
 
 ## 先试一张图
 
@@ -146,6 +154,6 @@ Python 运行时无第三方依赖。界面基于 React Flow，智能布局使�
 
 ## 许可与贡献
 
-本仓库自己的开源许可证尚待维护者确定；补齐 `LICENSE` 后再正式对外标注许可。第三方软件保留各自许可，见 [第三方声明](THIRD_PARTY_NOTICES.md) 和 [许可原文](licenses/third-party/)。构建产物会带入这些文件；给项目选择许可证不会替换依赖的许可。
+项目自有代码与文档采用 [MIT License](LICENSE)，可以使用、修改和再分发，按许可证保留版权与许可声明。第三方软件、历史肖像及社区角色素材仍适用各自的许可与来源要求，见 [第三方声明](THIRD_PARTY_NOTICES.md)、[许可原文](licenses/third-party/) 和相应素材来源记录。各端构建产物携带完整 MIT 许可证与第三方许可资料。
 
 欢迎围绕论文整理过程提交问题与小改进。报告问题时请提供可复现步骤、宿主／版本和脱敏后的最小图；不要提交本机运行目录、访问令牌、个人草稿或论文附件。格式与保存机制的设计记录维护在 [设计文档](docs/mechanisms/paperstream-design.md)。

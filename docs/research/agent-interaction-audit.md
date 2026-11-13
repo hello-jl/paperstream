@@ -40,7 +40,7 @@ MCP tools 描述结构化动作，resources 提供上下文；MCP Apps 是独立
 
 ## 开源与分发检查
 
-- 仓库没有已选定的根 `LICENSE`，不能替所有者决定许可或声称已经获得某种开源授权。发布前由所有者选择；第三方许可单独保留，见根 `THIRD_PARTY_NOTICES.md`。
+- 维护者已选择 MIT，根 `LICENSE` 为完整许可原文，各端构建和分发包携带它。项目自有代码与文档的 MIT 许可不替换第三方依赖、历史肖像或社区角色素材的许可；各自来源与要求见根 `THIRD_PARTY_NOTICES.md` 和相关素材记录。
 - 实际 bundle 涉及 ELK 的 EPL 声明和 MCP 的许可迁移文本，不能统称 MIT。已保留 26 个实际打包 npm 版本的许可与准确来源，含 cfworker 上游派生代码声明。此记录不构成法律兼容性意见。
 - Python 模块可从仓库或便携包运行；目前没有 Python 安装元数据，不能写 `pip install paperstream`。JS 源码构建需要 web 锁定依赖；便携包运行要求与源码构建要求应分开。
 - Web / DSH 会在同源浏览器存储保留工作区草稿和文件关联；图片可内嵌在 `.canvas`。分享文件也会分享其中图片，删除原图文件不会清除浏览器草稿。Codex 宿主文件模式不把文档写入浏览器草稿；Claude 令牌在标签页 sessionStorage，服务仅绑定单个明确文件。

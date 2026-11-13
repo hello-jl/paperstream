@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="900" viewBox="0 0 1280 900" role="img" aria-labelledby="title description">
+  <title id="title">Paperstream 架构：人用画布，AI 用 API，同一份独立 JSON 文件</title>
+  <desc id="description">人通过 React Flow 可视编辑器拖动、编辑和排版；AI 通过 Python API 或 CLI 按稳定 ID 读取和修改。两种入口分别读取和保存同一份 research.canvas 文件。文档采用 JSON Canvas，可复制备份、用 Git 管理、迁移到其他电脑或宿主。先保存再交接，不是实时共编；内嵌图片随文件迁移，引用附件需一并携带。</desc>
+  <defs>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#264734" flood-opacity="0.05"/>
+    </filter>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; fill: #263e32; }
+      .muted { fill: #64786b; }
+      .mono { font-family: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; }
+      .icon { fill: none; stroke: #668470; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    </style>
+  </defs>
+  <rect width="1280" height="900" rx="32" fill="#f4f7f2"/>
+
+  <g transform="translate(66 58)" fill="none" stroke="#668470" stroke-width="3.5" stroke-linecap="round">
+    <path d="M 0 4 H 17 Q 29 4 29 16 V 20 Q 29 32 41 32 H 48"/>
+    <path d="M 0 18 H 9 Q 15 18 15 24 V 28 Q 15 46 34 46 H 48" opacity="0.55"/>
+  </g>
+  <text x="132" y="94" font-size="31" font-weight="650">Paperstream</text>
+  <text x="1214" y="86" text-anchor="end" font-size="13" font-weight="600" letter-spacing="2" class="muted">LOCAL · PORTABLE</text>
+  <text x="64" y="163" font-size="34" font-weight="650">人用画布，AI 用 API。</text>
+  <text x="65" y="199" font-size="19" class="muted">两种操作方式，共同维护一份独立的 JSON Canvas 文档。</text>
+
+  <!-- 人与 agent 各用自己的入口；交接的是已保存文档。 -->
+  <g filter="url(#shadow)">
+    <rect x="64" y="270" width="304" height="260" rx="24" fill="#ffffff" stroke="#d5e0d5"/>
+    <rect x="912" y="270" width="304" height="260" rx="24" fill="#ffffff" stroke="#d5e0d5"/>
+  </g>
+  <text x="92" y="308" font-size="13" font-weight="600" letter-spacing="1.4" class="muted">HUMAN / 人</text>
+  <text x="92" y="357" font-size="27" font-weight="650">可视画布</text>
+  <text x="92" y="397" font-size="18">拖动、连线、编辑、排版</text>
+  <text x="92" y="428" font-size="17" class="muted">亲手整理论文与阅读认识</text>
+  <line x1="92" y1="458" x2="340" y2="458" stroke="#e4ebe1"/>
+  <text x="92" y="494" font-size="15" class="muted">React Flow · 多宿主共用界面</text>
+
+  <text x="940" y="308" font-size="13" font-weight="600" letter-spacing="1.4" class="muted">AGENT / AI</text>
+  <text x="940" y="357" font-size="27" font-weight="650">API / CLI</text>
+  <text x="940" y="397" font-size="18">按稳定 ID 读取和修改</text>
+  <text x="940" y="428" font-size="17" class="muted">保留布局与未请求修改的数据</text>
+  <line x1="940" y1="458" x2="1188" y2="458" stroke="#e4ebe1"/>
+  <text x="940" y="494" font-size="15" class="muted">Python · 标准库运行时</text>
+
+  <g fill="none" stroke="#6e8b79" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 377 400 H 430"/>
+    <path d="M 850 400 H 903"/>
+    <path d="M 383 394 L 377 400 L 383 406 M 424 394 L 430 400 L 424 406"/>
+    <path d="M 856 394 L 850 400 L 856 406 M 897 394 L 903 400 L 897 406"/>
+  </g>
+  <text x="404" y="379" text-anchor="middle" font-size="13" class="muted">读 / 存</text>
+  <text x="876" y="379" text-anchor="middle" font-size="13" class="muted">读 / 写</text>
+
+  <g filter="url(#shadow)">
+    <rect x="440" y="250" width="400" height="300" rx="26" fill="#e7efe4" stroke="#9eb79f" stroke-width="1.5"/>
+  </g>
+  <g class="icon" transform="translate(468 276)">
+    <path d="M 2 0 H 18 L 28 10 V 33 H 2 Z M 18 0 V 10 H 28"/>
+    <path d="M 8 18 H 21 M 8 24 H 21"/>
+  </g>
+  <text x="512" y="303" font-size="25" font-weight="600" class="mono">research.canvas</text>
+  <text x="468" y="343" font-size="19" font-weight="600">独立文件 · JSON Canvas</text>
+  <rect x="468" y="367" width="344" height="103" rx="14" fill="#f9fbf7" stroke="#cddbc9"/>
+  <text x="487" y="396" font-size="17" class="mono">{</text>
+  <text x="505" y="421" font-size="17" class="mono">"nodes": […], "edges": […]</text>
+  <text x="487" y="446" font-size="17" class="mono">}</text>
+  <text x="468" y="509" font-size="15" class="muted">论文与笔记 · 连线 · 布局 · 内嵌图</text>
+
+  <path d="M 640 560 V 604 M 634 598 L 640 604 L 646 598" fill="none" stroke="#6e8b79" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="64" y="620" width="1152" height="158" rx="24" fill="#ffffff" stroke="#d5e0d5"/>
+  <text x="94" y="664" font-size="24" font-weight="650">你的文件，可以带走。</text>
+  <text x="94" y="695" font-size="16" class="muted">无需云端数据库或专有项目容器</text>
+  <g transform="translate(96 727)" class="icon">
+    <rect x="7" y="0" width="17" height="20" rx="3"/>
+    <path d="M 0 6 V 24 Q 0 27 3 27 H 17"/>
+  </g>
+  <text x="135" y="748" font-size="18">复制 / 备份</text>
+  <g transform="translate(442 729)" class="icon">
+    <path d="M 4 3 V 21 M 4 12 H 16 Q 22 12 22 6 V 3"/>
+    <circle cx="4" cy="0" r="3" fill="#ffffff"/>
+    <circle cx="4" cy="24" r="3" fill="#ffffff"/>
+    <circle cx="22" cy="0" r="3" fill="#ffffff"/>
+  </g>
+  <text x="481" y="748" font-size="18">Git 管理</text>
+  <g transform="translate(790 727)" class="icon">
+    <rect width="29" height="20" rx="3"/>
+    <path d="M 14.5 20 V 27 M 7 27 H 22"/>
+  </g>
+  <text x="832" y="748" font-size="18">换电脑 / 换宿主</text>
+
+  <text x="640" y="827" text-anchor="middle" font-size="17" class="muted">切换人 / AI 操作前先保存；API 写入核对文件版本。</text>
+  <text x="640" y="858" text-anchor="middle" font-size="15" class="muted">内嵌图片随文件迁移；本地引用附件需一并带走。</text>
+</svg>

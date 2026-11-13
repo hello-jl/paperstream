@@ -2,6 +2,16 @@
 
 更新日期：2026-11-13。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器及 DSH 面板已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实 DSH 验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
 
+## MIT 许可与文件架构（2026-11-13）
+
+维护者明确选择 MIT。根 `LICENSE` 使用标准完整文本，版权声明为 `2026 Paperstream contributors`；web、DSH、Codex、Claude 的 npm metadata 与已有锁文件、Claude 插件清单同步声明 MIT。各端构建将根 LICENSE 由可选资料改为必需输入，分发完整文本并核对字节，不以 package metadata 替代许可原文。第三方依赖、人物肖像、社区角色设定等继续保留各自归属和许可，不因项目选择 MIT 改变。
+
+README 新增 [架构图 SVG](../assets/paperstream-architecture.svg) 与 [PNG](../assets/paperstream-architecture.png)：人通过 React Flow 可视编辑器手工操作，AI 通过 Python API／CLI 按稳定 ID 操作；两种入口分别读写同一份独立 `.canvas` JSON 文档，平台接入负责实际打开与保存。图文件可复制、备份、用 Git 管理或迁移到其他电脑／宿主，不依赖云端数据库。内嵌图片随图迁移，本地文件引用需一并携带；其他 JSON Canvas 工具不保证同样渲染论文表单、图片扩展。宿主偏好不属于图文件。架构图表达已保存文件的交接，不承诺共享 UI 草稿、实时共编或自动合并。
+
+许可验证：四端完整构建通过；DSH 18 项检查与 verify-build、Codex／Claude 5 项打包回归通过；Web、DSH、Codex、Claude 的 LICENSE、第三方声明与许可原文字节一致；Claude ZIP 完整且许可证一致，DSH npm pack 清单包含 LICENSE。Claude 官方 CLI strict 清单验证成功，只有非阻塞的目录头像建议。本次只调整许可与文档，没有改变 UI 或图文件，未推送或发布。
+
+架构图使用可编辑 SVG 源文件，并以已有本地 resvg 工具导出 2560×1800 PNG；已实际查看，核对双向读写箭头、文本边界和迁移说明。SVG/XML、可访问标题与描述、PNG 尺寸、README／机制／交互审查的本地文档链接检查通过；同步删除交互审查中“未选择许可证”的过期描述。
+
 ## 宣传与历史画布（2026-11-13）
 
 新增两份可编辑样例：`examples/computing-ai-history.canvas` 为 1946–2026 的 16 个精选里程碑，加两张范围/来源说明卡；`examples/deep-learning-history.canvas` 从 Hinton 参与的 1986 年工作出发，含 14 个论文节点和三张说明卡。全部创建、后续修正与保存经过 CanvasGraph；复现脚本 `scripts/create-computing-ai-history.py`、`scripts/create-deep-learning-history.py` 拒绝覆盖已有文件。历史年份对应所链接版本，ResNet 明确区分 2015 预印本与 CVPR 2016；时间相邻不表示直接继承。当前模型只列已核实的官方发布例子，不承诺完整或最新排行榜。
@@ -35,7 +45,7 @@ node --experimental-strip-types scripts/export-canvas-images.mjs examples/deep-l
 
 Agent 发布资料：完善仓库 AGENTS.md，新增可分发 `skills/paperstream/` 和 API reference；官方技能格式校验、真实 API 操作与独立 agent forward test 通过，完整对比保留原布局、Note、未知字段和数组顺序。Claude/Codex 包含技能与 Python 启动器；Codex UI 仍只需 Node，agent CLI 另需 Python，默认不允许把原生 HTML 用作 HTTP 界面。现有 MCP 只有 app-only UI resource／文件入口，没有通用语义编辑工具；首发继续用 API/CLI 作为本地 agent 改图内核，理由与未来 MCP 最小边界见 [交互审查](../research/agent-interaction-audit.md)。
 
-发布许可：按实际 bundle 输入核对 26 个依赖版本，保留原始许可、ELK source notice 与 npm 漏带的上游归属。Web、DSH、Codex、Claude 产物都复制根第三方声明和完整 licenses；DSH prepack 检查字节一致，npm 包清单确认包含全部许可资料。项目本身的许可证仍待维护者选择，未臆造版权或擅自公开发布。
+发布许可：按实际 bundle 输入核对 26 个依赖版本，保留原始许可、ELK source notice 与 npm 漏带的上游归属。Web、DSH、Codex、Claude 产物都复制根第三方声明和完整 licenses；DSH prepack 检查字节一致，npm 包清单确认包含全部许可资料。项目现按维护者选择采用 MIT，完整许可与分发检查见本页“MIT 许可与文件架构”；未公开发布。
 
 ## 当前实现：Canvas、独立界面与 DSH 面板
 
