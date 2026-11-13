@@ -144,3 +144,88 @@ test('transient node measurements do not enter the Canvas document or serialized
   assert.ok(restored.nodes.every(node => !('measured' in node) && !('internals' in node)));
   assert.equal(restored.edges[0].label, 'ab');
 });
+
+test('relation edits preserve all 100 unchanged card data references', () => {
+  const base = fixture().nodes[0];
+  let document: JSONCanvasDocument = {
+    nodes: Array.from({ length: 100 }, (_, index) => ({ ...base, id: `n${index}`, x: index * 240 })),
+    edges: [{ id: 'edge', fromNode: 'n0', toNode: 'n1', label: '' }],
+  };
+  let previous: FlowNode[] = flowNodes(document).map(node => ({ ...node, measured: { width: 200, height: 100 } }));
+  const originalData = new Map(previous.map(node => [node.id, node.data]));
+  for (const label of ['a', 'ab', '', '继承关系']) {
+    document = patchEdge(document, 'edge', { label });
+    const projected = flowNodes(document);
+    const synced = preserveNodeMeasurements(previous, projected);
+    assert.equal(synced.length, 100);
+    for (const node of synced) {
+      assert.strictEqual(node.data, originalData.get(node.id));
+      assert.deepEqual(node.measured, { width: 200, height: 100 });
+    }
+    assert.ok(projected.every(node => node.measured === undefined), 'incoming projection stays untouched');
+    previous = synced;
+  }
+});
+
+test('changed raw, busy, editing, draft, actions, or callbacks always take the new data', () => {
+  const raw = fixture().nodes[0];
+  const callback = () => {};
+  const data = {
+    raw, busy: false, editing: null as string | null, draft: null as Record<string, string> | null,
+    actions: { finish: callback }, resize: callback, fitHeight: callback, startInteraction: callback,
+  };
+  const previous: Node[] = [{ id: raw.id, type: 'paper', position: { x: 0, y: 0 }, data }];
+  const changes: Record<string, unknown>[] = [
+    { raw: { ...raw } }, { busy: true }, { editing: 'takeaway' }, { draft: { takeaway: 'a' } },
+    { actions: { finish: callback } }, { resize: () => {} }, { fitHeight: () => {} }, { startInteraction: () => {} },
+  ];
+  for (const change of changes) {
+    const projected: Node[] = [{ ...previous[0], data: { ...data, ...change } }];
+    const synced = preserveNodeMeasurements(previous, projected);
+    assert.strictEqual(synced[0].data, projected[0].data, `new ${Object.keys(change)[0]} must be visible immediately`);
+    assert.notStrictEqual(synced[0].data, data);
+  }
+  const active = [{ ...previous[0], data: { ...data, editing: 'takeaway', draft: { takeaway: 'a' } } }];
+  const projected = [{ ...active[0], data: { ...active[0].data, draft: { takeaway: 'a' } } }];
+  assert.strictEqual(preserveNodeMeasurements(active, projected)[0].data, projected[0].data,
+    'a new draft object is not retained by a deep comparison, even if its text matches');
+});
+
+test('reusing data preserves only measurements, never stale node state or another renderer data', () => {
+  const next = flowNodes(fixture())[0];
+  const previous: FlowNode = {
+    ...next, data: { ...next.data }, measured: { width: 200, height: 100 },
+    dragging: true, selected: true, hidden: true, zIndex: 20,
+  };
+  const projected: FlowNode = { ...next, position: { x: 80, y: 90 }, selected: false, hidden: false, zIndex: 1 };
+  const synced = preserveNodeMeasurements([previous], [projected])[0];
+  assert.strictEqual(synced.data, previous.data);
+  assert.strictEqual(synced.position, projected.position);
+  assert.strictEqual(synced.measured, previous.measured);
+  assert.equal(synced.dragging, undefined);
+  assert.equal(synced.selected, false);
+  assert.equal(synced.hidden, false);
+  assert.equal(synced.zIndex, 1);
+  assert.equal(projected.measured, undefined);
+
+  const otherType = { ...projected, type: 'other', data: { ...previous.data } };
+  assert.strictEqual(preserveNodeMeasurements([previous], [otherType])[0], otherType);
+  assert.notStrictEqual(otherType.data, previous.data);
+  assert.strictEqual(preserveNodeMeasurements([], [projected])[0], projected,
+    'new documents do not inherit data from a separate cache');
+});
+
+test('data comparison distinguishes missing keys, symbols and signed zero while treating NaN as unchanged', () => {
+  const symbol = Symbol('action');
+  const base = flowNodes(fixture())[0];
+  const previous: Node[] = [{ ...base, data: { ...base.data, value: NaN, signed: 0, [symbol]: 'original' } }];
+  const unchanged = { ...previous[0], data: { ...previous[0].data } };
+  assert.strictEqual(preserveNodeMeasurements(previous, [unchanged])[0].data, previous[0].data);
+  const additions = { ...unchanged, data: { ...unchanged.data, extra: undefined } };
+  const symbolChange = { ...unchanged, data: { ...unchanged.data, [symbol]: 'changed' } };
+  const signedChange = { ...unchanged, data: { ...unchanged.data, signed: -0 } };
+  const removed = { ...unchanged, data: { raw: base.data.raw, value: NaN, signed: 0 } };
+  for (const projected of [additions, symbolChange, signedChange, removed]) {
+    assert.strictEqual(preserveNodeMeasurements(previous, [projected])[0].data, projected.data);
+  }
+});

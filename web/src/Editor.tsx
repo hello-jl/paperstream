@@ -9,7 +9,7 @@ import {
 import type { Connection, Node, NodeProps, OnNodesChange } from '@xyflow/react';
 import {
   addEdge, addNode, createCanvas, createEdge, createPaperNode, parseCanvas,
-  patchEdge, patchNode, readPaper, removeEdge, removeNode, serializeCanvas,
+  patchEdge, patchNode, readPaper, removeEdge, removeNode, serializeCanvas, validateCanvas,
 } from './canvas';
 import type { CanvasEdge, CanvasNode, JSONCanvasDocument } from './canvas';
 import { downloadFile, hasFilePicker, pickFile, pickSaveFile, writeFile } from './files';
@@ -372,7 +372,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     if (followLabels) next = followRelationPositions(current.current, next);
     if (JSON.stringify(next) === JSON.stringify(current.current)) return;
     liveGesture.current = null;
-    serializeCanvas(next); // Validate before replacing the in-memory document.
+    validateCanvas(next); // Validate without allocating another serialized copy.
     hostEditedNodes.current.markChanges(current.current, next);
     const previous = current.current;
     setPast(items => [...items.slice(-49), previous]);
@@ -389,8 +389,9 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     if (JSON.stringify(next) === JSON.stringify(current.current)) return;
     const now = Date.now();
     if (liveGesture.current?.key === key && now - liveGesture.current.time < 1100) {
+      validateCanvas(next);
       hostEditedNodes.current.markChanges(current.current, next);
-      serializeCanvas(next); current.current = next; setCanvas(next); setFuture([]);
+      current.current = next; setCanvas(next); setFuture([]);
     } else commit(next, false);
     liveGesture.current = { key, time: now };
   }, [commit]);
@@ -472,12 +473,12 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   }, [canvas, nodes]);
   const renderedNodes = useMemo(() => {
     const positions = new Map(previewDocument.nodes.map(node => [node.id, { x: node.x, y: node.y }]));
-    return nodes.map(node => {
+    return preserveNodeMeasurements(nodes, nodes.map(node => {
     const selected = selection?.kind === 'node' && selection.id === node.id;
     return { ...node, position: positions.get(node.id) ?? node.position, selected,
       ...(selected && inlineField ? { draggable: false } : {}), data: { ...node.data, busy: busy || readOnly,
       editing: selected ? inlineField : null, draft: selected && inlineField ? form : null } };
-    });
+    }));
   }, [previewDocument, nodes, selection, inlineField, form, busy, readOnly]);
   const measureLabel = useCallback((measurement: EdgeLabelMeasurement) => {
     setLabelMeasurements(previous => {
