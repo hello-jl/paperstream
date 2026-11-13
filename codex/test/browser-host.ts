@@ -30,6 +30,17 @@ async function mount() {
   const previous = document.querySelector('iframe');
   previous?.remove();
   const iframe = document.createElement('iframe');
+  let resizeWarnings = 0;
+  document.getElementById('layout-status')!.textContent = ' · resizeWarnings=0';
+  iframe.addEventListener('load', () => {
+    // Same-origin development harness only. Keep the error visible; count it
+    // rather than suppressing the browser's ResizeObserver feedback warning.
+    iframe.contentWindow?.addEventListener('error', event => {
+      if (event.message.includes('ResizeObserver loop')) {
+        document.getElementById('layout-status')!.textContent = ` · resizeWarnings=${++resizeWarnings}`;
+      }
+    });
+  });
   iframe.title = 'Paperstream MCP Apps test';
   iframe.style.cssText = 'width:100%;height:calc(100vh - 90px);border:0;display:block';
   document.body.append(iframe);

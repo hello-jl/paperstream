@@ -97,6 +97,9 @@ block document edits; both should become editable again after release.
 
 The design and desktop validation record live in
 [`docs/mechanisms/paperstream-design.md`](../docs/mechanisms/paperstream-design.md).
+The harness displays `resizeWarnings` for browser ResizeObserver loop events;
+it counts rather than suppresses them. A nonzero count is diagnostic evidence,
+not by itself evidence of a blank canvas or a failed save.
 The integration follows OpenAI's
 [file editor extensions](https://developers.openai.com/plugins/build/extensions)
 and [local plugin packaging](https://developers.openai.com/plugins/build/plugins).
