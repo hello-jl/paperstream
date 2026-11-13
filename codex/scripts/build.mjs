@@ -35,6 +35,7 @@ await mkdir(join(plugin, 'scripts'), { recursive: true });
 for (const name of ['server.mjs', 'app.html']) await copyFile(join(out, name), join(plugin, 'dist', name));
 await copyFile(join(root, '.mcp.json'), join(plugin, '.mcp.json'));
 await copyFile(join(root, '.codex-plugin/plugin.json'), join(plugin, '.codex-plugin/plugin.json'));
+await copyFile(join(root, 'README.md'), join(plugin, 'README.md'));
 await copyFile(join(root, 'scripts/paperstream.py'), join(plugin, 'scripts/paperstream.py'));
 await cp(join(repository, 'skills/paperstream'), join(plugin, 'skills/paperstream'), { recursive: true });
 await cp(join(repository, 'paperstream'), join(plugin, 'paperstream'), {
