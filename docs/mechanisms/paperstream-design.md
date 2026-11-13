@@ -18,6 +18,8 @@ Python `CanvasGraph` 提供 create/load、论文与关系增删改、move_node/r
 
 “智能竖排”使用 ELK Layered 联合计算节点位置、正交折点和在线标签，方向向下；测得的标签尺寸参与布局，尚未渲染的标签使用保守估计。算法处理环、平行边和自环，减少交叉并留出间距，不承诺任意图完全无交叉。显式执行会替换手工位置与折点，可以撤销；执行后保持手动布局，不因输入正文而突然重排整图。异步计算前复制文档，返回时检查组件是否仍挂载、文档是否仍是同一版本，避免覆盖新编辑；原 ID、数组顺序、卡片尺寸、语义与未知字段保留。节点位置四舍五入为 Canvas 要求的安全整数，边几何保留小数精度。
 
+2026-11-13 标签避让性能：对已经可放置的路径种子计算评分上界，候选与锚点的距离超过该上界时提前剪枝；保留原排序和同分坐标优先级，极大有限坐标走原回退。拥挤 500 卡片/500 标签的本机 Node CPU 基准由约 663 ms 降至约 125 ms，6 个规模场景及 100 组固定种子布局逐坐标一致；这不是浏览器帧率或实际容量承诺。`node --experimental-strip-types web/scripts/benchmark-label-layout.ts` 可复测当前算法；传入旧模块文件路径可比较布局与耗时。新增拥挤负坐标、同分边界和极大坐标回归通过。
+
 ELK 生成的路径标记为 `paperstreamStyle.routeSource: "elk"`。端点移动、尺寸变化或改接时，仅清除受影响的自动折点与标签位置，让当前渲染重新计算；包括自动跟随的共享标签所连接的线路。手动编辑标签或折点后移除该来源标记，保留人工路径，不把样式调整误当作几何编辑。未知来源标记保持不动。拖动期间从 React Flow 临时坐标派生预览；松手写入一次可撤销修改。`nodeDragThreshold: 0` 让第一次指针移动即更新节点，修复短拖动只改变选择而未移动的问题。
 
 选型依据：[ELK Layered](https://eclipse.dev/elk/reference/algorithms/org-eclipse-elk-layered.html)、[inline labels](https://eclipse.dev/elk/reference/options/org-eclipse-elk-edgeLabels-inline.html)、[ELK JSON 格式](https://eclipse.dev/elk/documentation/tooldevelopers/graphdatastructure/jsonformat.html) 和 [elkjs](https://github.com/kieler/elkjs)。浏览器按需导入 elkjs 0.12.1；独立构建的引擎块约 1.47 MB（gzip 448 KB），目前使用进程内 worker shim。尚未做大图压力测试，也未宣称完全消除主线程计算开销。

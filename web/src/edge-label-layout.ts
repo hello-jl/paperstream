@@ -104,7 +104,10 @@ export function layoutEdgeLabels(
     checkSize(label.width, label.height);
     const path = label.pathPoints?.length ? label.pathPoints : [label.anchor];
     path.forEach(checkPoint);
-    const fits = (point: Point) => occupied.every(obstacle => !collides(rectangle(label, point), obstacle));
+    const fits = (point: Point) => {
+      const bounds = rectangle(label, point);
+      return occupied.every(obstacle => !collides(bounds, obstacle));
+    };
     let center = { ...label.anchor };
 
     if (!fits(center)) {
@@ -117,9 +120,28 @@ export function layoutEdgeLabels(
       // Very detailed paths need not multiply the obstacle search without bound.
       const nearbySeeds = seeds.sort((a, b) => distance(a, label.anchor) - distance(b, label.anchor)
         || comparePoints(a, b)).slice(0, 24);
+      // A fitting seed gives a valid upper bound on the winning score. The
+      // score always includes anchor distance, so a more distant candidate
+      // cannot win. Keep equality: equally good points use coordinate ties.
+      // Extreme finite coordinates can overflow segment projections; retain
+      // the original unpruned search there rather than change its behavior.
+      const safeExtent = Math.sqrt(Number.MAX_VALUE) / 16;
+      const safe = (value: number) => Math.abs(value) <= safeExtent;
+      const canPrune = safe(label.width) && safe(label.height)
+        && nearbySeeds.every(point => safe(point.x) && safe(point.y))
+        && occupied.every(rect => safe(rect.x) && safe(rect.y) && safe(rect.width) && safe(rect.height))
+        && path.every(point => safe(point.x) && safe(point.y));
+      let maximumDistance = Infinity;
+      if (canPrune) {
+        for (const point of nearbySeeds) {
+          if (fits(point)) maximumDistance = Math.min(maximumDistance,
+            distance(point, label.anchor) + pathDistance(point, path) * 2);
+        }
+      }
       const candidates = new Map<string, Point>();
       const add = (point: Point) => {
-        if (Number.isFinite(point.x) && Number.isFinite(point.y)) candidates.set(`${point.x},${point.y}`, point);
+        if (Number.isFinite(point.x) && Number.isFinite(point.y)
+          && (maximumDistance === Infinity || distance(point, label.anchor) <= maximumDistance)) candidates.set(`${point.x},${point.y}`, point);
       };
       nearbySeeds.forEach(add);
       const halfWidth = label.width / 2, halfHeight = label.height / 2;

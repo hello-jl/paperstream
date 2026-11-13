@@ -121,3 +121,45 @@ test('fit bounds handle an empty graph and retain a usable extent for subpixel c
   assert.throws(() => getContentBounds([{ x: NaN, y: 0, width: 1, height: 1 }]), RangeError);
   assert.throws(() => getContentBounds([{ x: 0, y: 0, width: -1, height: 1 }]), RangeError);
 });
+
+
+test('crowded path candidates retain the established nearest placements at negative coordinates', () => {
+  const obstacles = Array.from({ length: 12 }, (_, index) => ({
+    x: (index % 3) * 440 - 500, y: Math.floor(index / 3) * 400 - 700, width: 360, height: 220,
+  }));
+  const labels = obstacles.map((rect, index) => ({
+    id: `edge-${String(index).padStart(2, '0')}`, width: 180, height: 40,
+    anchor: { x: rect.x + 180, y: rect.y + 110 },
+    pathPoints: [{ x: rect.x + 180, y: rect.y + 220 }, { x: rect.x + 180, y: rect.y + 400 }],
+  }));
+  const result = layoutEdgeLabels(labels, obstacles);
+  assert.deepEqual([...result], labels.map((request, index) => [request.id,
+    { x: obstacles[index].x + 180, y: obstacles[index].y + 248 }]));
+  assertLayout(labels, obstacles, result);
+  assert.deepEqual(layoutEdgeLabels([...labels].reverse(), [...obstacles].reverse()), result);
+});
+
+test('fitting seeds at the same score retain coordinate tie breaks and boundary equality', () => {
+  const obstacles = [{ x: -50, y: -50, width: 100, height: 100 }];
+  const paths = [
+    [{ x: -98, y: 0 }, { x: 98, y: 0 }],
+    [{ x: 0, y: -73 }, { x: 0, y: 73 }],
+  ];
+  const expected = [{ x: -98, y: 0 }, { x: 0, y: -73 }];
+  for (const [index, pathPoints] of paths.entries()) {
+    const request = { ...label('edge', { x: 0, y: 0 }, 80, 30), pathPoints };
+    const result = layoutEdgeLabels([request], obstacles);
+    assert.deepEqual(result.get('edge'), expected[index]);
+    assertLayout([request], obstacles, result);
+    assert.deepEqual(layoutEdgeLabels([{ ...request, pathPoints: [...pathPoints].reverse() }], obstacles), result);
+  }
+});
+
+test('extreme finite path coordinates retain the unpruned fallback and valid separation', () => {
+  const obstacles = [{ x: -50, y: -50, width: 100, height: 100 }];
+  const request = { ...label('edge', { x: 0, y: 0 }, 80, 30),
+    pathPoints: [{ x: -1e200, y: 0 }, { x: 1e200, y: 0 }] };
+  const result = layoutEdgeLabels([request], obstacles);
+  assert.deepEqual(result.get('edge'), { x: -1e200, y: -73 });
+  assertLayout([request], obstacles, result);
+});
