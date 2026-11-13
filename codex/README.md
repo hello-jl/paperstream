@@ -1,4 +1,4 @@
-# Paperstream for ChatGPT desktop
+# Paperstream for ChatGPT desktop / Codex
 
 Local MCP Apps file editor for `.canvas` files. The desktop host provides the
 opened resource, read/write permissions, version tokens and update notifications.
@@ -38,6 +38,24 @@ tests do not themselves prove the desktop UI works; test in the target desktop
 version. The supported surface is the file editor, not a terminal canvas or an
 ordinary chatgpt.com browser conversation.
 
+OpenAI's current [desktop product guide](https://learn.chatgpt.com/docs/use-chatgpt#compare-work-mode-and-codex-on-desktop)
+describes Chat, Work and Codex as desktop entry points sharing the
+[plugin system](https://learn.chatgpt.com/docs/plugins). This package targets the
+desktop **file editor** extension in a session that exposes `openai/resource`.
+An app name or bundle ID alone does not establish that capability. It is not an
+`@paperstream` chat tool, and no separate browser is required for the packaged UI.
+Cloud sessions and standard remote MCP apps are not covered by this local stdio
+adapter; changing transport alone does not provide host file access.
+
+For native acceptance, open `examples/resnet.canvas` in the conversation's right
+file panel after restarting. Confirm that it shows the graph rather than JSON,
+edit a label, undo to the clean original, then save a separate test copy and
+check external-update/conflict behavior. A CLI installation record, an open-file
+request, or the browser harness is not evidence that the native graph rendered.
+Local personal testing follows the marketplace installation above; the
+[approved-partner requirement](https://developers.openai.com/plugins/deploy/desktop-only)
+concerns public distribution of local MCP plugins.
+
 ## Save and update behavior
 
 The URI is opaque and never interpreted as a local path. Save is enabled only
@@ -74,7 +92,7 @@ ChatGPT desktop substitute and is excluded from the packaged plugin.
 `Pause next read` and `Pause next write` hold one operation until
 `Release pending operation` is clicked. Use a clean document to start a delayed
 reload, edit before releasing it, and check that the new text remains. During a
-delayed save, inline inputs should become read-only and the page panel should
+delayed save, inline inputs should become read-only and the details controls should
 block document edits; both should become editable again after release.
 
 The design and desktop validation record live in
