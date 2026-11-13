@@ -10,7 +10,9 @@ export interface EditorHost {
   readOnly?: boolean;
   onSave: (document: JSONCanvasDocument) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
-  onDocumentChange?: (document: JSONCanvasDocument) => void;
+  /** Canonical source belongs to this committed document snapshot. Hosts can
+   * track its immutable text without serializing large embedded figures again. */
+  onDocumentChange?: (document: JSONCanvasDocument, canonicalSource: string) => void;
   /** Include incomplete form text that has not yet become valid Canvas data. */
   onInputChange?: (form: Readonly<Record<string, string>>) => void;
 }

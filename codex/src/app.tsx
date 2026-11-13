@@ -116,7 +116,7 @@ function HostEditor() {
 
   const session = view?.session;
   const onDirtyChange = useCallback((dirty: boolean) => session?.setDirty(dirty), [session]);
-  const onDocumentChange = useCallback((document: JSONCanvasDocument) => session?.noteLocalDocument(document), [session]);
+  const onDocumentChange = useCallback((_document: JSONCanvasDocument, canonicalSource: string) => session?.noteLocalSource(canonicalSource), [session]);
   const onInputChange = useCallback((form: Readonly<Record<string, string>>) => session?.noteLocalInput(form), [session]);
   const onSave = useCallback(async (document: JSONCanvasDocument) => {
     if (!session) throw new Error('文件会话尚未准备好。');

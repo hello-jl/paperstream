@@ -3,6 +3,7 @@ import test from 'node:test';
 import { ResourceSession } from '../src/resource-session.ts';
 import type { HostResources, ResourceSnapshot } from '../src/resource-session.ts';
 import { createCanvas, serializeCanvas } from '../../web/src/canvas.ts';
+import type { JSONCanvasDocument } from '../../web/src/canvas.ts';
 
 const uri = 'resource://opaque/canvas?token=not-a-path';
 function fixture(options: { writable?: boolean; etag?: string; omitMetadata?: boolean } = {}) {
@@ -178,12 +179,15 @@ test('external change immediately after successful write is noticed and loaded a
 });
 
 test('discard reload cannot discard edits made after confirmation, even when already dirty', async () => {
-  for (const initiallyDirty of [false, true]) {
+  for (const notify of [
+    (session: ResourceSession, document: JSONCanvasDocument) => session.noteLocalDocument(document),
+    (session: ResourceSession, document: JSONCanvasDocument) => session.noteLocalSource(serializeCanvas(document)),
+  ]) for (const initiallyDirty of [false, true]) {
     const f = fixture();
     await f.session.refresh();
-    f.session.noteLocalDocument(f.initial); // Initial editor mount is not an edit.
+    notify(f.session, f.initial); // Initial editor mount is not an edit.
     f.session.setDirty(initiallyDirty);
-    if (initiallyDirty) f.session.noteLocalDocument({ ...f.initial, local: 'before confirmation' });
+    if (initiallyDirty) notify(f.session, { ...f.initial, local: 'before confirmation' });
     const revision = f.snapshot().revision;
     const original = f.resources.read;
     f.external(serializeCanvas({ ...f.initial, external: 'newer' }));
@@ -192,7 +196,7 @@ test('discard reload cannot discard edits made after confirmation, even when alr
     f.resources.read = () => new Promise(done => { resolve = done; });
     const reload = f.session.refresh(true);
     f.session.setDirty(true);
-    f.session.noteLocalDocument({ ...f.initial, local: 'typed while reading' });
+    notify(f.session, { ...f.initial, local: 'typed while reading' });
     resolve(incoming);
     await reload;
     assert.equal(f.snapshot().revision, revision, 'do not remount the editor and erase new text');
@@ -215,7 +219,7 @@ test('discard reload preserves new invalid field text even when the document was
   const f = fixture();
   await f.session.refresh();
   f.session.setDirty(true);
-  f.session.noteLocalDocument({ ...f.initial, local: 'before confirmation' });
+  f.session.noteLocalSource(serializeCanvas({ ...f.initial, local: 'before confirmation' }));
   f.session.noteLocalInput({ alias: 'Paper', year: '2024' });
   const revision = f.snapshot().revision;
   f.external(serializeCanvas({ ...f.initial, external: 'newer' }));
@@ -235,6 +239,59 @@ test('discard reload preserves new invalid field text even when the document was
   assert.match(f.snapshot().notice, /新的修改.*已保留/);
   await assert.rejects(f.session.save({ ...f.initial, local: 'before confirmation' }), /冲突/);
   assert.equal(f.writes[0].ifMatch, 'v1', 'input protection must not adopt the external save token');
+});
+
+test('unchanged canonical document notifications do not cancel a confirmed reload', async () => {
+  const f = fixture();
+  await f.session.refresh();
+  const source = serializeCanvas(f.initial);
+  f.session.noteLocalSource(source);
+  f.session.setDirty(true);
+  const revision = f.snapshot().revision;
+  f.external(serializeCanvas({ ...f.initial, external: 'newer' }));
+  const incoming = await f.resources.read({ uri, representation: 'text' });
+  let resolve!: (value: typeof incoming) => void;
+  f.resources.read = () => new Promise(done => { resolve = done; });
+  const reload = f.session.refresh(true);
+  f.session.noteLocalSource(source);
+  resolve(incoming);
+  await reload;
+  assert.equal(f.snapshot().revision, revision + 1);
+  assert.equal(f.snapshot().dirty, false);
+  assert.equal(f.snapshot().document.external, 'newer');
+});
+
+test('document notifications still detect callers mutating the same object', async () => {
+  const f = fixture();
+  await f.session.refresh();
+  f.session.noteLocalDocument(f.initial);
+  f.session.setDirty(true);
+  const revision = f.snapshot().revision;
+  f.external(serializeCanvas({ ...f.initial, external: 'newer' }));
+  const incoming = await f.resources.read({ uri, representation: 'text' });
+  let resolve!: (value: typeof incoming) => void;
+  f.resources.read = () => new Promise(done => { resolve = done; });
+  const reload = f.session.refresh(true);
+  f.initial.custom.preserve.push('edited while reading');
+  f.session.noteLocalDocument(f.initial);
+  resolve(incoming);
+  await reload;
+  assert.equal(f.snapshot().revision, revision);
+  assert.equal(f.snapshot().dirty, true);
+  assert.match(f.snapshot().notice, /新的修改.*已保留/);
+  await assert.rejects(f.session.save(f.initial), /冲突/);
+  assert.equal(f.writes[0].ifMatch, 'v1');
+});
+
+test('canonical document notifications never replace fresh save serialization', async () => {
+  const f = fixture();
+  await f.session.refresh();
+  f.session.setDirty(true);
+  f.session.noteLocalSource(serializeCanvas({ ...f.initial, local: 'reported earlier' }));
+  const document = { ...f.initial, local: 'current at save', unknown: { keep: true } };
+  await f.session.save(document);
+  assert.equal(f.writes[0].text, serializeCanvas(document));
+  assert.equal(f.snapshot().document.local, 'current at save');
 });
 
 test('empty initial and semantically unchanged input notifications do not cancel a confirmed reload', async () => {

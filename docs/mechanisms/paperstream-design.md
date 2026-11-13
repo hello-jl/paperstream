@@ -365,6 +365,8 @@ API 的基础读写比现有 Mermaid 解析直接，但业务字段仍需要约�
 
 2026-11-13 ChatGPT App 适配复核：官方当前把 Chat、Work、Codex 描述为同一桌面 App 中的入口，插件目录共用；本机 `ChatGPT.app` 的显示名称与 `com.openai.codex` bundle ID 不能单独证明或排除某种入口能力。[桌面产品说明](https://learn.chatgpt.com/docs/use-chatgpt#compare-work-mode-and-codex-on-desktop)、[插件支持范围](https://learn.chatgpt.com/docs/plugins)。现有 `codex/` 对应正式的文件编辑器扩展，支持提供 `openai/resource` 的桌面会话时可以复用，无需另写 React Flow 编辑器，也无需另开 HTTP 浏览器服务；普通聊天 `@` 工具、云端远程 MCP 与本地文件面板不是同一验收范围。[文件编辑器入口](https://developers.openai.com/plugins/build/extensions#file-viewers-and-editors)。个人本地 marketplace 安装已有正式路径，公开分发本地 MCP 的合作伙伴限制不等同于禁止个人本地测试。[本地安装](https://developers.openai.com/plugins/build/plugins#install-a-local-plugin-manually)、[公开分发限制](https://developers.openai.com/plugins/deploy/desktop-only)。本轮更新包后可通过正式 App 文件打开接口请求在当前聊天右侧打开样例；打开请求不返回画布渲染结果，因此原生加载、编辑、保存仍需单独验收，不能用模拟 AppBridge 或 CLI 状态代替。
 
+同日宿主通知开销优化：`onDocumentChange(document, canonicalSource)` 传递编辑器本轮已生成的规范文本，ResourceSession 用该不可变字符串跟踪本地修订，避免每字重新序列化内嵌图片。此通知只用于慢读保护，不成为保存或文档数据来源；公共 `noteLocalDocument` 仍逐次校验和序列化，支持同对象原地改写的外部调用，保存独立读取并序列化当前文档。新增 3 项回归，ResourceSession 17 项通过；模拟宿主实际验证干净状态启动延迟读取、等待中编辑简称、释放后保留新输入，再保存达到版本 2、计数 1、“已保存”。
+
 2026-11-07 当前实现：新增 [codex/](../../codex/README.md) 本地 MCP Apps 文件编辑器，注册 `.canvas` 入口，通过官方扩展协议读取宿主传入的资源 URI、权限和版本标记，订阅外部更新。URI 保持不透明，不当作本地文件路径。保存要求宿主明确允许写入并提供版本，写请求携带 `ifMatch`；干净文档接收外部更新，有本地修改时保留草稿并提示，冲突不更新旧基线，也不以重复保存覆盖新版。只读资源禁用编辑与保存。
 
 2026-11-13 会话可靠性审查：显式重新载入只授权丢弃操作开始前的修改；若读取等待期间产生新修改，即使原本已经是脏文档，也保留当前编辑器和旧保存基线。已关闭或被取代读取的迟到错误不污染当前文件，当前请求的失败仍报告。快速 A→B→A 切换时，订阅与取消操作按顺序完成，防止旧取消撤销新订阅；界面销毁后迟到的连接完成不再打开待处理文件。最新读取缺少版本标记时立即只读，最新写入授权与旧基线 etag 分开记录，既不能借旧标记继续写，也不能采用外部新标记覆盖其内容。

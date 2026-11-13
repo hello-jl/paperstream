@@ -74,9 +74,17 @@ export class ResourceSession {
    * Reload confirmation authorizes discarding only the state seen at its start. */
   noteLocalDocument(document: JSONCanvasDocument) {
     if (this.disposed) return;
-    const text = serializeCanvas(document);
-    if (text !== this.localText) {
-      this.localText = text;
+    // Public callers may mutate and report the same object again. Do not cache
+    // by identity; only the editor's already serialized snapshot is reusable.
+    this.noteLocalSource(serializeCanvas(document));
+  }
+
+  /** Track the editor's canonical snapshot without serializing embedded images
+   * again. This is revision evidence only, never document or save authority. */
+  noteLocalSource(source: string) {
+    if (this.disposed) return;
+    if (source !== this.localText) {
+      this.localText = source;
       this.localRevision += 1;
     }
   }
