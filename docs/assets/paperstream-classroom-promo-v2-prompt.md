@@ -1,6 +1,6 @@
 # Paperstream classroom illustration — referenced character version
 
-Image: [paperstream-classroom-promo-v2.png](paperstream-classroom-promo-v2.png), 1672 × 941 pixels. Generated on 2026-11-13 with the built-in `image_gen` tool using the `imagegen` skill. This replaced the first draft's character designs; the README now selects [v3](paperstream-classroom-promo-v3-prompt.md), which refines the expressions and relation labels. Earlier images remain for traceability.
+Image: [paperstream-classroom-promo-v2.png](paperstream-classroom-promo-v2.png), 1672 × 941 pixels. Generated on 2026-11-13 with the built-in `image_gen` tool using the `imagegen` skill. This replaced the first draft's character designs; [v3](paperstream-classroom-promo-v3-prompt.md) later refined the expressions and relation labels. Earlier images remain for traceability.
 
 ## Character design references and credit
 

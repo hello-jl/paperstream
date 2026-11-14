@@ -8,9 +8,9 @@ Paperstream 为这些认识留出一张画布。用卡片记下论文最值得�
 
 你可以亲手排布、编辑和判断，也可以请 AI 带着明确的任务和资料，帮助整理同一张图。**人用画布，AI 用 API；成果保存在独立的 JSON 文件里。**
 
-![Paperstream 课堂：DeepSeek 讲解，GPT 与 Claude 专注听课](docs/assets/paperstream-classroom-promo-v3.png)
+![Paperstream 课堂：DeepSeek 讲解，GPT 与 Claude 专注听课](docs/assets/paperstream-classroom-promo-v4.png)
 
-宣传插画由 AI 生成，角色参考 ZipZipPipe 的社区拟人设定。[角色来源与生成记录](docs/assets/paperstream-classroom-promo-v3-prompt.md)
+宣传插画由 AI 生成，角色参考 ZipZipPipe 的社区拟人设定。[角色来源与生成记录](docs/assets/paperstream-classroom-promo-v4-prompt.md)
 
 ## 把论文之间的联系也读出来
 

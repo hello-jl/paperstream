@@ -1,6 +1,14 @@
 # paperstream 论文关系图设计
 
-更新日期：2026-11-13。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器及 DSH 面板已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实 DSH 验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
+更新日期：2026-11-14。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器及 DSH 面板已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实 DSH 验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
+
+## 宣传图的简化结构示意（2026-11-14）
+
+用户要求将黑板 ENIAC → Backprop 的标签由“compute”改为“learn”、Backprop → AlexNet 由“learn”改为“deepen”，并改进 ResNet、Transformer 卡片内的示意。保留 v3 的人物、自然表情、课堂构图及其他文字，以内置 imagegen 局部编辑生成 v4，README 与第三方来源记录指向同名生成说明。
+
+科学图示按原论文缩减：ResNet 展示两层主路、绕过它们的 identity 旁路和单一求和点；Transformer 明确标为 Encoder，展示 Self-Attn、Add & Norm、FFN、Add & Norm 及两个子层的残差路径。仅作为小尺寸宣传示意，不画成完整模型；省去 ResNet 的 BN／ReLU 和 Encoder 外的 decoder、embedding、Q/K/V 等细节。结构核对依据为 ResNet 原论文 Fig. 2／§3.1 与 Transformer 2017 会议版 Fig. 1／§3.1。历史画布的数据和技术关系不因宣传图标签调整而改写。
+
+共三轮定点编辑：替换标签和结构图、澄清 Encoder 主干及两处旁路分叉、把外部“residual links”线与标签移至卡片下方绿底，避免压住卡片边缘。Transformer 卡片为可读性略增高，已实际查看模块顺序、箭头、词语、年份、人物和避让结果；最终图为 1672×941。README、v2–v4 记录的本地链接与标题锚点检查通过。同步第三方来源路径后，四端完整构建通过，各分发目录的 LICENSE／第三方许可字节一致，Claude ZIP 完整且声明一致。本轮仅更新宣传素材与文档，未更改画布或编辑器实现。
 
 ## README 的阅读叙事（2026-11-13）
 
