@@ -19,6 +19,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from paperstream import CanvasGraph
+from scripts.history_portraits import apply_portrait_layout
 
 # name is the original paper title where this is a paper; historical events
 # intentionally have no invented paper title. Portrait subjects are not a list
@@ -128,7 +129,7 @@ def create(path: Path) -> CanvasGraph:
     document["nodes"].append({
         "id": "history_scope_and_credits", "type": "text", "x": 60, "y": 1660, "width": 2080, "height": 205,
         "label": "截至 2026-11-13 · 精选而非全史",
-        "text": "2025 DeepSeek-R1 推进强化学习推理；2026 DeepSeek-V4.1-Flash-1017（10-17）与 Claude Opus 5.5（09-22）是当年更新的两个例子，不是完整模型榜单。\n肖像署名（Commons 缩略图，未另作修改）：BY-SA 4.0：Rosenblatt／匿名（HNF 来源），Hinton、Hassabis／Cmichel67，Goodfellow／Ian Goodfellow，Gomez／Gabriel Hutchinson；BY-SA 2.0：McCarthy／null0，LeCun／Jérémy Barande；BY 4.0：Christiano／IPAM；BY 2.0：Amodei／TechCrunch。\n公共领域来源：Turing／Elliott & Fry，Weizenbaum／RIT，Kasparov／Commons 上传者 Sergei。Mauchly／摄影者未知，Commons 标注美国无版权声明公有领域。\n完整事实来源、原图及许可链接：docs/research/computing-ai-history-sources.md（分发导出图片时请一并附上）。",
+        "text": "2025 DeepSeek-R1 推进强化学习推理；2026 DeepSeek-V4.1-Flash-1017（10-17）与 Claude Opus 5.5（09-22）是当年更新的两个例子，不是完整模型榜单。\n肖像署名（保留源照片，统一展示取景）：BY-SA 4.0：Rosenblatt／匿名（HNF 来源），Hinton、Hassabis／Cmichel67，Goodfellow／Ian Goodfellow，Gomez／Gabriel Hutchinson；BY-SA 2.0：McCarthy／null0，LeCun／Jérémy Barande；BY 4.0：Christiano／IPAM；BY 2.0：Amodei／TechCrunch。\n公共领域来源：Turing／Elliott & Fry，Weizenbaum／RIT，Kasparov／Commons 上传者 Sergei。Mauchly／摄影者未知，Commons 标注美国无版权声明公有领域。\n完整事实来源、原图及许可链接：docs/research/computing-ai-history-sources.md（分发导出图片时请一并附上）。",
         "paperstreamCard": {"kind": "note"}, "paperstreamStyle": {"heightMode": "manual"},
     })
     document["paperstreamHistory"] = {
@@ -136,6 +137,7 @@ def create(path: Path) -> CanvasGraph:
         "checked": "2026-11-13", "sources": "docs/research/computing-ai-history-sources.md",
         "currentExamples": ["https://api-docs.deepseek.com/news/news250120/", "https://api-docs.deepseek.com/news/news261017/", "https://www.anthropic.com/claude-opus-5-5"],
     }
+    apply_portrait_layout(document, "computing", [row[0] for row in MILESTONES])
     graph.set_document(document)
     graph.validate()
     graph.save()

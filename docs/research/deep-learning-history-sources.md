@@ -37,7 +37,9 @@
 
 ## 真实肖像与许可
 
-照片仅用于研究史说明，不表示所摄人物、摄影者或机构为 Paperstream 背书。照片拍摄时间不等于论文发表时间，现代照片没有被描述成历史现场。已沿用 Commons 上现成裁剪版本，下载 Wikimedia 提供的约 250 px 缩略图，不作本地裁剪、修饰或 AI 改脸。Ilya Sutskever 与 Pieter Abbeel 当前是包含人物的真实照片，未伪称为新拍摄的大头照；可在获得更合适的开放肖像后替换。
+照片仅用于研究史说明，不表示所摄人物、摄影者或机构为 Paperstream 背书。照片拍摄时间不等于论文发表时间，现代照片没有被描述成历史现场。沿用 Commons 原作与现成裁剪版本，不作本地裁剪、修饰或 AI 改脸。2026-11-14 版统一为 108×144 的 3:4 展示框，逐图调整可逆取景、位置与缩放；Goodfellow 用完整显示保留边界。源文件不裁剪，画布与导出图呈现的是取景后的版本，取景参数保存在 figure 的 `frame`；姓名以整卡宽度居中。
+
+Abbeel 换为同一 CovariantHQ 照片的 960×709 Wikimedia 缩略图，Christiano 换为同一讲座截图的 893×890 原档，作者和许可均不变。Ilya Sutskever 仍使用 192×287 的已有裁剪版本；核对同一作品的 768×1024 未裁原档后，人脸像素并未增加，因此没有仅为增大文件而替换。该头像放大后仍较模糊，这是当前源素材的边界。两份历史图共用 [取景与布局脚本](../../scripts/history_portraits.py)，不通过拉伸或生成式重绘补造人脸细节。
 
 所有文件在 [`assets/history/deep-learning/`](../../assets/history/deep-learning/)，详细原图链接、下载链接、逐文件哈希、尺寸与修改说明亦记录于 [`portraits.json`](../../assets/history/deep-learning/portraits.json)。各 figure 同时保留 `sourceUrl`、`author`、`license`、`licenseUrl` 与 `changes`。这些图片的许可独立于项目代码许可证；分发 Canvas、SVG 或 PNG 时应随附本归属文件，并保留图内归属提示。
 

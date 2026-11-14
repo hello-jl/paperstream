@@ -37,7 +37,9 @@ Claude 节点采用 2026-09-22 发布的 Opus 5.5 作为当年长任务／Agent 
 
 ## 肖像素材与署名
 
-全部为真实照片。使用 Commons 已提供的小尺寸 JPEG 缩略图，无生成脸、换脸、重绘、裁剪或美化；Commons 原文件已经裁剪的情形由文件名和来源页说明。历史卡的年份表示事件／论文年份，照片可以拍摄于其他年份。16 张节点照片复用了 13 个独立照片文件；同一人物可出现在多项共同参与的工作中。
+全部为真实照片，沿用 Commons 原作与缩略图，无生成脸、换脸、重绘或美化。2026-11-14 版统一为 108×144 的 3:4 展示框，逐图调整可逆取景、位置与缩放；McCarthy 和 Goodfellow 用完整显示保留头部边界。源照片文件不作本地裁剪，Commons 原文件已经裁剪的情形由文件名和来源页说明；画布与导出图呈现的是取景后的版本。历史卡的年份表示事件／论文年份，照片可以拍摄于其他年份。16 张节点照片复用了 13 个独立照片文件；同一人物可出现在多项共同参与的工作中。
+
+Christiano 已换成同一 Commons 讲座截图的 893×890 原档，署名与许可不变；其余素材沿用现有文件。取景参数保存在各 figure 的 `frame`，布局脚本为 [history_portraits.py](../../scripts/history_portraits.py)。姓名用整卡宽度居中，年份固定在卡片内右下角；所有人物展示框宽高一致，原图纵横比不会拉伸。
 
 各原照片分别保留其许可。画布内 `paperstreamCard.figures` 保存 `sourceUrl`、`author`、`license`、`licenseUrl`、`changes`；机器可读明细和 SHA-256 在 [素材 manifest](../../assets/history/computing/manifest.json)。图尾保留了简短可见署名。分享 PNG/SVG 时，请一并附上本来源表或保留等价的完整署名与许可链接；不要把仓库代码许可证当成第三方照片的许可证。
 
@@ -54,7 +56,7 @@ Claude 节点采用 2026-09-22 发布的 Opus 5.5 作为当年长任务／Agent 
 | [goodfellow.jpg](../../assets/history/computing/goodfellow.jpg) | Ian Goodfellow | [Commons 文件页](https://commons.wikimedia.org/wiki/File:Ian_Goodfellow_(cropped).jpg) · [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | 下载已有缩略图；无额外修改 |
 | [hassabis.jpg](../../assets/history/computing/hassabis.jpg) | Cmichel67 | [Commons 文件页](https://commons.wikimedia.org/wiki/File:Demis_Hassabis_in_2025_by_Christopher_Michel_A.jpg) · [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | 下载已有缩略图；无额外修改 |
 | [gomez.jpg](../../assets/history/computing/gomez.jpg) | Gabriel Hutchinson | [Commons 文件页](https://commons.wikimedia.org/wiki/File:Aidan_Gomez_at_%22ALL_IN%22_2025_06.jpg) · [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | 下载已有缩略图；无额外修改 |
-| [christiano.jpg](../../assets/history/computing/christiano.jpg) | Institute for Pure & Applied Mathematics (IPAM) | [Commons 文件页](https://commons.wikimedia.org/wiki/File:Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_(cropped).jpg) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | 下载已有缩略图；无额外修改 |
+| [christiano.jpg](../../assets/history/computing/christiano.jpg) | Institute for Pure & Applied Mathematics (IPAM) | [Commons 文件页](https://commons.wikimedia.org/wiki/File:Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_(cropped).jpg) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | 下载同一截图的 893×890 原档；源文件不裁剪，展示取景 |
 | [amodei.jpg](../../assets/history/computing/amodei.jpg) | TechCrunch | [Commons 文件页](https://commons.wikimedia.org/wiki/File:Dario_Amodei_at_TechCrunch_Disrupt_2023_02_(close_up_cropped).jpg) · [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) | 下载已有缩略图；无额外修改 |
 
 Mauchly 照片的 Commons 声明是 **美国境内因当年未附版权声明而进入公共领域**；这里不把它扩大为全球公有领域结论。Rosenblatt 照片的原摄影者未知，Commons 文件页列 Heinz Nixdorf MuseumsForum 为来源并标注 CC BY-SA 4.0；本记录如实保留该来源与许可声明。Kasparov 图的作者栏缺姓名，页面声明为上传者的 own work、PD-self，历史记录显示上传者 Sergei。其他明确署名见上表。公开宣传如要求全部素材都有已知摄影者及直接授权链，需再替换这类历史照片，而不是凭空补造摄影者或许可。

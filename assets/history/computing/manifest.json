@@ -137,14 +137,17 @@
     "christiano": {
       "file": "assets/history/computing/christiano.jpg",
       "commons": "https://commons.wikimedia.org/wiki/File:Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_(cropped).jpg",
-      "download": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8c/Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_%28cropped%29.jpg/250px-Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_%28cropped%29.jpg",
+      "download": "https://upload.wikimedia.org/wikipedia/commons/8/8c/Paul_Christiano_-_Mechanistic_Estimation_-_IPAM_at_UCLA_-_0-34-09_%28cropped%29.jpg",
       "author": "Institute for Pure & Applied Mathematics (IPAM)",
       "license": "CC BY 4.0",
       "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
       "sourceCredit": "Screenshot from 34:09 of \"Paul Christiano - Mechanistic Estimation - IPAM at UCLA\" (https://www.youtube.com/watch?v=_BPsuomAcoI)",
-      "changes": "Downloaded the Commons thumbnail without further alteration. Any pre-existing crop is identified by its Commons file name.",
-      "sha256": "53a3c452b122b712cd22611ea70effe821ac87e8972428d06b715ed785288bb4",
-      "bytes": 10695
+      "changes": "Downloaded Commons original of the same existing cropped lecture screenshot without further alteration.",
+      "sha256": "f491b2fb71ed1b4e81a6515c6d7587f080c315755a069db889806c999779ae68",
+      "bytes": 85039,
+      "width": 893,
+      "height": 890,
+      "resolutionChecked": "2026-11-14"
     },
     "amodei": {
       "file": "assets/history/computing/amodei.jpg",

@@ -19,6 +19,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from paperstream import CanvasGraph
+from scripts.history_portraits import apply_portrait_layout
 
 
 MILESTONES = [
@@ -171,6 +172,7 @@ def create(output: Path) -> dict:
         "missingPortraits": [{"node": "dl_resnet_2015", "people": ["Kaiming He", "Xiangyu Zhang", "Shaoqing Ren", "Jian Sun"],
                               "reason": "No sufficiently verified open portrait license located; no unlicensed substitute included."}],
     }
+    apply_portrait_layout(document, "deep-learning", [row[0] for row in MILESTONES])
     graph.set_document(document)
     graph.validate()
     graph.save()
