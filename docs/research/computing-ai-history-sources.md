@@ -4,6 +4,18 @@
 
 起点选为 1946 年 ENIAC 公开亮相的电子通用计算机时代，并不声称它是所有定义下唯一的“第一台计算机”。机械计算、计算理论、早期专用机，以及许多重要的专家系统、统计学习、机器人、模型和硬件工作未纳入这一张简图。人物是有限的相关人物精选，不是完整贡献名单。
 
+## 紧凑海报版（2026-11-14）
+
+另提供一份便于分享的横向卡片排版：[PNG](../assets/computing-ai-history-poster-v2.png) · [自含 SVG](../assets/computing-ai-history-poster-v2.svg)。16 个里程碑排列为四行，头像在左、正文在右，年份固定于卡片右下角。沿用同一份已保存画布的事实文字、原照片、逐图取景和可见署名；照片许可及完整来源仍见本页。
+
+这是静态海报的另一种排版，不改变编辑器布局；可编辑源仍是上面的 `.canvas`。脚本经 CLI 读取完整文档，不写回源文件，复现命令为：
+
+```sh
+node --experimental-strip-types scripts/export-history-poster.mjs examples/computing-ai-history.canvas docs/assets/computing-ai-history-poster-v2 .local/history-renderer/package.json
+```
+
+第三个参数指向已安装 `@resvg/resvg-js` 的本地工具包，省略时仅导出 SVG；PNG 字体默认使用系统字体，也可通过 `PAPERSTREAM_EXPORT_FONT` 指定中文字体文件。
+
 ## 里程碑与事实依据
 
 | 稳定 ID | 年份及版本 | 简图节点 | 人物与角色 | 原论文／机构史料 |
