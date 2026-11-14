@@ -99,5 +99,11 @@ example canvases or their image exports, include the corresponding source and
 attribution records. The generated classroom illustration's references and
 character-design boundary are recorded in the source repository's
 `docs/assets/paperstream-classroom-promo-v4-prompt.md`, which links the earlier
-character-reference record. These example assets are
+character-reference record. The architecture diagram also embeds generated
+chibi portraits of these community characters, based on ApprenTice's published
+Q-version adaptations (CC BY-NC-SA 4.0). Their prompt, reference sources and
+attribution are recorded in `docs/assets/paperstream-agent-avatars-prompt.md`;
+the project's MIT license does not replace those non-commercial, attribution
+and share-alike terms. The downloaded reference originals are not redistributed.
+These example assets are
 not bundled in the editor plugin packages.

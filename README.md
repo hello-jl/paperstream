@@ -6,7 +6,7 @@
 
 Paperstream 为这些认识留出一张画布。用卡片记下论文最值得留下的内容，用带文字的连线写清它们之间的联系，把要点、插图和原文入口放在一起。随着阅读推进，这张图也逐步长成你对一个领域的理解。
 
-你可以亲手排布、编辑和判断，也可以请 AI 带着明确的任务和资料，帮助整理同一张图。**人用画布，AI 用 API；成果保存在独立的 JSON 文件里。**
+你可以亲手排布、编辑和判断，也可以请 AI 带着明确的任务和资料，帮助整理同一张图。**人用画布，AI 用命令；成果保存在独立的 JSON 文件里。**
 
 ![Paperstream 课堂：DeepSeek 讲解，GPT 与 Claude 专注听课](docs/assets/paperstream-classroom-promo-v4.png)
 
@@ -38,7 +38,7 @@ Paperstream 为这些认识留出一张画布。用卡片记下论文最值得�
 
 > 读取我的画布和这几篇论文资料，为新论文补一张卡片，写三条核心认识；把它与已有的两项工作连接起来，并说明关系依据。保留现在的布局和其他笔记。
 
-AI 通过 Paperstream 的 API 或命令行修改文件；你回到画布上检查、修正，再继续阅读。这样，批量整理和手工思考可以接续进行，你积累的布局与笔记也能继续保留。
+AI 通过 Paperstream 的本地命令读取和修改文件（图中标为 `command`）；你回到画布上检查、修正，再继续阅读。这样，批量整理和手工思考可以接续进行，你积累的布局与笔记也能继续保留。
 
 Paperstream 本身不调用模型。你可以使用具有本地执行能力的 agent，搭配仓库提供的操作指南；论文解释和关系判断仍需要回到来源核对。交接给 AI 前，先保存当前画布。
 
@@ -57,7 +57,9 @@ Paperstream 本身不调用模型。你可以使用具有本地执行能力的 a
 
 每张画布都是一份独立的 **`.canvas` JSON 文件**，论文、笔记、关系和布局一起保存。你可以放进自己的研究文件夹，复制给同事，做好备份，或用 Git 记录变化；换一台电脑、换一个支持的 Paperstream 宿主，仍可以继续编辑这份文件。
 
-![Paperstream 架构：人通过可视画布，AI 通过 API，共同维护独立的 JSON Canvas 文件](docs/assets/paperstream-architecture.svg)
+![Paperstream 架构：人通过鼠标、抓手、键盘与光标编辑，AI agent 通过 command 维护同一份独立 JSON Canvas 文件](docs/assets/paperstream-architecture.svg)
+
+[查看架构图 PNG](docs/assets/paperstream-architecture.png) · [Q 版头像的生成与来源](docs/assets/paperstream-agent-avatars-prompt.md)
 
 存档不依赖 Paperstream 的云端账号或数据库。插入、粘贴到卡片里的图片也内嵌在 JSON 中，随文件一起迁移；普通文件卡片引用的本地附件需要一并带走。JSON Canvas 的标准结构方便其他支持该格式的工具读取，Paperstream 的论文卡片与图片样式则需要相应支持。[文件迁移与兼容说明](docs/guide.md#文件格式与迁移)
 
