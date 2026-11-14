@@ -4,6 +4,7 @@ import { readPaper, serializeCanvas } from './canvas.ts';
 import type { CanvasEdge, CanvasNode, JSONCanvasDocument } from './canvas.ts';
 import { getNodeStrokeWidth, getEdgeStrokeWidth } from './appearance.ts';
 import { figureCaption, getCardKind, readFigures } from './card-media.ts';
+import { figureAlign, figureLayout } from './figure-layout.ts';
 import { isRelationNode, relationEdgeSides } from './graph-relations.ts';
 import { getContentBounds, layoutEdgeLabels } from './edge-label-layout.ts';
 import type { Point, Rect } from './edge-label-layout.ts';
@@ -23,7 +24,7 @@ export interface GraphExportOptions {
   scale?: number;
 }
 interface TextBlock extends Rect { lines: string[]; fontSize: number; lineHeight: number; bold?: boolean; align?: 'center' | 'right'; color: string; }
-interface Figure { x: number; y: number; width: number; height: number; src: string; }
+interface Figure extends Rect { src: string; radius: number; framed: boolean; image: Rect; }
 interface ExportNode extends Rect { id: string; radius: number; border: string; strokeWidth: number; kind?: TextBlock; title?: TextBlock; body: TextBlock; year?: TextBlock; figures: Figure[]; captions: TextBlock[]; url?: string; group: boolean; }
 interface ExportEdge extends ConnectionPath { id: string; color: string; strokeWidth: number; dash: string; shape: string; start: boolean; end: boolean; label?: TextBlock; }
 export interface ExportScene { bounds: Rect; nodes: ExportNode[]; edges: ExportEdge[]; background: string; cardBackground: string; }
@@ -36,7 +37,6 @@ const xml = (value: unknown) => String(value)
   .replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]!));
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const finite = (value: unknown, fallback: number) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
-const imageDimension = (value: unknown, fallback: number) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : fallback;
 function safeColor(value: unknown, fallback: string): string {
   if (typeof value !== 'string') return fallback;
   const color = PALETTE[value] ?? value;
@@ -91,8 +91,9 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
     const paper = readPaper(node), kind = getCardKind(node, Boolean(paper)), relation = isRelationNode(node);
     const heading = paper?.alias ?? node.label ?? node.file ?? node.url ?? (kind === 'page' ? '插页' : 'Note');
     const body = paper?.takeaway ?? (node.type === 'text' ? node.text ?? '' : '');
-    const inset = CARD_LAYOUT.paddingX, contentX = node.x + inset, contentWidth = Math.max(1, node.width - inset * 2);
-    let cursorY = node.y + (relation ? CARD_LAYOUT.relationPaddingTop : CARD_LAYOUT.paddingTop);
+    const strokeWidth = getNodeStrokeWidth(node);
+    const inset = CARD_LAYOUT.paddingX + strokeWidth, contentX = node.x + inset, contentWidth = Math.max(1, node.width - inset * 2);
+    let cursorY = node.y + strokeWidth + (relation ? CARD_LAYOUT.relationPaddingTop : CARD_LAYOUT.paddingTop);
     const kindLabel = node.type === 'group' ? '分组' : node.type === 'file' ? '文件' : node.type === 'link' ? '链接'
       : kind === 'page' ? '插页' : 'NOTE';
     const kindBlock = !relation && kind !== 'paper' ? textBlock(kindLabel, contentX, cursorY, contentWidth, 10, 15, muted) : undefined;
@@ -107,31 +108,34 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
     cursorY += bodyBlock.height;
     const figures: Figure[] = [], captions: TextBlock[] = [];
     for (const value of readFigures(node)) {
-      const figure = record(value);
-      const percent = Math.min(100, Math.max(15, finite(figure.widthPercent, 100)));
+      const percent = Math.min(100, Math.max(15, finite(value.widthPercent, 100)));
       const width = contentWidth * percent / 100;
-      // Imported optional metadata is not necessarily a decoded pixel size.
-      // Subnormal fractions can otherwise produce infinite export geometry.
-      const aspect = imageDimension(figure.naturalWidth, 4) / imageDimension(figure.naturalHeight, 3);
-      const height = width / aspect;
-      // Figures and captions share a left-aligned column, as in CardBody.
+      const layout = figureLayout(value, width), height = layout.height, align = figureAlign(value);
+      const figureX = contentX + (contentWidth - width) * (align === 'center' ? .5 : align === 'right' ? 1 : 0);
       if (figures.length || bodyBlock.height) cursorY += 10;
-      figures.push({ src: value.src, x: contentX, y: cursorY, width, height });
+      figures.push({ src: value.src, x: figureX, y: cursorY, width, height, radius: layout.radius, framed: layout.framed,
+        image: { ...layout.image, x: figureX + layout.image.x, y: cursorY + layout.image.y } });
       cursorY += height;
       const captionText = figureCaption(value);
       if (captionText) {
         cursorY += 5;
-        const caption = textBlock(captionText, contentX, cursorY, width, 10, 14, muted);
+        const caption = textBlock(captionText, align === 'center' ? contentX : figureX, cursorY,
+          align === 'center' ? contentWidth : width, 10, 14, muted);
+        if (align !== 'left') caption.align = align;
         captions.push(caption); cursorY += caption.height;
       }
     }
-    return { id: node.id, x: node.x, y: node.y, width: node.width, height: node.height,
+    // The editor enforces the natural content minimum even for fixed-height
+    // cards. Expand only the exported view, never the saved document; derive
+    // ports and label obstacles from that same visible border below. Compact
+    // relation nodes retain their explicit routing geometry.
+    const height = relation ? node.height : Math.max(node.height, 100, Math.ceil(cursorY - node.y
+      + (paper?.year ? CARD_LAYOUT.yearPadding : CARD_LAYOUT.paddingTop) + strokeWidth + 1));
+    return { id: node.id, x: node.x, y: node.y, width: node.width, height,
       radius: relation ? CARD_LAYOUT.relationRadius : CARD_LAYOUT.radius,
-      border: safeColor(node.color, '#9ab3a3'), strokeWidth: getNodeStrokeWidth(node), kind: kindBlock, title: titleBlock, body: bodyBlock,
-      // Legacy fixed-height documents may overflow. Preserve their card/edge
-      // geometry, but keep the footer below content and include it in bounds.
-      year: paper?.year ? { ...textBlock(String(paper.year), node.x + node.width - CARD_LAYOUT.yearRight - 42,
-        Math.max(node.y + node.height - CARD_LAYOUT.yearBottom - CARD_LAYOUT.yearLine, cursorY + 10), 42, CARD_LAYOUT.yearSize, CARD_LAYOUT.yearLine, muted), align: 'right' } : undefined,
+      border: safeColor(node.color, '#9ab3a3'), strokeWidth, kind: kindBlock, title: titleBlock, body: bodyBlock,
+      year: paper?.year ? { ...textBlock(String(paper.year), node.x + node.width - strokeWidth - CARD_LAYOUT.yearRight - 42,
+        Math.max(node.y + height - strokeWidth - CARD_LAYOUT.yearBottom - CARD_LAYOUT.yearLine, cursorY + 10), 42, CARD_LAYOUT.yearSize, CARD_LAYOUT.yearLine, muted), align: 'right' } : undefined,
       figures, captions, url: typeof url === 'string' && /^https?:\/\//i.test(url) ? url : undefined, group: node.type === 'group' };
   });
   const nodeMap = new Map(nodes.map(node => [node.id, node]));
@@ -187,9 +191,11 @@ export function exportGraphSvg(document: JSONCanvasDocument, options: GraphExpor
   const scene = buildExportScene(document, options), b = scene.bounds;
   const markers = scene.edges.map((edge, index) => `<marker id="arrow-${index}" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto-start-reverse" markerUnits="userSpaceOnUse">${edge.shape === 'circle' ? `<circle cx="6" cy="6" r="4" fill="${edge.color}"/>` : edge.shape === 'diamond' ? `<path d="M1 6 6 1 11 6 6 11Z" fill="${edge.color}"/>` : `<path d="M1 1 11 6 1 11${edge.shape === 'open' ? '' : 'Z'}" fill="${edge.shape === 'open' ? 'none' : edge.color}" stroke="${edge.color}"/>`}</marker>`).join('');
   const edgeMarkup = scene.edges.map((edge, index) => `<path d="${edge.path}" fill="none" stroke="${edge.color}" stroke-width="${edge.strokeWidth}"${edge.dash ? ` stroke-dasharray="${edge.dash}"` : ''}${edge.start ? ` marker-start="url(#arrow-${index})"` : ''}${edge.end ? ` marker-end="url(#arrow-${index})"` : ''}/>`).join('');
-  const nodeMarkup = scene.nodes.map(node => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="${node.radius}" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${node.kind ? svgText(node.kind) : ''}${node.title ? svgText(node.title) : ''}${svgText(node.body)}${node.figures.map(fig => `<image x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" preserveAspectRatio="xMidYMid meet" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
+  const figureClips = scene.nodes.flatMap((node, nodeIndex) => node.figures.map((fig, figureIndex) =>
+    `<clipPath id="figure-${nodeIndex}-${figureIndex}" clipPathUnits="userSpaceOnUse"><rect x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" rx="${fig.radius}"/></clipPath>`)).join('');
+  const nodeMarkup = scene.nodes.map((node, nodeIndex) => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="${node.radius}" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${node.kind ? svgText(node.kind) : ''}${node.title ? svgText(node.title) : ''}${svgText(node.body)}${node.figures.map((fig, figureIndex) => `${fig.framed ? `<rect x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" rx="${fig.radius}" fill="#eef3ed"/>` : ''}<image x="${fig.image.x}" y="${fig.image.y}" width="${fig.image.width}" height="${fig.image.height}" preserveAspectRatio="none" clip-path="url(#figure-${nodeIndex}-${figureIndex})" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
   const labels = scene.edges.flatMap(edge => edge.label ? [`<g data-edge-id="${xml(edge.id)}"><rect x="${edge.label.x}" y="${edge.label.y}" width="${edge.label.width}" height="${edge.label.lines.length * 18 + 12}" rx="${CARD_LAYOUT.labelRadius}" fill="${scene.cardBackground}" stroke="#cad8ce"/>${svgText({ ...edge.label, x: edge.label.x + 10, width: edge.label.width - 20 }, 5)}</g>`] : []).join('');
-  return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(b.width)}" height="${Math.ceil(b.height)}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" role="img" aria-label="Paperstream research graph"><defs>${markers}</defs><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="${scene.background}"/><g font-family="Arial, Microsoft YaHei, sans-serif">${edgeMarkup}${nodeMarkup}${labels}</g></svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(b.width)}" height="${Math.ceil(b.height)}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" role="img" aria-label="Paperstream research graph"><defs>${markers}${figureClips}</defs><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="${scene.background}"/><g font-family="Arial, Microsoft YaHei, sans-serif">${edgeMarkup}${nodeMarkup}${labels}</g></svg>`;
 }
 
 export function downloadBlob(blob: Blob, name: string): void {

@@ -4,7 +4,9 @@ import type { CanvasNode, Paper } from './canvas';
 import {
   addFigurePatch, figureCaption, figureFromFile, getCardKind, readFigures, removeFigurePatch, takeawayBlocks, updateFigurePatch,
 } from './card-media';
-import type { CardFigure } from './card-media';
+import type { CardFigure, FigurePatch } from './card-media';
+import { figureAlign, figureDimensions, figureLayout, readFigureFrame } from './figure-layout';
+import type { FigureAlign } from './figure-layout';
 import './card-body.css';
 
 export interface CardBodyProps {
@@ -32,9 +34,11 @@ function Figure({ figure, selected, busy, onResize }: {
   figure: CardFigure; selected: boolean; busy: boolean; onResize: (width: number) => void;
 }) {
   const caption = figureCaption(figure);
+  const align = figureAlign(figure), frame = readFigureFrame(figure), layout = figureLayout(figure, 1);
+  const dimensions = figureDimensions(figure), width = figure.widthPercent;
   const element = useRef<HTMLElement>(null);
   const gesture = useRef<{ id: number; startX: number; width: number; parentWidth: number; current: number;
-    target: HTMLButtonElement } | null>(null);
+    scale: number; target: HTMLButtonElement } | null>(null);
   const detach = useRef<(() => void) | null>(null);
   const latest = useRef({ width: figure.widthPercent, onResize });
   latest.current = { width: figure.widthPercent, onResize };
@@ -63,14 +67,14 @@ function Figure({ figure, selected, busy, onResize }: {
     finish(false);
     const target = event.currentTarget;
     gesture.current = { id: event.pointerId, startX: event.clientX, width: figure.widthPercent,
-      parentWidth, current: figure.widthPercent, target };
+      parentWidth, current: figure.widthPercent, scale: align === 'center' ? 2 : align === 'right' ? -1 : 1, target };
     const view = target.ownerDocument.defaultView ?? window;
     const move = (pointer: globalThis.PointerEvent) => {
       const current = gesture.current;
       if (!current || pointer.pointerId !== current.id) return;
       pointer.preventDefault(); pointer.stopPropagation();
       current.current = Math.round(Math.min(100, Math.max(15,
-        current.width + (pointer.clientX - current.startX) / current.parentWidth * 100)));
+        current.width + (pointer.clientX - current.startX) / current.parentWidth * 100 * current.scale)));
       setPreview(current.current);
     };
     const end = (pointer: globalThis.PointerEvent, commit: boolean) => {
@@ -97,11 +101,15 @@ function Figure({ figure, selected, busy, onResize }: {
     // They remain the fallback when the browser cannot retain pointer capture.
     try { target.setPointerCapture(event.pointerId); } catch { /* Window owns the active gesture. */ }
   };
-  return <figure ref={element} className="ps-card-figure" style={{ width: `${preview ?? figure.widthPercent}%` }}>
-    <img src={figure.src} alt={caption || '论文插图'} draggable={false}
-      width={figure.naturalWidth} height={figure.naturalHeight} />
-    {caption && <figcaption>{caption}</figcaption>}
-    {selected && <button type="button" className="ps-figure-resize nodrag nopan" disabled={busy}
+  return <figure ref={element} className={`ps-card-figure ps-figure-align-${align}`}>
+    <div className={`ps-figure-media${frame ? ' is-framed' : ''}`} style={{ width: `${preview ?? width}%`,
+      ...(frame ? { aspectRatio: frame.aspectRatio } : {}) }}>
+      <img src={figure.src} alt={caption || '论文插图'} draggable={false}
+        width={dimensions.width} height={dimensions.height} style={frame ? {
+          left: `${layout.image.x / layout.width * 100}%`, top: `${layout.image.y / layout.height * 100}%`,
+          width: `${layout.image.width / layout.width * 100}%`, height: `${layout.image.height / layout.height * 100}%`,
+        } : undefined} />
+      {selected && <button type="button" className={`ps-figure-resize nodrag nopan${align === 'right' ? ' is-left' : ''}`} disabled={busy}
       aria-label={`调整图片大小：${caption || 'fig'}`} title="拖动调整图片宽度；双击恢复铺满"
       onPointerDown={begin}
       onDoubleClick={event => { event.preventDefault(); event.stopPropagation(); onResize(100); }}
@@ -110,7 +118,9 @@ function Figure({ figure, selected, busy, onResize }: {
           event.preventDefault(); event.stopPropagation();
           onResize(Math.min(100, Math.max(15, figure.widthPercent + (event.key === 'ArrowRight' ? 5 : -5))));
         }
-      }}>↘</button>}
+      }}>{align === 'right' ? '↙' : '↘'}</button>}
+    </div>
+    {caption && <figcaption style={{ width: `${align === 'center' ? 100 : preview ?? width}%` }}>{caption}</figcaption>}
   </figure>;
 }
 
@@ -220,7 +230,7 @@ export function FigureControls({ node, busy, onPatchNode }: FigureControlsProps)
   const figures = readFigures(node);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { uploadGeneration.current++; setLoading(false); setError(''); }, [node.id]);
-  function update(id: string, patch: Partial<Pick<CardFigure, 'caption' | 'widthPercent'>>) {
+  function update(id: string, patch: FigurePatch) {
     try {
       const next = updateFigurePatch(currentNode.current, id, patch);
       currentNode.current = { ...currentNode.current, ...next };
@@ -254,9 +264,38 @@ export function FigureControls({ node, busy, onPatchNode }: FigureControlsProps)
         }
         finally { if (mounted.current && uploadGeneration.current === generation) setLoading(false); }
       }} />
-    {figures.map(figure => <div className="ps-figure-control" key={`${node.id}:${figure.id}`}>
+    {figures.map(figure => {
+      const frame = readFigureFrame(figure);
+      const mode = !frame ? 'natural' : frame.aspectRatio === .75 && frame.fit === 'cover' ? 'portrait'
+        : frame.aspectRatio === 1 && frame.fit === 'cover' ? 'square' : frame.aspectRatio === 1 && frame.fit === 'contain' ? 'contain' : 'custom';
+      return <div className="ps-figure-control" key={`${node.id}:${figure.id}`}>
       <label>图片说明<input aria-label="图片说明" disabled={busy || loading}
         value={figure.caption} onChange={event => update(figure.id, { caption: event.target.value })} /></label>
+      <div className="ps-figure-control-row ps-figure-presentation">
+        <label>显示<select aria-label="图片显示方式" value={mode} disabled={busy || loading}
+          onChange={event => {
+            const value = event.target.value;
+            if (value === 'custom') return;
+            update(figure.id, { frame: value === 'natural' ? null : {
+              aspectRatio: value === 'portrait' ? .75 : 1, fit: value === 'contain' ? 'contain' : 'cover',
+              positionX: 50, positionY: 50, zoom: 1,
+            } });
+          }}>
+          <option value="natural">原图</option><option value="square">方形头像</option>
+          <option value="portrait">肖像 3:4</option><option value="contain">完整方形</option>
+          {mode === 'custom' && <option value="custom">自定义取景框</option>}
+        </select></label>
+        <label>对齐<select aria-label="图片对齐" value={figureAlign(figure)} disabled={busy || loading}
+          onChange={event => update(figure.id, { align: event.target.value as FigureAlign })}>
+          <option value="left">靠左</option><option value="center">居中</option><option value="right">靠右</option>
+        </select></label>
+      </div>
+      {frame?.fit === 'cover' && <div className="ps-figure-framing">
+        <label>取景上下 <span>{frame.positionY}%</span><input type="range" aria-label="图片取景上下" min="0" max="100" step="1"
+          disabled={busy || loading} value={frame.positionY} onChange={event => update(figure.id, { frame: { ...frame, positionY: Number(event.target.value) } })} /></label>
+        <label>取景放大 <span>{frame.zoom.toFixed(2)}×</span><input type="range" aria-label="图片取景放大" min="1" max="4" step="0.05"
+          disabled={busy || loading} value={frame.zoom} onChange={event => update(figure.id, { frame: { ...frame, zoom: Number(event.target.value) } })} /></label>
+      </div>}
       <div className="ps-figure-control-row"><FigureWidthInput value={figure.widthPercent} disabled={busy || loading}
         onChange={widthPercent => update(figure.id, { widthPercent })} />
         <button type="button" disabled={busy || loading} onClick={() => update(figure.id, { widthPercent: 100 })}>铺满</button>
@@ -265,7 +304,7 @@ export function FigureControls({ node, busy, onPatchNode }: FigureControlsProps)
           catch (err) { setError(err instanceof Error ? err.message : String(err)); }
         }}>移除</button>
       </div>
-    </div>)}
+    </div>; })}
     {error && <p className="ps-card-media-error" role="alert">{error}</p>}
   </section>;
 }

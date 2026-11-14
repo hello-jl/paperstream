@@ -105,6 +105,29 @@ Storage: papers are standard `type: "text"` cards with a whole Markdown fenced
 `fromEnd` / `toEnd` arrows. Unknown fields are retained. Preserve existing versions
 you do not understand rather than coercing them into paper version 1.
 
+### Embedded figure presentation
+
+`paperstreamCard.figures` stores embedded raster `src`, stable `id`, `caption`,
+`widthPercent` (15–100) and decoded `naturalWidth` / `naturalHeight`. Preserve
+source attribution and unknown properties when editing these entries.
+
+An optional `align` is `left`, `center` or `right` (default `left`). An optional
+`frame` controls reversible display framing, without rewriting the source image:
+
+```json
+{"aspectRatio": 0.75, "fit": "cover", "positionX": 50, "positionY": 0, "zoom": 1.2}
+```
+
+`aspectRatio` is width / height, from 0.25 to 4. `fit` is `cover` (fill and crop)
+or `contain` (show the whole image at zoom 1). Positions range from 0 to 100;
+50 centers the scaled image in that axis. `zoom` ranges from 1 to 4. A frame is
+opt-in; absent or unsupported frames render at the original aspect ratio.
+Do not add frames to ordinary paper figures unless cropping was requested.
+The UI and SVG/PNG renderer use the same frame geometry. Use `set_document()`
+on a freshly loaded document for these extensions, then validate, save and
+read back. Frame changes must preserve embedded bytes and attribution unless
+the task explicitly includes replacing the source image.
+
 ## Errors and concurrency
 
 CLI success: exit 0 and JSON on stdout with `ok: true`, `operation`, and result

@@ -36,6 +36,35 @@ test('resizing and removal preserve unknown figure entries and extension keys', 
   assert.equal(readFigures(original)[0].widthPercent, 100);
 });
 
+test('figure framing patches preserve unrelated fields and explicit removal returns to the original source', () => {
+  const original = { ...node(), paperstreamCard: { custom: 7, figures: [{ ...image, align: 'center',
+    frame: { aspectRatio: .75, fit: 'cover', positionY: 27, futureFrame: { keep: [1, 2] } }, future: true }] } };
+  const resized = { ...original, ...updateFigurePatch(original, image.id, { widthPercent: 30, caption: 'Hinton' }) };
+  assert.deepEqual(readFigures(resized)[0].frame, original.paperstreamCard.figures[0].frame);
+  const reframed = { ...resized, ...updateFigurePatch(resized, image.id, { frame: { aspectRatio: 1, fit: 'contain' }, align: 'right' }) };
+  assert.deepEqual(readFigures(reframed)[0].frame, { ...original.paperstreamCard.figures[0].frame, aspectRatio: 1, fit: 'contain' });
+  assert.equal(readFigures(reframed)[0].align, 'right');
+  const restored = { ...reframed, ...updateFigurePatch(reframed, image.id, { frame: null }) };
+  assert.equal(Object.hasOwn(readFigures(restored)[0], 'frame'), false);
+  assert.equal(readFigures(restored)[0].src, image.src);
+  assert.equal(readFigures(restored)[0].naturalWidth, image.naturalWidth);
+  assert.equal(readFigures(restored)[0].future, true);
+  assert.equal(restored.paperstreamCard.custom, 7);
+});
+
+test('unknown frame and alignment formats survive ordinary edits while explicit invalid changes fail', () => {
+  const original = { ...node(), paperstreamCard: { figures: [{ ...image, frame: { future: true }, align: { future: 'keep' } }] } };
+  const edited = { ...original, ...updateFigurePatch(original, image.id, { caption: 'Changed' }) };
+  assert.deepEqual(readFigures(edited)[0].frame, { future: true });
+  assert.deepEqual(readFigures(edited)[0].align, { future: 'keep' });
+  for (const frame of [undefined, {}, { aspectRatio: 9, fit: 'cover' }, { aspectRatio: 1, fit: 'cover', zoom: 5 },
+    { aspectRatio: 1, fit: 'cover', positionY: -1 }]) {
+    assert.throws(() => updateFigurePatch(original, image.id, { frame } as never), /取景框/);
+  }
+  assert.throws(() => updateFigurePatch(original, image.id, { align: 'stretch' } as never), /对齐/);
+  assert.deepEqual(readFigures(original)[0].frame, { future: true });
+});
+
 test('unsupported card/media formats remain readable and cannot be silently overwritten', () => {
   for (const extension of [false, null, 12, 'future', ['future']]) {
     const original = { ...node(), paperstreamCard: extension };

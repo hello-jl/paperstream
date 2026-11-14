@@ -4,6 +4,7 @@ import { addEdge, addNode, createCanvas, createEdge, createPaperNode } from './c
 import type { CanvasNode, JSONCanvasDocument } from './canvas.ts';
 import { buildExportScene, downloadGraph, exportGraphSvg, wrapExportText } from './graph-export.ts';
 import { createRelationNode } from './graph-relations.ts';
+import { figureLayout } from './figure-layout.ts';
 
 // Complete RGBA PNGs with valid IHDR/IDAT/IEND chunks and CRCs, not placeholder bytes.
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAADklEQVR4nGMwmJDwH4QBEOMEP0iNvQ8AAAAASUVORK5CYII=';
@@ -42,7 +43,7 @@ test('compact shared relations export only centered text inside the original 44p
   assert.equal(exported.title, undefined);
   assert.equal(exported.kind, undefined);
   assert.equal(exported.body.align, 'center');
-  assert.equal(exported.body.y, node.y + 12);
+  assert.equal(exported.body.y, node.y + 13);
   assert.equal(exported.body.x + exported.body.width / 2, node.x + node.width / 2);
   assert.equal(exported.body.lines.length, 1);
   contains(node, exported.body, 'short relation text');
@@ -64,7 +65,7 @@ test('long and multiline shared labels expand export bounds without moving cards
     assert.ok(exported.body.y + exported.body.height > exported.y + exported.height);
     assert.equal(exported.height, 44);
     assert.deepEqual(scene.edges[0].points[0], { x: -455, y: -330 }, 'shared labels use the port facing the first waypoint');
-    assert.deepEqual(scene.edges[0].points.at(-1), { x: -100, y: -308 });
+    assert.deepEqual(scene.edges[0].points.at(-1), { x: -100, y: -280 }, 'the target port follows its visible minimum-height border');
     assert.ok(scene.edges[0].points.some(point => point.x === -200 && point.y === -400));
     assertSceneContainsContent(scene);
     const svg = exportGraphSvg(graph, { padding: 0 });
@@ -74,24 +75,26 @@ test('long and multiline shared labels expand export bounds without moving cards
   }
 });
 
-test('figure captions use figure width and overflowing text, media and year all remain inside export bounds', () => {
+test('short cards expand their export border around full media, captions and a bottom-attached year', () => {
   const node = createPaperNode({ alias: 'Paper', takeaway: 'A useful result', year: 2025 }, { id: 'media', x: -620, y: -480, width: 220, height: 90 });
   node.paperstreamCard = { unknown: 'keep', figures: [{ id: 'image', src: TALL_PNG, widthPercent: 50,
     naturalWidth: 1, naturalHeight: 2, aspectRatio: 99, inset: true,
     caption: '这是一段必须按图片宽度换行的完整图注\n第二段图注' }] };
   const graph = addNode(createCanvas(), node), before = JSON.stringify(graph);
   const scene = buildExportScene(graph, { padding: 0 }), exported = scene.nodes[0], figure = exported.figures[0], caption = exported.captions[0];
-  assert.equal(exported.title!.y, node.y + 16);
+  assert.equal(exported.title!.y, node.y + 17);
   assert.ok(exported.body.y >= exported.title!.y + exported.title!.height + 9);
-  assert.equal(figure.width, 92);
-  assert.equal(figure.height, 184);
-  assert.equal(figure.x, node.x + 18, 'unknown extensions do not override CardBody placement');
+  assert.equal(figure.width, 91);
+  assert.equal(figure.height, 182);
+  assert.equal(figure.x, node.x + 19, 'content inset includes the actual card border');
   assert.equal(caption.x, figure.x);
   assert.equal(caption.width, figure.width);
   assert.ok(caption.lines.length >= 3);
   assert.equal(caption.y, figure.y + figure.height + 5);
   assert.ok(exported.year!.y >= caption.y + caption.height + 10);
-  assert.equal(exported.height, node.height);
+  assert.ok(exported.height > node.height);
+  for (const block of [exported.title!, exported.body, figure, caption, exported.year!]) contains(exported, block, 'content inside border');
+  assert.equal(exported.year!.y + exported.year!.height, exported.y + exported.height - 16);
   assertSceneContainsContent(scene);
   assert.equal(JSON.stringify(graph), before);
 });
@@ -110,6 +113,49 @@ test('legacy filename captions stay stored but are absent from image exports', (
   const svg = exportGraphSvg(graph);
   assert.ok(!svg.includes('screen shot.PNG'));
   assert.ok(!svg.includes('结果.jpeg'));
+  assert.equal(JSON.stringify(graph), before);
+});
+
+test('centered portrait frames and full-width captions export the same crop rectangle as the UI', () => {
+  const node = createPaperNode({ alias: 'Portrait', takeaway: 'Two contributors' }, { id: 'portrait', x: 20, y: 30, width: 400, height: 400 });
+  const figure = { id: 'photo', src: TALL_PNG, naturalWidth: 1, naturalHeight: 2, widthPercent: 30,
+    caption: 'A name long enough to use the whole card', align: 'center',
+    frame: { aspectRatio: .75, fit: 'cover', positionX: 20, positionY: 30, zoom: 1.5 } };
+  node.paperstreamCard = { figures: [figure] };
+  const graph = { nodes: [node], edges: [] }, before = JSON.stringify(graph), scene = buildExportScene(graph);
+  const exported = scene.nodes[0], photo = exported.figures[0], caption = exported.captions[0];
+  const shared = figureLayout(figure, photo.width);
+  assert.equal(photo.x + photo.width / 2, node.x + node.width / 2);
+  assert.equal(photo.height, photo.width / .75);
+  assert.deepEqual(photo.image, { ...shared.image, x: photo.x + shared.image.x, y: photo.y + shared.image.y });
+  assert.equal(caption.align, 'center'); assert.equal(caption.x, node.x + 19); assert.equal(caption.width, node.width - 38);
+  const svg = exportGraphSvg(graph);
+  assert.match(svg, /<clipPath id="figure-0-0" clipPathUnits="userSpaceOnUse"><rect[^>]+rx="6"/);
+  assert.match(svg, /preserveAspectRatio="none" clip-path="url\(#figure-0-0\)"/);
+  assert.ok(svg.includes(TALL_PNG), 'the embedded original bytes are unchanged');
+  assert.equal(JSON.stringify(graph), before);
+});
+
+test('right aligned complete frames preserve the entire source and missing dimensions use raster headers', () => {
+  const node = createPaperNode({ alias: 'Figure', takeaway: '' }, { id: 'figure', x: -20, y: -30, width: 400, height: 400 });
+  node.paperstreamCard = { figures: [{ id: 'photo', src: PNG, widthPercent: 25, caption: 'Complete source', align: 'right',
+    frame: { aspectRatio: 1, fit: 'contain' } }] };
+  const graph = { nodes: [node], edges: [] }, scene = buildExportScene(graph), exported = scene.nodes[0], photo = exported.figures[0];
+  assert.equal(photo.x + photo.width, node.x + node.width - 19);
+  assert.equal(photo.height, photo.width);
+  assert.equal(photo.image.width, photo.width); assert.equal(photo.image.height, photo.height / 2);
+  assert.equal(photo.image.y, photo.y + photo.height / 4);
+  assert.equal(exported.captions[0].align, 'right'); assert.equal(exported.captions[0].width, photo.width);
+  assertSceneContainsContent(scene);
+});
+
+test('unknown frame formats remain natural and every exported image receives its own rounded clip', () => {
+  const graph = sample();
+  for (const node of graph.nodes) node.paperstreamCard = { figures: [{ id: 'same-id', src: PNG, caption: '', widthPercent: 20,
+    frame: { future: true }, aspectRatio: 99 }] };
+  const before = JSON.stringify(graph), scene = buildExportScene(graph), svg = exportGraphSvg(graph);
+  for (const node of scene.nodes) assert.equal(node.figures[0].height, node.figures[0].width / 2);
+  assert.match(svg, /clipPath id="figure-0-0"/); assert.match(svg, /clipPath id="figure-1-0"/);
   assert.equal(JSON.stringify(graph), before);
 });
 
@@ -197,8 +243,8 @@ test('only portable raster images are embedded, with per-figure dimensions and n
   ] };
   const scene = buildExportScene(graph), svg = exportGraphSvg(graph);
   assert.equal(scene.nodes[0].figures.length, 1);
-  assert.equal(scene.nodes[0].figures[0].width, 132);
-  assert.equal(scene.nodes[0].figures[0].height, 66);
+  assert.equal(scene.nodes[0].figures[0].width, 127);
+  assert.equal(scene.nodes[0].figures[0].height, 63.5);
   assert.ok(svg.includes(PNG));
   assert.match(svg, /Figure &lt;1&gt;/);
   assert.doesNotMatch(svg, /tracking\.png|image\/svg\+xml;base64/);

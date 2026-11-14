@@ -1,6 +1,8 @@
 import { CanvasError } from './canvas.ts';
 import type { CanvasNode } from './canvas.ts';
 import { rasterDimensions } from './image-dimensions.ts';
+import { validFigureFrame } from './figure-layout.ts';
+import type { FigureAlign, FigureFrame } from './figure-layout.ts';
 
 export type CardKind = 'paper' | 'note' | 'relation' | 'page';
 export interface CardFigure {
@@ -11,6 +13,13 @@ export interface CardFigure {
   naturalWidth?: number;
   naturalHeight?: number;
   [key: string]: unknown;
+}
+export interface FigurePatch {
+  caption?: string;
+  widthPercent?: number;
+  /** null explicitly returns to the original, uncropped image. */
+  frame?: FigureFrame | null;
+  align?: FigureAlign;
 }
 export const MAX_FIGURE_BYTES = 8 * 1024 * 1024;
 export const MAX_FIGURE_PIXELS = 32_000_000;
@@ -74,14 +83,28 @@ export function addFigurePatch(node: CanvasNode, figure: CardFigure): Partial<Ca
   return figuresPatch(node, [...figures, { ...figure }]);
 }
 export function updateFigurePatch(node: CanvasNode, id: string,
-  patch: Partial<Pick<CardFigure, 'caption' | 'widthPercent'>>): Partial<CanvasNode> {
-  if (!Object.keys(patch).every(key => ['caption', 'widthPercent'].includes(key))) {
-    throw new CanvasError('只可调整图片说明和宽度。');
+  patch: FigurePatch): Partial<CanvasNode> {
+  if (!Object.keys(patch).every(key => ['caption', 'widthPercent', 'frame', 'align'].includes(key))) {
+    throw new CanvasError('只可调整图片说明、宽度、取景框和对齐。');
+  }
+  if (Object.hasOwn(patch, 'frame') && patch.frame !== null && !validFigureFrame(patch.frame)) {
+    throw new CanvasError('图片取景框须使用 0.25–4 的比例、cover/contain、0–100 的位置及 1–4 的缩放。');
+  }
+  if (Object.hasOwn(patch, 'align') && !['left', 'center', 'right'].includes(patch.align!)) {
+    throw new CanvasError('图片对齐须为 left、center 或 right。');
   }
   let found = false;
   const figures = rawFigures(node).map(item => {
     if (!isFigure(item) || item.id !== id) return item;
     const next = { ...item, ...patch };
+    if (Object.hasOwn(patch, 'frame')) {
+      if (patch.frame === null) delete next.frame;
+      else {
+        const frame = { ...(object(item.frame) ? item.frame : {}), ...patch.frame };
+        if (!validFigureFrame(frame)) throw new CanvasError('图片取景框包含无效的原有位置或缩放，请完整设置取景框。');
+        next.frame = frame;
+      }
+    }
     if (!isFigure(next)) throw new CanvasError('图片宽度须为 15–100%，说明为文本。');
     found = true;
     return next;
