@@ -18,6 +18,8 @@
 
 另增加紧凑分享海报 `computing-ai-history-poster-v2`：四行横向卡片，左侧固定 112×149⅓ 肖像框，右侧标题与摘要，年份贴卡片右下角。`scripts/export-history-poster.mjs` 通过 `show --raw` 读取已保存的完整文档，沿用原照片、取景参数、正文、来源链接和可见署名；仅调整静态海报构图，不写回 Canvas，也不改变编辑器布局。复现命令见 [历史来源表](../research/computing-ai-history-sources.md#紧凑海报版2026-11-14)。SVG 为 2560×1820，PNG 为 3200×2275；16 张肖像、12 条时间顺序线及源文件字节保持核验通过，两人分别实际查看排版，无内容遮挡或裁切。
 
+按用户进一步澄清，交付实际可编辑的 `examples/computing-ai-history-connected.canvas`，由 `scripts/create-connected-ai-history.py` 加载完整原图并通过 CanvasGraph 新建保存。仅修改标题阅读说明，追加 `time_row_1_to_2`、`time_row_2_to_3`、`time_row_3_to_4`，形成 16 个里程碑／15 条连续时间边；行间线从末卡底部穿过空隙接下一行首卡顶部，折点保存于 `paperstreamStyle.waypoints`。保留原 18 卡、12 边、照片、取景、归属与未知字段，原文件字节不变。实际在应用内浏览器的单文件桥打开，确认卡片／边数量、跨行路径、双击简称进入输入框并取消，以及详情中的图片宽度／对齐／取景控件。原生文件面板的打开请求返回 queued，未将其记为本轮原生渲染验证。头像仍在正文下方，随卡片移动但不支持卡内任意拖放；静态海报的左右排版不是现有运行时能力。
+
 ## 架构图：图形操作与 command（2026-11-14）
 
 架构图改用面向使用者的图示：人工侧为箭头点击、抓手拖动、键盘输入和文本框中的 I 型光标；agent 侧为 DeepSeek、GPT、Claude 社区拟人的 Q 版大头头像。只在 agent 与文件之间的双向通道标记“command”，人工通道保留“打开／保存”；主标为“人用画布，AI 用命令”。这里指 Paperstream 的本地操作命令，宣传口径与 README 同步，技术指南、API 参考及现有 Python API／CLI 的实现不改名。头像是用户自有 agent 的示意，不表示内置模型选择器或提供模型账号。

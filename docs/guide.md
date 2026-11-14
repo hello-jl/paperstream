@@ -22,6 +22,7 @@ npm --prefix web run dev
 | [量子力学经典论文](../examples/quantum-foundations.canvas) | 围绕一个学科组织阅读 |
 | [DeepH 阅读路线](../examples/deeph-reading.canvas) | 整理具体研究方向的阅读路线 |
 | [从电子计算到 AI](../examples/computing-ai-history.canvas) | 含人物肖像的计算机与 AI 发展图 |
+| [AI 历史连续时间线](../examples/computing-ai-history-connected.canvas) | 用真实连线连续串起 16 个里程碑，可继续编辑 |
 | [深度学习的几条发展线](../examples/deep-learning-history.canvas) | 从反向传播到视觉、注意力、语言与生成模型 |
 
 历史画布的人物、论文来源及素材许可分别见 [计算机与 AI 来源表](research/computing-ai-history-sources.md)、[深度学习来源表](research/deep-learning-history-sources.md)。分享导出图时请带上相应来源表。
