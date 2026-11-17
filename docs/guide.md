@@ -125,7 +125,7 @@ API 保存检查读取时的磁盘版本，使用协作锁与原子替换。它�
 
 API 负责读写与校验；CLI 让有本地执行能力的 agent 调用 API；Skill 说明整理步骤、来源核对和冲突处理；AGENTS.md 约束当前仓库的工作。
 
-MCP 可以将 API 包装成可发现的工具，但不会自动补齐业务规则。**当前 Codex MCP 提供画布 UI 资源和文件入口，没有供模型增删改图的通用工具。** Claude 接入使用 Skill、CLI 与本地文件桥。当前沿用同一套 API 写入逻辑；没有 shell 的客户端如需改图，仍需额外接入。详见 [交互方式审查](research/agent-interaction-audit.md)。
+MCP 将 API 包装成可发现的工具，但不会自动补齐业务规则。**Codex 原生文件适配器只提供 UI 资源和文件入口。** 新增的[标准 MCP Apps 适配器](../mcp/README.md)另行提供模型可用的读图、批量修改工具，以及不依赖 OpenAI 文件协议的内嵌画布；没有 Shell 也能按稳定 ID 操作预选文件。Claude Code 的 Skill／CLI／本地文件桥继续保留。本地 API／CLI、文件桥与标准 MCP 共用 CanvasGraph；Codex 原生面板按宿主资源协议保存。简单 MCP 操作无需另装 Skill，论文来源和交接规范仍有必要。详见 [交互方式审查](research/agent-interaction-audit.md)。
 
 Paperstream 编辑器不内置模型调用，也不提供模型账号。可使用哪种 agent，取决于所选客户端及其本地执行能力。
 
@@ -151,11 +151,12 @@ Paperstream 编辑器不内置模型调用，也不提供模型账号。可使�
 | 独立浏览器 | 完整编辑器；本地桥的真实文件读写、外改及冲突已验收 | [开始使用](#开始使用) |
 | DSH Web | 复用宿主 React 的主面板插件；macOS／Chrome／DSH 0.2.2-rc.1 已实测 | [DSH 说明](../dsh/README.md) |
 | ChatGPT／Codex 桌面文件面板 | 原生侧栏显示画布；本机 Codex 会话已实测编辑、撤销重做、写盘、外改与冲突 | [本地插件安装](../codex/README.md) |
+| 标准 MCP Apps | 模型服务器工具与内嵌画布；stdio／本地参考宿主已测，Claude 账号实机待验 | [配置与工具约定](../mcp/README.md) |
 | Claude Code | 插件加本地 Browser 页面；包校验、隔离安装、浏览器读写通过，真实 Claude 会话待验收 | [插件与账号边界](../claude/README.md) |
 
-Codex 插件 UI 运行需要 Node.js 22.18+，其 agent CLI 另需 Python 3.10+。Claude 便携包运行只需 Python 3.10+，构建仍需 web 依赖。DSH 的当前宿主版本要求 Node.js 24.9+。
+Codex 插件 UI 运行需要 Node.js 22.18+，其 agent CLI 另需 Python 3.10+。标准 MCP 适配器需要 Node.js 22.18+ 与 Python 3.10+。Claude Code 浏览器便携包运行只需 Python 3.10+，构建仍需 web 依赖。DSH 的当前宿主版本要求 Node.js 24.9+。
 
-Claude Browser 入口使用本地页面，当前不是 Claude 原生文件查看器。Codex 原生文件适配的验收仅覆盖已测试的桌面会话，不代表所有 Chat／Work 入口与平台版本。远程宿主资源按宿主 revision / ETag 保存，不能绕过宿主另写一个同名本地文件。
+Claude Code Browser 入口使用本地页面，当前不是 Claude 原生文件查看器。Codex 原生文件适配的验收仅覆盖已测试的桌面会话，不代表所有 Chat／Work 入口与平台版本。远程宿主资源按宿主 revision / ETag 保存，不能绕过宿主另写一个同名本地文件。
 
 尚未完成验证的范围包括 Claude 账号内使用、DSH Desktop、其他操作系统和大规模画布。原生宿主仍观察到 ResizeObserver 循环告警，根因未解决，尚未观察到它造成保存失败。最近的检查结果见 [开源前验收记录](mechanisms/paperstream-design.md#开源前验收2026-11-13)。
 
@@ -173,6 +174,6 @@ npm --prefix dsh test
 node dsh/verify-build.mjs
 ```
 
-桌面适配按各自 [Codex](../codex/README.md)／[Claude](../claude/README.md) 说明安装依赖、执行 typecheck、build 与 test。界面基于 React Flow，智能布局使用 ELK，Python 运行时无第三方依赖。
+桌面适配按各自 [Codex](../codex/README.md)／[标准 MCP](../mcp/README.md)／[Claude Code](../claude/README.md) 说明安装依赖、执行 typecheck、build 与 test。界面基于 React Flow，智能布局使用 ELK，Python 运行时无第三方依赖。
 
 构建和自动测试不能替代宿主验收。修改读写或交互行为后，应在临时副本中核对保存结果，同时检查冲突与失败路径。问题报告请提供复现步骤、宿主／版本和脱敏后的最小图，不提交访问令牌、个人草稿或论文附件。设计与机制维护在 [设计文档](mechanisms/paperstream-design.md)。

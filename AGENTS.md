@@ -1,10 +1,12 @@
 # Paperstream agent 约定
 
-Paperstream 让人和 agent 维护同一份独立 JSON Canvas 文档：人用 React Flow 画布编辑，agent 用 Python 标准库 API 或 CLI 做可核对的修改。新工作使用 `.canvas`，旧 Mermaid API 与档案继续保留。自动化改图必须经过 API。
+Paperstream 让人和 agent 维护同一份独立 JSON Canvas 文档：人用 React Flow 画布编辑，agent 用 Python 标准库 API、CLI 或其标准 MCP 工具做可核对的修改。新工作使用 `.canvas`，旧 Mermaid API 与档案继续保留。自动化改图必须经过 API。
 
 本文件适用于本仓库的工作。可单独分发给其他 agent 的改图指南是 [skills/paperstream/SKILL.md](skills/paperstream/SKILL.md)；完整的命令样例、运行时定位与错误处理见其 [API 参考](skills/paperstream/references/api.md)。
 
 ## 使用画布：读取、定点修改、核验
+
+若当前宿主提供标准 `paperstream_*` MCP 工具，先 `paperstream_list_canvases` 取得预选文件 ID，再 `paperstream_read_graph` 读取所有节点、边和 revision，以稳定 ID 调 `paperstream_apply_changes`，传入该次读取的 `expectedRevision`。服务器从完整文档加载并通过 CanvasGraph 一次保存；模型阅读视图省略图片源字节，不能据此重建整图。冲突时重读并核对意图，不换一个新版本号盲重试。工具范围与示例见 [标准 MCP 约定](mcp/README.md#给-agent-的工具约定)。以下步骤适用于本地 API／CLI。
 
 1. 确认用户指定的文件与请求范围；操作 Canvas 时先运行 `python3 -m paperstream show <file> --raw` 读取完整文档，使用返回的稳定节点、边 ID。Mermaid 使用不带 `--raw` 的 `show`。`nodes()` / 普通 `show` 仅提供论文与关系摘要，不能作为整图重建来源。
 2. 普通字段使用 `update_node` / `update_edge` 或对应 CLI 子命令。多个相关变更优先在同一个 `CanvasGraph.load()` 实例内完成，`validate()` 后 `save()` 一次；Python 的 `with CanvasGraph.load(...)` 会在正常退出时保存。CLI 每个修改命令分别加载、保存，不是跨命令事务。

@@ -45,6 +45,7 @@ Paperstream 的设计围绕三件事收敛：**紧凑的学术卡片语义**、*
 - **标准 JSON Canvas 1.0 单文件可迁移**：论文字段存于标准 `type: "text"` 卡片的 fenced JSON 代码块（`"paperstream": 1`），关系存于标准边 `label`，视觉与依据扩展分别保存在 `paperstreamCard` / `paperstreamStyle` / `paperstreamRelation`，粘贴图片以 data URL 内嵌于 JSON 中。完整保留普通文本卡、文件卡、链接、分组框、节点数组叠放顺序与未知扩展字段；可用 `export-canvas` 将旧版 `.mmd` 单向导出为 `.canvas`（详见[文件格式与迁移](docs/guide.md#文件格式与迁移)）。
 - **零依赖 Python 标准库 API / CLI**：仅需 Python 3.10+，无任何第三方 Python 运行依赖。提供 `CanvasGraph` 与 `python3 -m paperstream` CLI 按稳定 ID 增删改查；基于读取时的磁盘快照（SHA-256 `source_revision`）、同目录协作锁与临时文件原子替换防止静默覆盖——遇到外部更改会明确报错（`ConflictError` / HTTP 409），保留原文件不强行覆盖。
 - **可分发的标准作业 Skill**：仓库提供 [`skills/paperstream/`](skills/paperstream/SKILL.md) 及 [API 参考](skills/paperstream/references/api.md)，约束 Agent 严格执行“先读全图取稳定 ID → 按需定点修改 → 回读核验、缺失字段留空不编造”的工作流（分发时请带上整个 `skills/paperstream/` 目录）。
+- **标准 MCP Apps 入口**：[`mcp/`](mcp/README.md) 让没有 Shell 的模型也能发现读图、批量改图工具，并在支持 MCP Apps 的宿主中显示同一画布。文件在启动时预选，写入必须带 revision；继续调用 CanvasGraph，不另造存储格式。
 
 ## 快速上手
 
@@ -75,6 +76,10 @@ python3 -m paperstream serve examples/resnet.canvas --read-only --port 3817
 ```
 
 服务会在终端打印包含随机令牌的完整本机 URL（`http://127.0.0.1:3817/#token=...`），请打开**完整链接**（裸端口没有文件权限）。准备编辑自己的画布时，将路径替换为你的 `.canvas` 并去掉 `--read-only`。服务仅监听 `127.0.0.1` 且只授权启动时指定的文件，不提供目录浏览或任意路径读写。
+
+### 方式三：在支持 MCP Apps 的对话里使用
+
+构建 [`mcp/`](mcp/README.md)，把本地 stdio 服务和要授权的 `.canvas` 路径加入 Claude Desktop 的 `mcpServers` 配置。模型可调用读图、定点修改工具，人可在内嵌画布操作，无需再打开 HTTP 页面。具体配置、工具约定与验收边界见 [标准 MCP Apps 说明](mcp/README.md)。Claude 账户内的实际显示和权限交互仍待实机验证；这份本地配置不用于 `claude.ai` 的云端远程连接器。
 
 ## 人机协作与命令示例
 
@@ -124,7 +129,7 @@ with CanvasGraph.load("/path/to/papers.canvas") as graph:
 
 ## 精选画布样例
 
-仓库 `examples/` 目录随附 6 份经过 API 校验的 `.canvas` 示例，打开工作台后可直接另存为自己的副本试用：
+仓库 `examples/` 目录随附 7 份经过 API 校验的 `.canvas` 示例，打开工作台后可直接另存为自己的副本试用：
 
 | 样例文件 | 规模 | 适合用来了解什么 | 来源说明 |
 | --- | --- | --- | --- |
@@ -132,8 +137,9 @@ with CanvasGraph.load("/path/to/papers.canvas") as graph:
 | [cnn-evolution.canvas](examples/cnn-evolution.canvas) | 4 篇论文 · 3 条关系 | LeNet-5 → AlexNet ↔ VGG → ResNet 经典卷积演进（含双向对照关系） | — |
 | [deeph-reading.canvas](examples/deeph-reading.canvas) | 4 篇论文 · 3 条关系 | 从 DFT 理论基础到 DeepH / DeepH-E3 等变神经网络的专题阅读路线 | — |
 | [quantum-foundations.canvas](examples/quantum-foundations.canvas) | 6 篇论文 · 5 条关系 | 1925–1964 量子力学奠基原始文献脉络与概念对照 | — |
-| [deep-learning-history.canvas](examples/deep-learning-history.canvas) | 17 张卡片（14 篇论文 + 3 张说明）· 8 条关系 | 1986–2022 深度学习关键路线、关系依据与统一 3:4 取景肖像 | [深度学习来源表](docs/research/deep-learning-history-sources.md) |
-| [computing-ai-history.canvas](examples/computing-ai-history.canvas) | 18 张卡片（16 个里程碑 + 2 张说明）· 12 条连线 | 1946–2026 从电子计算到现代 AI 精选导览与人物肖像 | [计算机与 AI 来源表](docs/research/computing-ai-history-sources.md) |
+| [deep-learning-history.canvas](examples/deep-learning-history.canvas) | 17 张卡片（14 篇论文 + 3 张说明）· 8 条关系 | 1986–2022 深度学习路线、关系依据，混用人物肖像与原理示意图 | [深度学习来源表](docs/research/deep-learning-history-sources.md) |
+| [computing-ai-history.canvas](examples/computing-ai-history.canvas) | 18 张卡片（16 个里程碑 + 2 张说明）· 12 条连线 | 1946–2026 从电子计算到现代 AI 的精选导览 | [计算机与 AI 来源表](docs/research/computing-ai-history-sources.md) |
+| [computing-ai-history-connected.canvas](examples/computing-ai-history-connected.canvas) | 18 张卡片 · 15 条连线 | 用行间回折线连续串起 16 个里程碑，可手工继续编辑 | [计算机与 AI 来源表](docs/research/computing-ai-history-sources.md) |
 
 ![Paperstream 导出整图：深度学习的几条发展线](docs/assets/deep-learning-history.png)
 
@@ -156,7 +162,8 @@ with CanvasGraph.load("/path/to/papers.canvas") as graph:
 | 单文件本地桥（`paperstream serve`） | Python 3.10+（构建前端需 Node.js 22.18+） | `127.0.0.1` 单文件 HTTP 桥，Bearer 令牌认证 + `If-Match` 防冲突 | 已在普通浏览器实测读写与冲突保留 | [使用指南](docs/guide.md#直接绑定一份本地文件) |
 | DSH Web 主面板（`dsh/`） | `@deepseek-ai/dsh@0.2.2-rc.1`、Node.js 24.9+ | 复用宿主 React 挂载左侧导航与主面板，支持宿主偏好落盘与本机打开原文 | macOS / Chrome / DSH Web 0.2.2-rc.1 已实测（Desktop 待验） | [DSH 插件说明](dsh/README.md) |
 | ChatGPT / Codex 桌面文件面板（`codex/`） | Node.js 22.18+（Agent CLI 另需 Python 3.10+） | 基于 MCP Apps 与 OpenAI `openai/resource` 扩展的原生侧栏 `.canvas` 编辑器 | 本机 Codex 桌面会话已实测编辑、撤销、写盘、外改刷新与冲突保护 | [Codex 插件说明](codex/README.md) |
-| Claude Code 本地插件（`claude/`） | 便携包运行仅需 Python 3.10+ | 面向 **Claude Code**（终端 CLI 或桌面端 Code 本地会话）：内置 Skill 调用本地 Python CLI 改图，`/paperstream:open` 启动单文件本地网页桥 | 本地打包、官方 `plugin validate --strict` 与 HTTP 读写冲突已测；真实账号会话待验。**注：不含 MCP Server，不支持在普通 Claude App 对话窗或文件侧栏原生内嵌打开 `.canvas`** | [Claude Code 说明](claude/README.md) |
+| 标准 MCP Apps（`mcp/`） | Node.js 22.18+、Python 3.10+；宿主需支持本地 stdio，显示画布还需 MCP Apps | 服务器提供模型工具与内嵌画布，预选文件、按 revision 保存；不依赖 `openai/resource` | 真实 stdio 与本地 AppBridge 参考宿主已测；Claude 账号内授权和显示待验 | [标准 MCP Apps 说明](mcp/README.md) |
+| Claude Code 本地插件（`claude/`） | 便携包运行仅需 Python 3.10+ | 面向 **Claude Code**（终端 CLI 或桌面端 Code 本地会话）：内置 Skill 调用本地 Python CLI 改图，`/paperstream:open` 启动单文件本地网页桥 | 本地打包、官方 `plugin validate --strict` 与 HTTP 读写冲突已测；真实账号会话待验。此包不含 MCP Server；普通 Desktop 对话请使用上面的标准 MCP 配置 | [Claude Code 说明](claude/README.md) |
 
 更多宿主约束与验收明细见[宿主支持与验收范围](docs/guide.md#宿主支持与验收范围)及[开源前验收记录](docs/mechanisms/paperstream-design.md#开源前验收2026-11-13)。
 
@@ -167,6 +174,7 @@ with CanvasGraph.load("/path/to/papers.canvas") as graph:
 ├── web/                # React Flow + ELK 核心编辑器源码与独立多页签工作台
 ├── dsh/                # DeepSeek Harness (DSH) Web 主面板插件适配
 ├── codex/              # ChatGPT / Codex 桌面端 MCP Apps 文件编辑器插件
+├── mcp/                # 标准 stdio MCP 模型工具与 MCP Apps 画布
 ├── claude/             # Claude Code 本地插件（/paperstream:open 本地桥 + 便携打包）
 ├── skills/paperstream/ # 可独立分发的 Agent Skill 与 API 参考手册
 ├── examples/           # 精选 .canvas 示例与历史 .mmd 档案
@@ -179,7 +187,7 @@ with CanvasGraph.load("/path/to/papers.canvas") as graph:
 在仓库根目录运行核心检查（更多前端、DSH、Codex、Claude 构建与验收步骤见[开发与验证](docs/guide.md#开发与验证)）：
 
 ```sh
-python3 -m unittest discover -s tests -v   # Python API、CLI 与本地桥测试（93 项）
+python3 -m unittest discover -s tests -v   # Python API、CLI、本地桥与 MCP 文件访问检查
 npm ci --prefix web
 npm --prefix web test                      # 前端格式、布局与编辑器核心单元测试
 npm --prefix web run test:interop          # Python / TypeScript JSON Canvas 往返一致性检查

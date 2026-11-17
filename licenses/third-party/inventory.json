@@ -1,6 +1,6 @@
 {
-  "checked": "2026-11-13",
-  "method": "Actual esbuild output inputs with bytesInOutput > 0; package versions verified against committed web/codex lockfiles. DSH React externals are supplied by the host. Includes CSS inputs.",
+  "checked": "2026-11-17",
+  "method": "Actual esbuild output inputs with bytesInOutput > 0, including CSS. Existing Web/DSH/Claude/Codex membership and web/codex lockfile checks are retained from 2026-11-13. MCP UI/server membership was checked on 2026-11-17 using mcp/dist/bundle-inputs.json and exact installed versions against mcp/web lockfiles. DSH React externals are supplied by the host. Unbundled build/test dependencies and unused peer versions are excluded.",
   "packages": [
     {
       "package": "@cfworker/json-schema",
@@ -34,12 +34,27 @@
       "version": "1.7.5",
       "declaredLicense": "MIT",
       "surfaces": [
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui",
+        "mcp-server"
       ],
       "upstream": "https://github.com/modelcontextprotocol/ext-apps",
       "licenseFile": "licenses/third-party/modelcontextprotocol-ext-apps-1.7.5-LICENSE.txt",
       "licenseSource": "codex/node_modules/@modelcontextprotocol/ext-apps/LICENSE",
       "licenseSha256": "0382b0057770ca05e9c350a50aa3b1c1fea84da0bc81d723bf00b9aa841be58a"
+    },
+    {
+      "package": "@modelcontextprotocol/sdk",
+      "version": "1.29.0",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "mcp-ui",
+        "mcp-server"
+      ],
+      "upstream": "https://github.com/modelcontextprotocol/typescript-sdk",
+      "licenseFile": "licenses/third-party/modelcontextprotocol-sdk-1.29.0-LICENSE.txt",
+      "licenseSource": "mcp/node_modules/@modelcontextprotocol/sdk/LICENSE",
+      "licenseSha256": "5e13dbbc1d120fc2a03cecde7c91424ae2d7de11b63d58ded2f4431e261ee50d"
     },
     {
       "package": "@modelcontextprotocol/sdk",
@@ -86,7 +101,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/xyflow/xyflow",
       "licenseFile": "licenses/third-party/xyflow-react-12.12.1-LICENSE.txt",
@@ -101,12 +117,37 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/xyflow/xyflow",
       "licenseFile": "licenses/third-party/xyflow-system-0.0.84-LICENSE.txt",
       "licenseSource": "web/node_modules/@xyflow/system/LICENSE",
       "licenseSha256": "023119ac20fb1c8c9930abe0bcd196989a1960388529a96fc43cebf96f07c9ff"
+    },
+    {
+      "package": "ajv",
+      "version": "8.20.0",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "mcp-server"
+      ],
+      "upstream": "https://github.com/ajv-validator/ajv",
+      "licenseFile": "licenses/third-party/ajv-8.20.0-LICENSE.txt",
+      "licenseSource": "mcp/node_modules/ajv/LICENSE",
+      "licenseSha256": "a05350a88e318e4f5f2c2a1ff1e2e88daa4dd38e6e78b71cccae422bdc762cc3"
+    },
+    {
+      "package": "ajv-formats",
+      "version": "3.0.1",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "mcp-server"
+      ],
+      "upstream": "https://github.com/ajv-validator/ajv-formats",
+      "licenseFile": "licenses/third-party/ajv-formats-3.0.1-LICENSE.txt",
+      "licenseSource": "mcp/node_modules/ajv-formats/LICENSE",
+      "licenseSha256": "9df3bb69929a3b650ed73b3bfa1756725aaff0ac296461605753547004eafeaf"
     },
     {
       "package": "classcat",
@@ -116,7 +157,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "jorgebucaran/classcat",
       "licenseFile": "licenses/third-party/classcat-5.0.5-LICENSE.txt",
@@ -131,7 +173,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-color",
       "licenseFile": "licenses/third-party/d3-color-3.1.1-LICENSE.txt",
@@ -146,7 +189,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-dispatch",
       "licenseFile": "licenses/third-party/d3-dispatch-3.0.2-LICENSE.txt",
@@ -161,7 +205,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-drag",
       "licenseFile": "licenses/third-party/d3-drag-3.0.1-LICENSE.txt",
@@ -176,7 +221,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-ease",
       "licenseFile": "licenses/third-party/d3-ease-3.0.2-LICENSE.txt",
@@ -191,7 +237,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-interpolate",
       "licenseFile": "licenses/third-party/d3-interpolate-3.0.2-LICENSE.txt",
@@ -206,7 +253,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-selection",
       "licenseFile": "licenses/third-party/d3-selection-3.0.1-LICENSE.txt",
@@ -221,7 +269,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-timer",
       "licenseFile": "licenses/third-party/d3-timer-3.0.2-LICENSE.txt",
@@ -236,7 +285,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-transition",
       "licenseFile": "licenses/third-party/d3-transition-3.0.2-LICENSE.txt",
@@ -251,7 +301,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/d3/d3-zoom",
       "licenseFile": "licenses/third-party/d3-zoom-3.0.1-LICENSE.txt",
@@ -266,7 +317,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/kieler/elkjs",
       "licenseFile": "licenses/third-party/elkjs-0.12.1-LICENSE.txt",
@@ -275,13 +327,50 @@
       "sourceRevision": "624ae90aa37110033a8af59c5ccbb292708b4317"
     },
     {
+      "package": "fast-deep-equal",
+      "version": "3.1.3",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "mcp-server"
+      ],
+      "upstream": "https://github.com/epoberezkin/fast-deep-equal",
+      "licenseFile": "licenses/third-party/fast-deep-equal-3.1.3-LICENSE.txt",
+      "licenseSource": "mcp/node_modules/fast-deep-equal/LICENSE",
+      "licenseSha256": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+    },
+    {
+      "package": "fast-uri",
+      "version": "3.1.9",
+      "declaredLicense": "BSD-3-Clause",
+      "surfaces": [
+        "mcp-server"
+      ],
+      "upstream": "https://github.com/fastify/fast-uri",
+      "licenseFile": "licenses/third-party/fast-uri-3.1.9-LICENSE.txt",
+      "licenseSource": "mcp/node_modules/fast-uri/LICENSE",
+      "licenseSha256": "b010b0dfdfdb23d7396e03b82cd4621fc9bb8f95d6b0aea70b9c24e12074c786"
+    },
+    {
+      "package": "json-schema-traverse",
+      "version": "1.0.0",
+      "declaredLicense": "MIT",
+      "surfaces": [
+        "mcp-server"
+      ],
+      "upstream": "https://github.com/epoberezkin/json-schema-traverse",
+      "licenseFile": "licenses/third-party/json-schema-traverse-1.0.0-LICENSE.txt",
+      "licenseSource": "mcp/node_modules/json-schema-traverse/LICENSE",
+      "licenseSha256": "7bf9b2de73a6b356761c948d0e9eeb4be6c1270bd04c79cd489c1e400ffdfc1a"
+    },
+    {
       "package": "react",
       "version": "18.3.1",
       "declaredLicense": "MIT",
       "surfaces": [
         "web",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/facebook/react",
       "licenseFile": "licenses/third-party/react-18.3.1-LICENSE.txt",
@@ -295,7 +384,8 @@
       "surfaces": [
         "web",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/facebook/react",
       "licenseFile": "licenses/third-party/react-dom-18.3.1-LICENSE.txt",
@@ -309,7 +399,8 @@
       "surfaces": [
         "web",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/facebook/react",
       "licenseFile": "licenses/third-party/scheduler-0.23.2-LICENSE.txt",
@@ -324,7 +415,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/react/react",
       "licenseFile": "licenses/third-party/use-sync-external-store-1.7.0-LICENSE.txt",
@@ -337,7 +429,9 @@
       "declaredLicense": "MIT",
       "surfaces": [
         "codex-ui",
-        "codex-server"
+        "codex-server",
+        "mcp-ui",
+        "mcp-server"
       ],
       "upstream": "https://github.com/colinhacks/zod",
       "licenseFile": "licenses/third-party/zod-4.6.6-LICENSE.txt",
@@ -349,7 +443,9 @@
       "version": "3.25.2",
       "declaredLicense": "ISC",
       "surfaces": [
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui",
+        "mcp-server"
       ],
       "upstream": "https://github.com/StefanTerdell/zod-to-json-schema",
       "licenseFile": "licenses/third-party/zod-to-json-schema-3.25.2-LICENSE.txt",
@@ -364,7 +460,8 @@
         "web",
         "dsh",
         "claude",
-        "codex-ui"
+        "codex-ui",
+        "mcp-ui"
       ],
       "upstream": "https://github.com/pmndrs/zustand",
       "licenseFile": "licenses/third-party/zustand-4.5.7-LICENSE.txt",

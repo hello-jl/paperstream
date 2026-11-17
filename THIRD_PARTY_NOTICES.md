@@ -3,15 +3,22 @@
 Paperstream bundles third-party software in its browser editor and host adapters.
 Paperstream's original code and documentation are licensed under the
 [MIT License](LICENSE), Copyright (c) 2026 Paperstream contributors.
-This inventory records the locked versions checked on 2026-11-13. It is separate
-from that license and does not change any upstream license.
+The original Web/DSH/Claude/Codex inventory records locked versions checked on
+2026-11-13; the standard MCP adapter was checked on 2026-11-17. This inventory is
+separate from that license and does not change any upstream license.
 The original license files, including copyright statements, are preserved under
 [`licenses/third-party/`](licenses/third-party/).
 
-The table was checked against nonempty esbuild output inputs and the committed
-`web/package-lock.json` and `codex/package-lock.json`, including CSS. `Web` is the
+The table was checked against esbuild output inputs with `bytesInOutput > 0`
+and the `web/package-lock.json`, `codex/package-lock.json`, and
+`mcp/package-lock.json` lockfiles, including CSS. `Web` is the
 standalone editor, `DSH` the browser bundle, `Claude` the portable browser app,
 and `Codex UI` / `Codex server` the two parts of the local file-editor plugin.
+`MCP UI` / `MCP server` are the two bundles of the separate standard MCP Apps
+adapter. Its artifact membership was measured from
+`mcp/dist/bundle-inputs.json`; installed packages that contribute no output,
+including its unused React 19 peer dependency, are not included. The MCP UI
+bundles React 18 from the shared editor's locked dependencies.
 React, React DOM, and their scheduler are provided by DSH and are not bundled in
 its client. Node.js and Python are required runtimes, not included distributions.
 Build and test dependencies that are absent from runtime output are not listed.
@@ -20,30 +27,36 @@ Build and test dependencies that are absent from runtime output are not listed.
 | --- | --- | --- | --- | --- |
 | [@cfworker/json-schema](https://github.com/cfworker/cfworker) | 4.1.6 | MIT | Codex server | [Text](licenses/third-party/cfworker-json-schema-4.1.6-LICENSE.txt) |
 | [@modelcontextprotocol/core](https://github.com/modelcontextprotocol/typescript-sdk) | 2.4.0 | Apache-2.0; see transition notice | Codex server | [Text](licenses/third-party/modelcontextprotocol-core-2.4.0-LICENSE.txt) |
-| [@modelcontextprotocol/ext-apps](https://github.com/modelcontextprotocol/ext-apps) | 1.7.5 | MIT; see transition notice | Codex UI | [Text](licenses/third-party/modelcontextprotocol-ext-apps-1.7.5-LICENSE.txt) |
+| [@modelcontextprotocol/ext-apps](https://github.com/modelcontextprotocol/ext-apps) | 1.7.5 | MIT; see transition notice | Codex UI, MCP UI, MCP server | [Text](licenses/third-party/modelcontextprotocol-ext-apps-1.7.5-LICENSE.txt) |
+| [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) | 1.29.0 | MIT | MCP UI, MCP server | [Text](licenses/third-party/modelcontextprotocol-sdk-1.29.0-LICENSE.txt) |
 | [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/typescript-sdk) | 1.32.2 | MIT | Codex UI | [Text](licenses/third-party/modelcontextprotocol-sdk-1.32.2-LICENSE.txt) |
 | [@modelcontextprotocol/server](https://github.com/modelcontextprotocol/typescript-sdk) | 2.4.0 | Apache-2.0; see transition notice | Codex server | [Text](licenses/third-party/modelcontextprotocol-server-2.4.0-LICENSE.txt) |
 | [@openai/mcp-extensions](https://github.com/openai/mcp-extensions) | 0.2.1 | Apache-2.0 | Codex UI, Codex server | [Text](licenses/third-party/openai-mcp-extensions-0.2.1-LICENSE.txt) |
-| [@xyflow/react](https://github.com/xyflow/xyflow) | 12.12.1 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/xyflow-react-12.12.1-LICENSE.txt) |
-| [@xyflow/system](https://github.com/xyflow/xyflow) | 0.0.84 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/xyflow-system-0.0.84-LICENSE.txt) |
-| [classcat](https://github.com/jorgebucaran/classcat) | 5.0.5 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/classcat-5.0.5-LICENSE.txt) |
-| [d3-color](https://github.com/d3/d3-color) | 3.1.1 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-color-3.1.1-LICENSE.txt) |
-| [d3-dispatch](https://github.com/d3/d3-dispatch) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-dispatch-3.0.2-LICENSE.txt) |
-| [d3-drag](https://github.com/d3/d3-drag) | 3.0.1 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-drag-3.0.1-LICENSE.txt) |
-| [d3-ease](https://github.com/d3/d3-ease) | 3.0.2 | BSD-3-Clause | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-ease-3.0.2-LICENSE.txt) |
-| [d3-interpolate](https://github.com/d3/d3-interpolate) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-interpolate-3.0.2-LICENSE.txt) |
-| [d3-selection](https://github.com/d3/d3-selection) | 3.0.1 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-selection-3.0.1-LICENSE.txt) |
-| [d3-timer](https://github.com/d3/d3-timer) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-timer-3.0.2-LICENSE.txt) |
-| [d3-transition](https://github.com/d3/d3-transition) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-transition-3.0.2-LICENSE.txt) |
-| [d3-zoom](https://github.com/d3/d3-zoom) | 3.0.1 | ISC | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/d3-zoom-3.0.1-LICENSE.txt) |
-| [elkjs](https://github.com/kieler/elkjs) | 0.12.1 | EPL-2.0 OR GPL-3.0-or-later | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/elkjs-0.12.1-LICENSE.txt) |
-| [react](https://github.com/facebook/react) | 18.3.1 | MIT | Web, Claude, Codex UI | [Text](licenses/third-party/react-18.3.1-LICENSE.txt) |
-| [react-dom](https://github.com/facebook/react) | 18.3.1 | MIT | Web, Claude, Codex UI | [Text](licenses/third-party/react-dom-18.3.1-LICENSE.txt) |
-| [scheduler](https://github.com/facebook/react) | 0.23.2 | MIT | Web, Claude, Codex UI | [Text](licenses/third-party/scheduler-0.23.2-LICENSE.txt) |
-| [use-sync-external-store](https://github.com/react/react) | 1.7.0 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/use-sync-external-store-1.7.0-LICENSE.txt) |
-| [zod](https://github.com/colinhacks/zod) | 4.6.6 | MIT | Codex UI, Codex server | [Text](licenses/third-party/zod-4.6.6-LICENSE.txt) |
-| [zod-to-json-schema](https://github.com/StefanTerdell/zod-to-json-schema) | 3.25.2 | ISC | Codex UI | [Text](licenses/third-party/zod-to-json-schema-3.25.2-LICENSE.txt) |
-| [zustand](https://github.com/pmndrs/zustand) | 4.5.7 | MIT | Web, DSH, Claude, Codex UI | [Text](licenses/third-party/zustand-4.5.7-LICENSE.txt) |
+| [@xyflow/react](https://github.com/xyflow/xyflow) | 12.12.1 | MIT | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/xyflow-react-12.12.1-LICENSE.txt) |
+| [@xyflow/system](https://github.com/xyflow/xyflow) | 0.0.84 | MIT | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/xyflow-system-0.0.84-LICENSE.txt) |
+| [ajv](https://github.com/ajv-validator/ajv) | 8.20.0 | MIT | MCP server | [Text](licenses/third-party/ajv-8.20.0-LICENSE.txt) |
+| [ajv-formats](https://github.com/ajv-validator/ajv-formats) | 3.0.1 | MIT | MCP server | [Text](licenses/third-party/ajv-formats-3.0.1-LICENSE.txt) |
+| [classcat](https://github.com/jorgebucaran/classcat) | 5.0.5 | MIT | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/classcat-5.0.5-LICENSE.txt) |
+| [d3-color](https://github.com/d3/d3-color) | 3.1.1 | ISC | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-color-3.1.1-LICENSE.txt) |
+| [d3-dispatch](https://github.com/d3/d3-dispatch) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-dispatch-3.0.2-LICENSE.txt) |
+| [d3-drag](https://github.com/d3/d3-drag) | 3.0.1 | ISC | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-drag-3.0.1-LICENSE.txt) |
+| [d3-ease](https://github.com/d3/d3-ease) | 3.0.2 | BSD-3-Clause | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-ease-3.0.2-LICENSE.txt) |
+| [d3-interpolate](https://github.com/d3/d3-interpolate) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-interpolate-3.0.2-LICENSE.txt) |
+| [d3-selection](https://github.com/d3/d3-selection) | 3.0.1 | ISC | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-selection-3.0.1-LICENSE.txt) |
+| [d3-timer](https://github.com/d3/d3-timer) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-timer-3.0.2-LICENSE.txt) |
+| [d3-transition](https://github.com/d3/d3-transition) | 3.0.2 | ISC | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-transition-3.0.2-LICENSE.txt) |
+| [d3-zoom](https://github.com/d3/d3-zoom) | 3.0.1 | ISC | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/d3-zoom-3.0.1-LICENSE.txt) |
+| [elkjs](https://github.com/kieler/elkjs) | 0.12.1 | EPL-2.0 OR GPL-3.0-or-later | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/elkjs-0.12.1-LICENSE.txt) |
+| [fast-deep-equal](https://github.com/epoberezkin/fast-deep-equal) | 3.1.3 | MIT | MCP server | [Text](licenses/third-party/fast-deep-equal-3.1.3-LICENSE.txt) |
+| [fast-uri](https://github.com/fastify/fast-uri) | 3.1.9 | BSD-3-Clause | MCP server | [Text](licenses/third-party/fast-uri-3.1.9-LICENSE.txt) |
+| [json-schema-traverse](https://github.com/epoberezkin/json-schema-traverse) | 1.0.0 | MIT | MCP server | [Text](licenses/third-party/json-schema-traverse-1.0.0-LICENSE.txt) |
+| [react](https://github.com/facebook/react) | 18.3.1 | MIT | Web, Claude, Codex UI, MCP UI | [Text](licenses/third-party/react-18.3.1-LICENSE.txt) |
+| [react-dom](https://github.com/facebook/react) | 18.3.1 | MIT | Web, Claude, Codex UI, MCP UI | [Text](licenses/third-party/react-dom-18.3.1-LICENSE.txt) |
+| [scheduler](https://github.com/facebook/react) | 0.23.2 | MIT | Web, Claude, Codex UI, MCP UI | [Text](licenses/third-party/scheduler-0.23.2-LICENSE.txt) |
+| [use-sync-external-store](https://github.com/react/react) | 1.7.0 | MIT | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/use-sync-external-store-1.7.0-LICENSE.txt) |
+| [zod](https://github.com/colinhacks/zod) | 4.6.6 | MIT | Codex UI, Codex server, MCP UI, MCP server | [Text](licenses/third-party/zod-4.6.6-LICENSE.txt) |
+| [zod-to-json-schema](https://github.com/StefanTerdell/zod-to-json-schema) | 3.25.2 | ISC | Codex UI, MCP UI, MCP server | [Text](licenses/third-party/zod-to-json-schema-3.25.2-LICENSE.txt) |
+| [zustand](https://github.com/pmndrs/zustand) | 4.5.7 | MIT | Web, DSH, Claude, Codex UI, MCP UI | [Text](licenses/third-party/zustand-4.5.7-LICENSE.txt) |
 
 ## Upstream notices that need particular care
 
@@ -74,8 +87,8 @@ Build and test dependencies that are absent from runtime output are not listed.
 ## Distribution and maintenance
 
 Include this file and the entire `licenses/third-party/` directory alongside
-released Web, DSH, Codex, and Claude artifacts. Also include Paperstream's own
-MIT LICENSE. Keep the build's existing
+released Web, DSH, Codex, Claude, and standard MCP artifacts. Also include
+Paperstream's own MIT LICENSE. Keep the build's existing
 legal comments; comments alone are not a substitute for these license files.
 This document records upstream declarations and provenance, not a legal
 compatibility opinion or a blanket compliance certification.

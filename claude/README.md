@@ -1,5 +1,7 @@
 # Paperstream for Claude Code
 
+如果要在 Claude Desktop 的普通对话中调用工具并显示内嵌画布，使用新增的[标准 MCP Apps 适配器](../mcp/README.md)。本目录继续提供 Claude Code 的 Skill／本地浏览器入口，两种安装渠道独立。
+
 这是一个本地 Claude Code 插件，复用现有画布与 Python API。`/paperstream:open 文件路径` 启动只绑定该 `.canvas` 的本地编辑页面；Claude Code 桌面版可用 Browser 预览承载它，普通浏览器也能打开。
 
 这条接入不接管 Claude 的原生 `.canvas` 文件面板，也不把 Codex 专用的文件协议搬过去。插件本身不调用 Anthropic API、无需 API key；运行 Claude 会话仍需官方支持的账号或凭据。没有账号时可以先构建、校验插件并完整测试本地画布读写。

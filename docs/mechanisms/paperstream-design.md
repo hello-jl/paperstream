@@ -1,6 +1,20 @@
 # paperstream 论文关系图设计
 
-更新日期：2026-11-14。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器及 DSH 面板已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实 DSH 验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
+更新日期：2026-11-17。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器、DSH 面板及标准 MCP Apps 适配器已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实宿主验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
+
+## 标准 MCP Apps：对话内画布与语义工具（2026-11-17）
+
+新增独立 `mcp/` 适配器，保留 Codex 文件面板与 Claude Code Skill／本地网页两条原有接入。标准服务器通过 stdio 运行，使用 MCP SDK 与 ext-apps 注册 `ui://paperstream/standard-canvas-v1`；界面复用嵌入编辑器和 ResourceSession，通过 `app.callServerTool` 读写，不要求 Shell、HTTP 编辑器或 `openai/resource`。前端也不依赖账户受限的 `app.registerTool`。Claude 官方已提供 Desktop 本地 stdio MCP Apps 示例，不能由旧插件缺少 MCP Server 推断普通 Desktop 对话完全不支持画布；安装方式与账户边界见 [MCP 接入指南](../../mcp/README.md)。
+
+模型可调用 `paperstream_list_canvases`、`paperstream_open_canvas`、`paperstream_read_graph`、`paperstream_apply_changes`；完整 JSON 的 `paperstream_read_canvas`／`paperstream_write_canvas` 仅向 app 暴露。读图保留原生节点、Note、论文正文、边、布局和未知字段，但省略图片源，不可据此重建整图。语义修改限定为七种定点操作，批次一次校验保存；不向模型开放删除、整图替换或任意路径。普通 Note 正文仍由画布手工编辑。
+
+文件必须在启动时逐个通过 `--file` 明确选择，随后仅使用固定 fileId。服务器拒绝符号链接，检查父目录身份；Python 标准库 worker 重新加载完整 CanvasGraph，按读取时的 SHA-256 revision 写入，继续使用协作锁与原子保存。旧 revision、持锁、无效批次及只读写入均拒绝；冲突不自动重试或删除其他写入者的锁。UI 的未保存草稿不在磁盘工具视野中，交接前保存，外改后刷新；不承诺跨宿主实时刷新或自动合并。
+
+构建产物 `mcp/dist/package/` 包含内联页面、打包服务器、Python 包和完整许可，运行时无 npm 依赖目录。以实际 bundle 输入更新第三方清单，保留全部 32 个依赖版本的许可原文。验收包含真实 stdio 握手、工具可见性与 UI 资源、语义事务、两次旧版本冲突、未知字段／图片／数组顺序保留，以及含空格目录、独立工作目录、无 node_modules 的便携包启动。
+
+最终自动检查：Python 106、前端 217、标准 MCP 18、DSH 18、Codex 23、Claude Code 16 项，共 398 项通过；Web／DSH／Codex／Claude Code／标准 MCP 五端构建及 DSH 分发检查通过。分发检查核对许可字节一致性，未将构建成功计为实际宿主交互通过。
+
+官方 AppBridge 本地参考宿主已实际验证卡片编辑保存、干净状态接收外改、保留草稿、连续两次冲突不覆盖磁盘及脏状态拒绝切图。慢读时的原生确认弹窗未完成手动验收，仍由已有 ResourceSession 自动回归覆盖。没有真实 Claude 账号，因此账户授权、Claude 内嵌显示及剪贴板未实测；参考宿主不作为 Claude 真机通过的证据。云端 claude.ai 也不能直接运行这份本地 stdio 配置，本轮没有实现远端 HTTP／OAuth 部署。
 
 ## 历史画布中的人物与原理（2026-11-17）
 
