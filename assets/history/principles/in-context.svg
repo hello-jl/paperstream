@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Original artwork by Paperstream contributors. SPDX-License-Identifier: MIT -->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500" role="img" aria-labelledby="in-context-title in-context-desc">
+<title id="in-context-title">上下文学习</title><desc id="in-context-desc">任务说明、示例与待补输入组成提示，经 GPT-3 得到答案；推理期间模型参数不更新。</desc>
+<metadata>Original illustration: Paperstream contributors. MIT License: https://opensource.org/license/mit</metadata>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#648b71"/></marker></defs>
+<rect width="900" height="500" rx="26" fill="#f5f7ee"/>
+<g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="38" y="55" font-size="34" font-weight="600" fill="#2b4437" text-anchor="start">上下文学习</text>
+<text x="38" y="94" font-size="22" font-weight="400" fill="#648b71" text-anchor="start">GPT-3 · In-context learning</text>
+<rect x="38" y="140" width="312" height="237" rx="23" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/>
+      <rect x="61" y="160" width="266" height="52" rx="19" fill="#e2ecdd" stroke="none" stroke-width="2.5"/><text x="194" y="198.6" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">任务说明</text>
+      <rect x="61" y="233" width="266" height="52" rx="19" fill="#e2ecdd" stroke="none" stroke-width="2.5"/><text x="194" y="270.2" font-size="32" font-weight="500" fill="#2b4437" text-anchor="middle">示例：问 → 答</text>
+      <rect x="61" y="306" width="266" height="52" rx="19" fill="#e2ecdd" stroke="none" stroke-width="2.5"/><text x="194" y="343.2" font-size="32" font-weight="500" fill="#2b4437" text-anchor="middle">待补输入：…</text>
+      <path d="M364 258H421" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <rect x="438" y="202" width="167" height="112" rx="19" fill="#e2ecdd" stroke="#648b71" stroke-width="2.5"/><text x="521.5" y="271.3" font-size="38" font-weight="500" fill="#2b4437" text-anchor="middle">GPT-3</text>
+      <path d="M620 258H690" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <rect x="708" y="202" width="151" height="112" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="783.5" y="271.3" font-size="38" font-weight="500" fill="#2b4437" text-anchor="middle">答案</text>
+      <text x="195" y="412" font-size="32" font-weight="500" fill="#648b71" text-anchor="middle">提示</text><text x="522" y="366" font-size="32" font-weight="500" fill="#648b71" text-anchor="middle">参数不更新</text>
+      <text x="450" y="462" font-size="30" font-weight="400" fill="#648b71" text-anchor="middle">给示例 → 在上下文中完成新任务</text>
+</g></svg>

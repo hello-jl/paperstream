@@ -20,11 +20,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from paperstream import CanvasGraph
 from scripts.history_portraits import apply_portrait_layout
+from scripts.history_illustrations import apply_history_illustrations
 
 # name is the original paper title where this is a paper; historical events
 # intentionally have no invented paper title. Portrait subjects are not a list
-# of all authors. In particular Kasparov is an opponent and Amodei represents a
-# company/team, rather than claiming sole authorship of a model.
+# of all authors. In particular Kasparov is an opponent. Selected collective
+# achievements use principle illustrations instead of a team representative.
 MILESTONES = [
     ("eniac_1946", 1946, "ENIAC · 电子计算", "电子通用计算机的代表。\nMauchly、Eckert 与编程团队共同推进。", None,
      "https://www.computerhistory.org/tdih/February/14/", "mauchly", "John Mauchly · 设计团队"),
@@ -49,15 +50,15 @@ MILESTONES = [
     ("alphago_2016", 2016, "AlphaGo · 学习＋搜索", "策略网络、价值网络与树搜索\n协同处理围棋决策。", "Mastering the game of Go with deep neural networks and tree search",
      "https://www.nature.com/articles/nature16961", "hassabis", "Demis Hassabis · 共同作者"),
     ("transformer_2017", 2017, "Transformer · 注意力", "以注意力为核心的序列架构，\n为后续大规模预训练提供基础。", "Attention Is All You Need",
-     "https://arxiv.org/abs/1706.03762v1", "gomez", "Aidan N. Gomez · 共同作者"),
+     "https://arxiv.org/abs/1706.03762v1", None, None),
     ("gpt3_2020", 2020, "GPT-3 · 上下文学习", "扩大自回归语言模型，探索\n只用提示与少量示例完成任务。", "Language Models are Few-Shot Learners",
-     "https://arxiv.org/abs/2005.14165v1", "amodei", "Dario Amodei · 共同作者"),
+     "https://arxiv.org/abs/2005.14165v1", None, None),
     ("instructgpt_2022", 2022, "InstructGPT · 人类反馈", "示范、偏好排序与强化学习\n让模型更好地遵循用户指令。", "Training language models to follow instructions with human feedback",
      "https://arxiv.org/abs/2203.02155v1", "christiano", "Paul Christiano · 共同作者"),
     ("alphafold3_2024", 2024, "AlphaFold 3 · 科学模型", "用扩散模型预测蛋白质及其他\n生物分子的复合物结构。", "Accurate structure prediction of biomolecular interactions with AlphaFold 3",
-     "https://www.nature.com/articles/s41586-024-07487-w", "hassabis", "Demis Hassabis · 共同作者"),
+     "https://www.nature.com/articles/s41586-024-07487-w", None, None),
     ("claude_2026", 2026, "Claude Opus 5.5 · Agent", "2026-09-22 发布。编程、工具\n与长任务成为模型应用方向。", None,
-     "https://www.anthropic.com/claude-opus-5-5", "amodei", "Dario Amodei · 团队代表"),
+     "https://www.anthropic.com/claude-opus-5-5", None, None),
 ]
 
 
@@ -101,6 +102,11 @@ def create(path: Path) -> CanvasGraph:
     for index, node in enumerate(document["nodes"]):
         entry = MILESTONES[index]
         portrait, caption = entry[-2:]
+        node["color"] = ["4", "5", "6", "2"][index // 4]
+        node["paperstreamStyle"] = {"heightMode": "manual", "strokeWidth": 1.5}
+        node["paperstreamCard"] = {"kind": "paper" if entry[4] else "note"}
+        if portrait is None:
+            continue
         provenance = manifest["portraits"][portrait]
         data = (ROOT / provenance["file"]).read_bytes()
         assert hashlib.sha256(data).hexdigest() == provenance["sha256"]
@@ -138,6 +144,7 @@ def create(path: Path) -> CanvasGraph:
         "currentExamples": ["https://api-docs.deepseek.com/news/news250120/", "https://api-docs.deepseek.com/news/news261017/", "https://www.anthropic.com/claude-opus-5-5"],
     }
     apply_portrait_layout(document, "computing", [row[0] for row in MILESTONES])
+    apply_history_illustrations(document, "computing")
     graph.set_document(document)
     graph.validate()
     graph.save()

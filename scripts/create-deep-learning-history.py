@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from paperstream import CanvasGraph
 from scripts.history_portraits import apply_portrait_layout
+from scripts.history_illustrations import apply_history_illustrations
 
 
 MILESTONES = [
@@ -54,7 +55,7 @@ MILESTONES = [
     ("dl_resnet_2015", 2015, "ResNet · 残差连接",
      "Deep Residual Learning for Image Recognition",
      "https://arxiv.org/abs/1512.03385",
-     "- He、Zhang、Ren、Sun\n- 让极深网络更容易优化\n- 2015 预印本；CVPR 2016\n\n肖像待授权：何恺明及共同作者", None, None),
+     "- He、Zhang、Ren、Sun\n- 让极深网络更容易优化\n- 2015 预印本；CVPR 2016", None, None),
     ("dl_alphago_2016", 2016, "AlphaGo · 学习与搜索结合",
      "Mastering the game of Go with deep neural networks and tree search",
      "https://doi.org/10.1038/nature16961",
@@ -62,11 +63,11 @@ MILESTONES = [
     ("dl_transformer_2017", 2017, "Transformer · 注意力架构",
      "Attention Is All You Need",
      "https://arxiv.org/abs/1706.03762",
-     "- Vaswani 等八位共同作者\n- 用注意力进行并行序列建模", "gomez", "Aidan N. Gomez"),
+     "- Vaswani 等八位共同作者\n- 用注意力进行并行序列建模", None, None),
     ("dl_gpt3_2020", 2020, "GPT-3 · 大规模少样本学习",
      "Language Models are Few-Shot Learners",
      "https://arxiv.org/abs/2005.14165",
-     "- Brown 等；图示共作者 Amodei\n- 从提示中的示例执行多种任务", "amodei", "Dario Amodei"),
+     "- Brown 等；上下文学习\n- 从提示中的示例执行多种任务", None, None),
     ("dl_ddpm_2020", 2020, "DDPM · 逐步去噪生成",
      "Denoising Diffusion Probabilistic Models",
      "https://arxiv.org/abs/2006.11239",
@@ -173,6 +174,7 @@ def create(output: Path) -> dict:
                               "reason": "No sufficiently verified open portrait license located; no unlicensed substitute included."}],
     }
     apply_portrait_layout(document, "deep-learning", [row[0] for row in MILESTONES])
+    apply_history_illustrations(document, "deep-learning")
     graph.set_document(document)
     graph.validate()
     graph.save()

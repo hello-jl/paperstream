@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Original artwork by Paperstream contributors. SPDX-License-Identifier: MIT -->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500" role="img" aria-labelledby="residual-title residual-desc">
+<title id="residual-title">残差连接</title><desc id="residual-desc">输入 x 分为两路：两层主路产生 F(x)，恒等支路直接传递 x，两路在单一加法节点相加，得到 y = F(x) + x。省略归一化与加法后的激活。</desc>
+<metadata>Original illustration: Paperstream contributors. MIT License: https://opensource.org/license/mit</metadata>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#648b71"/></marker></defs>
+<rect width="900" height="500" rx="26" fill="#f5f7ee"/>
+<g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="38" y="55" font-size="34" font-weight="600" fill="#2b4437" text-anchor="start">残差连接</text>
+<text x="38" y="94" font-size="22" font-weight="400" fill="#648b71" text-anchor="start">Residual learning · identity shortcut</text>
+<text x="62" y="222" font-size="38" font-weight="500" fill="#2b4437" text-anchor="middle">x</text><path d="M88 209H209" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <circle cx="153" cy="209" r="5" fill="#648b71"/>
+      <rect x="227" y="165" width="192" height="88" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="323" y="220.2" font-size="32" font-weight="500" fill="#2b4437" text-anchor="middle">层1 + ReLU</text>
+      <path d="M436 209H470" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><rect x="488" y="165" width="163" height="88" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="569.5" y="221.6" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">层 2</text>
+      <path d="M668 209H708" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <circle cx="742" cy="209" r="28" fill="#e2ecdd" stroke="#648b71" stroke-width="3"/>
+      <text x="742" y="221" font-size="38" font-weight="500" fill="#2b4437" text-anchor="middle">+</text><path d="M785 209H833" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><text x="861" y="221" font-size="38" font-weight="500" fill="#2b4437" text-anchor="middle">y</text>
+      <path d="M153 215V346Q153 364 171 364H724Q742 364 742 346V252" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <text x="440" y="305" font-size="36" font-weight="500" fill="#648b71" text-anchor="middle">F(x)</text><text x="448" y="405" font-size="36" font-weight="500" fill="#648b71" text-anchor="middle">identity：x</text>
+      <text x="450" y="462" font-size="30" font-weight="400" fill="#648b71" text-anchor="middle">y = F(x) + x · 简化示意</text>
+</g></svg>

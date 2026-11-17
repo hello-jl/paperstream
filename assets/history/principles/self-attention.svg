@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Original artwork by Paperstream contributors. SPDX-License-Identifier: MIT -->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500" role="img" aria-labelledby="self-attention-title self-attention-desc">
+<title id="self-attention-title">自注意力</title><desc id="self-attention-desc">同一输入 X 分别投影为 Q、K、V。QK 转置除以根号 d 得到相似度，softmax 得到权重，再加权 V 得到输出 Y。省略掩码、多头拼接及输出投影。</desc>
+<metadata>Original illustration: Paperstream contributors. MIT License: https://opensource.org/license/mit</metadata>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#648b71"/></marker></defs>
+<rect width="900" height="500" rx="26" fill="#f5f7ee"/>
+<g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="38" y="55" font-size="34" font-weight="600" fill="#2b4437" text-anchor="start">自注意力</text>
+<text x="38" y="94" font-size="22" font-weight="400" fill="#648b71" text-anchor="start">Single-head self-attention</text>
+<rect x="41" y="231" width="100" height="83" rx="19" fill="#e2ecdd" stroke="#648b71" stroke-width="2.5"/><text x="91" y="285.1" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">X</text>
+      <path d="M153 272H194M194 167V377" fill="none" stroke="#648b71" stroke-width="4" stroke-linecap="round"/>
+      <path d="M194 167H238" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><path d="M194 272H238" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><path d="M194 377H238" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <rect x="256" y="133" width="85" height="68" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="298.5" y="181" font-size="40" font-weight="500" fill="#2b4437" text-anchor="middle">Q</text><rect x="256" y="238" width="85" height="68" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="298.5" y="286" font-size="40" font-weight="500" fill="#2b4437" text-anchor="middle">K</text><rect x="256" y="343" width="85" height="68" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="298.5" y="391" font-size="40" font-weight="500" fill="#2b4437" text-anchor="middle">V</text>
+      <path d="M358 167H403V198H420" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><path d="M358 272H403V235H420" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <rect x="438" y="176" width="174" height="88" rx="19" fill="#e2ecdd" stroke="#648b71" stroke-width="2.5"/><text x="525" y="231.9" font-size="34" font-weight="500" fill="#2b4437" text-anchor="middle">QKᵀ / √d</text>
+      <path d="M627 220H658" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><rect x="676" y="182" width="180" height="76" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="766" y="232.6" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">softmax</text>
+      <path d="M766 274V318" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><text x="817" y="305" font-size="30" font-weight="500" fill="#648b71" text-anchor="middle">权重</text>
+      <path d="M358 377H631" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><rect x="649" y="338" width="192" height="77" rx="19" fill="#e2ecdd" stroke="#648b71" stroke-width="2.5"/><text x="745" y="387.7" font-size="32" font-weight="500" fill="#2b4437" text-anchor="middle">加权 V → Y</text>
+      <text x="450" y="462" font-size="30" font-weight="400" fill="#648b71" text-anchor="middle">单头示意 · 省略掩码与输出投影</text>
+</g></svg>

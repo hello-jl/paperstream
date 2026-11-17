@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Original artwork by Paperstream contributors. SPDX-License-Identifier: MIT -->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500" role="img" aria-labelledby="agent-loop-title agent-loop-desc">
+<title id="agent-loop-title">Agent 工作循环</title><desc id="agent-loop-desc">任务进入模型，模型调用工具，环境结果返回模型；模型可以继续循环或退出并完成任务。这是通用 Agent 工作循环，不是 Claude 内部架构。</desc>
+<metadata>Original illustration: Paperstream contributors. MIT License: https://opensource.org/license/mit</metadata>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#648b71"/></marker></defs>
+<rect width="900" height="500" rx="26" fill="#f5f7ee"/>
+<g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="38" y="55" font-size="34" font-weight="600" fill="#2b4437" text-anchor="start">Agent 工作循环</text>
+<text x="38" y="94" font-size="22" font-weight="400" fill="#648b71" text-anchor="start">任务、工具与环境反馈</text>
+<rect x="40" y="215" width="130" height="80" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="105" y="267.6" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">任务</text>
+      <path d="M184 255H243" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <rect x="260" y="215" width="160" height="80" rx="19" fill="#e2ecdd" stroke="#648b71" stroke-width="2.5"/><text x="340" y="268.3" font-size="38" font-weight="500" fill="#2b4437" text-anchor="middle">模型</text>
+      <path d="M437 255H511" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <rect x="530" y="215" width="140" height="80" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="600" y="267.6" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">工具</text>
+      <path d="M686 255H702" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <rect x="720" y="215" width="140" height="80" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="790" y="267.6" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">环境</text>
+      <path d="M340 201V185" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><rect x="280" y="109" width="120" height="60" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="340" y="151.6" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">完成</text>
+      <path d="M790 312V369Q790 386 773 386H357Q340 386 340 369V311" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <text x="580" y="369" font-size="32" font-weight="500" fill="#648b71" text-anchor="middle">返回环境结果</text>
+      <text x="450" y="462" font-size="30" font-weight="400" fill="#648b71" text-anchor="middle">通用工作循环 · 非 Claude 内部架构</text>
+</g></svg>

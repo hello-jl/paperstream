@@ -1,0 +1,80 @@
+{
+  "checked": "2026-11-14",
+  "diagrams": {
+    "in-context": {
+      "file": "assets/history/principles/in-context.png",
+      "sourceSvg": "assets/history/principles/in-context.svg",
+      "width": 900,
+      "height": 500,
+      "sha256": "3c8601f29bab2054d9e11dd61cfb87b12a0e93df37d447df09a7bebb6e9d05bf",
+      "sourceSvgSha256": "e1c6562e0fb63ce3a09e9281e2446a6828aba538407bc0fb1f87572ec657b3cf",
+      "caption": "上下文学习示意",
+      "author": "Paperstream contributors",
+      "license": "MIT",
+      "licenseUrl": "https://opensource.org/license/mit",
+      "sourceUrl": "https://arxiv.org/abs/2005.14165",
+      "context": "Original conceptual summary of Brown et al. (2020), Language Models are Few-Shot Learners. This depicts inference with few-shot examples, not gradient-based training.",
+      "changes": "Newly drawn, simplified conceptual illustration in editable SVG; no source figures copied. PNG rendered from the SVG without cropping."
+    },
+    "agent-loop": {
+      "file": "assets/history/principles/agent-loop.png",
+      "sourceSvg": "assets/history/principles/agent-loop.svg",
+      "width": 900,
+      "height": 500,
+      "sha256": "ece3df75976cd187b93c60f177a751f37ca8b762e0625d20b0a4b98ae44aebfe",
+      "sourceSvgSha256": "40b8e238af82bd40a947a3bfa967c59ba33f7ab1446801716168b1225b6752e7",
+      "caption": "Agent 工作循环",
+      "author": "Paperstream contributors",
+      "license": "MIT",
+      "licenseUrl": "https://opensource.org/license/mit",
+      "sourceUrl": "https://www.anthropic.com/research/building-effective-agents",
+      "context": "Original generic agent-loop illustration informed by Anthropic, Building effective agents (2024). It is not a diagram of the internal architecture of Claude or any specific model.",
+      "changes": "Newly drawn, simplified conceptual illustration in editable SVG; no source figures copied. PNG rendered from the SVG without cropping."
+    },
+    "self-attention": {
+      "file": "assets/history/principles/self-attention.png",
+      "sourceSvg": "assets/history/principles/self-attention.svg",
+      "width": 900,
+      "height": 500,
+      "sha256": "7ca0981e19912c8972f248e6ed37a1e34a740140bab24e59c01f1a92e4106ee2",
+      "sourceSvgSha256": "a8343076e6d82c0c3d2a193195eeeca6b1c171a07c209f01f421c9d43683f673",
+      "caption": "单头自注意力",
+      "author": "Paperstream contributors",
+      "license": "MIT",
+      "licenseUrl": "https://opensource.org/license/mit",
+      "sourceUrl": "https://arxiv.org/abs/1706.03762",
+      "context": "Original simplified single-head scaled dot-product self-attention diagram after Vaswani et al. (2017), Attention Is All You Need. Linear projections are implied by the X-to-Q/K/V arrows; masks, multi-head concatenation and output projection are omitted.",
+      "changes": "Newly drawn, simplified conceptual illustration in editable SVG; no source figures copied. PNG rendered from the SVG without cropping."
+    },
+    "residual": {
+      "file": "assets/history/principles/residual.png",
+      "sourceSvg": "assets/history/principles/residual.svg",
+      "width": 900,
+      "height": 500,
+      "sha256": "a8dcbe82b285d35464ed89e58d53ce89a1cf8f93f2a61dab6f4f24510042e05a",
+      "sourceSvgSha256": "60cda5babcb844c9d376ba3fbdac94b08d9c2da599b03eda3f469dd5dc1e4a25",
+      "caption": "残差连接示意",
+      "author": "Paperstream contributors",
+      "license": "MIT",
+      "licenseUrl": "https://opensource.org/license/mit",
+      "sourceUrl": "https://arxiv.org/abs/1512.03385",
+      "context": "Original simplified identity residual block after He et al. (2015 preprint; CVPR 2016), Deep Residual Learning for Image Recognition. The merge is elementwise addition, not concatenation; normalization and the post-add activation are omitted.",
+      "changes": "Newly drawn, simplified conceptual illustration in editable SVG; no source figures copied. PNG rendered from the SVG without cropping."
+    },
+    "diffusion-structure": {
+      "file": "assets/history/principles/diffusion-structure.png",
+      "sourceSvg": "assets/history/principles/diffusion-structure.svg",
+      "width": 900,
+      "height": 500,
+      "sha256": "b5e48f1305bda4f9626c23c6190d72eedafcfa4dcddb9158133ba4bdfb5b95ed",
+      "sourceSvgSha256": "6ba92a08fa572114eb8f1a811742859e2399fe765ffc92739bc2e1720b03e04b",
+      "caption": "条件扩散去噪",
+      "author": "Paperstream contributors",
+      "license": "MIT",
+      "licenseUrl": "https://opensource.org/license/mit",
+      "sourceUrl": "https://www.nature.com/articles/s41586-024-07487-w",
+      "context": "Original high-level illustration of AlphaFold 3 (Abramson et al., Nature 2024). This is a schematic of conditional coordinate generation through denoising, not an atomic structure from the paper, an exact network architecture, or a simulation of physical folding dynamics.",
+      "changes": "Newly drawn, simplified conceptual illustration in editable SVG; no source figures copied. PNG rendered from the SVG without cropping."
+    }
+  }
+}

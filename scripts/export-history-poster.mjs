@@ -54,29 +54,38 @@ for (let row = 0; row < 4; row++) {
   for (let col = 0; col < 4; col++) {
     const index = row * 4 + col, { node, paper } = rows[index], x = margin + col * (cw + gap);
     const figure = node.paperstreamCard?.figures?.[0];
-    if (!figure?.src || !/^data:image\/(?:jpeg|png|webp);base64,/.test(figure.src)) throw new Error(`Missing portable portrait: ${node.id}`);
-    const photo = { x: x + 24, y: y + 24, width: 112, height: 112 / .75 };
-    const crop = figureLayout(figure, photo.width);
-    if (Math.abs(crop.height - photo.height) > 1e-6) throw new Error(`The saved portrait must use a 3:4 frame: ${node.id}`);
-    const tx = x + 158, tw = cw - 184;
-    const heading = text(paper.alias, tx, y + 28, tw, 24, 34, { fill: ink, weight: 600 });
-    const bodyY = y + 28 + heading.height + 14;
-    const body = text(paper.takeaway, tx, bodyY, tw, 18, 28);
+    if (!figure?.src || !/^data:image\/(?:jpeg|png|webp);base64,/.test(figure.src)) throw new Error(`Missing portable illustration: ${node.id}`);
+    const diagram = String(figure.id ?? '').startsWith('diagram_');
+    // Diagrams retain their native landscape aspect and all source pixels.
+    // Only portraits use the existing per-person 3:4 crop and left-hand slot.
+    const crop = figureLayout(diagram ? { ...figure, frame: undefined } : figure, diagram ? 220 : 112);
+    const photo = { x: x + 24, y: y + (diagram ? 82 : 24), width: crop.width, height: crop.height };
+    if (diagram && crop.height > 128) throw new Error(`Diagram needs a landscape image to fit this poster: ${node.id}`);
+    if (!diagram && Math.abs(crop.height - 112 / .75) > 1e-6) throw new Error(`The saved portrait must use a 3:4 frame: ${node.id}`);
+    const headingX = x + (diagram ? 24 : 158), headingY = y + (diagram ? 22 : 28);
+    const headingWidth = cw - (diagram ? 48 : 184);
+    const heading = text(paper.alias, headingX, headingY, headingWidth, 24, 34, { fill: ink, weight: 600 });
+    if (diagram && headingY + heading.height > photo.y - 12) throw new Error(`Diagram heading does not fit: ${node.id}`);
+    const tx = x + (diagram ? 270 : 158), tw = cw - (diagram ? 294 : 184);
+    const bodyY = diagram ? photo.y : headingY + heading.height + 14;
+    const body = text(paper.takeaway, tx, bodyY, tw, 18, diagram ? 26 : 28);
     if (bodyY + body.height > y + ch - 43) throw new Error(`Summary does not fit: ${node.id}`);
-    const caption = text(figure.caption, photo.x - 12, photo.y + photo.height + 10, photo.width + 24, 14, 19, { anchor: 'middle' });
-    if (photo.y + photo.height + 10 + caption.height > y + ch - 14) throw new Error(`Caption does not fit: ${node.id}`);
-    const cropId = `portrait-${index}`;
-    clips.push(`<clipPath id="${cropId}" clipPathUnits="userSpaceOnUse"><rect x="${photo.x}" y="${photo.y}" width="${photo.width}" height="${photo.height}" rx="10"/></clipPath>`);
+    const captionY = photo.y + photo.height + (diagram ? 5 : 10);
+    const caption = text(figure.caption, photo.x - (diagram ? 6 : 12), captionY,
+      photo.width + (diagram ? 12 : 24), diagram ? 12 : 14, diagram ? 16 : 19, { anchor: 'middle' });
+    if (captionY + caption.height > y + ch - (diagram ? 9 : 14)) throw new Error(`Caption does not fit: ${node.id}`);
+    const cropId = `illustration-${index}`;
+    clips.push(`<clipPath id="${cropId}" clipPathUnits="userSpaceOnUse"><rect x="${photo.x}" y="${photo.y}" width="${photo.width}" height="${photo.height}" rx="${diagram ? 0 : 10}"/></clipPath>`);
     const link = /^https?:\/\//i.test(paper.url ?? '') ? paper.url : null;
-    blocks.push(`${link ? `<a href="${xml(link)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}">`
+    blocks.push(`${link ? `<a href="${xml(link)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}" data-figure-kind="${diagram ? 'diagram' : 'portrait'}">`
       + `<rect x="${x}" y="${y}" width="${cw}" height="${ch}" rx="24" fill="#fff" stroke="${color}" stroke-opacity=".48" stroke-width="1.5"/>`
-      + `<rect x="${photo.x}" y="${photo.y}" width="${photo.width}" height="${photo.height}" rx="10" fill="#eef3ed"/>`
+      + `<rect x="${photo.x}" y="${photo.y}" width="${photo.width}" height="${photo.height}" rx="${diagram ? 0 : 10}" fill="${diagram ? '#fff' : '#eef3ed'}"/>`
       + `<image x="${photo.x + crop.image.x}" y="${photo.y + crop.image.y}" width="${crop.image.width}" height="${crop.image.height}" preserveAspectRatio="none" clip-path="url(#${cropId})" href="${xml(figure.src)}"/>`
       + caption.svg + heading.svg + body.svg
       + text(String(paper.year ?? ''), x + cw - 104, y + ch - 43, 80, 22, 26, { fill: color, weight: 600, anchor: 'end' }).svg
       + `</g>${link ? '</a>' : ''}`);
-    geometry.push({ id: node.id, x, y, width: cw, height: ch, photo,
-      heading: { x: tx, y: y + 28, width: tw, height: heading.height },
+    geometry.push({ id: node.id, kind: diagram ? 'diagram' : 'portrait', x, y, width: cw, height: ch, photo,
+      heading: { x: headingX, y: headingY, width: headingWidth, height: heading.height },
       body: { x: tx, y: bodyY, width: tw, height: body.height } });
     if (col < 3) {
       const edge = doc.edges.find(edge => edge.fromNode === node.id && edge.toNode === rows[index + 1].node.id);
@@ -93,14 +102,14 @@ const footer = text(credits.text, margin, footerY + 30, W - margin * 2, 15, 24);
 if (footerY + 30 + footer.height > H - 34) throw new Error('Source credits exceed the poster bounds.');
 const years = rows.map(({ paper }) => paper.year).filter(Number.isFinite);
 const svg = `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-labelledby="poster-title poster-desc">
-<title id="poster-title">${xml(title.label)} · 紧凑海报版</title><desc id="poster-desc">16 个时间里程碑，按行从左至右阅读。原图的肖像取景和事实文字保留；连线表示时间顺序，不表示直接技术继承。完整来源与照片许可见 computing-ai-history-sources.md。</desc><defs>${clips.join('')}</defs>
+<title id="poster-title">${xml(title.label)} · 紧凑海报版</title><desc id="poster-desc">16 个时间里程碑，混用人物肖像与原理示意图，按行从左至右阅读。肖像取景、原理图完整比例与事实文字保留；连线表示时间顺序，不表示直接技术继承。完整来源与插图许可见 computing-ai-history-sources.md。</desc><defs>${clips.join('')}</defs>
 <rect width="${W}" height="${H}" rx="32" fill="${background}"/>
 <g font-family="Arial, Microsoft YaHei, sans-serif">
 <path d="M82 58h20q16 0 16 16v13q0 16 16 16h20M82 75h9q10 0 10 10v12q0 18 18 18h35" fill="none" stroke="#6c8e78" stroke-width="5" stroke-linecap="round"/>
 ${text('Paperstream', 174, 58, 650, 36, 42, { fill: ink, weight: 600 }).svg}
 ${text(`AI HISTORY  /  ${Math.min(...years)}—${Math.max(...years)}`, W - margin - 650, 70, 650, 20, 26, { anchor: 'end' }).svg}
 ${text('从电子计算，到人工智能', margin, 135, 2200, 54, 64, { fill: ink, weight: 600 }).svg}
-${text('16 个里程碑，以及与它们相关的人。按行从左至右阅读；连线表示时间顺序。', margin, 213, 2200, 22, 30).svg}
+${text('16 个里程碑，以人物与原理串起。按行从左至右阅读；连线表示时间顺序。', margin, 213, 2200, 22, 30).svg}
 <path d="M${margin} 250H${W - margin}" stroke="#dce6dc"/>
 ${blocks.join('\n')}
 <path d="M${margin} ${footerY - 8}H${W - margin}" stroke="#dce6dc"/>
@@ -126,4 +135,5 @@ if (rendererPackage) {
 if (!(await readFile(source)).equals(sourceBytes)) throw new Error('The source changed during export; regenerate from the latest saved version.');
 console.log(JSON.stringify({ ok: true, source: input, sourceSha256: createHash('sha256').update(sourceBytes).digest('hex'),
   svg: `${output}.svg`, png: rendererPackage ? `${output}.png` : null,
-  cards: rows.length, portraits: geometry.length, canvas: [W, H], ids: rows.map(row => row.node.id) }));
+  cards: rows.length, portraits: geometry.filter(item => item.kind === 'portrait').length,
+  diagrams: geometry.filter(item => item.kind === 'diagram').length, canvas: [W, H], ids: rows.map(row => row.node.id) }));

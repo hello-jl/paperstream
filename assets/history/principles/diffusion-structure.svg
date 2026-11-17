@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Original artwork by Paperstream contributors. SPDX-License-Identifier: MIT -->
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500" role="img" aria-labelledby="diffusion-structure-title diffusion-structure-desc">
+<title id="diffusion-structure-title">扩散式结构生成</title><desc id="diffusion-structure-desc">序列与分子信息作为条件，噪声原子坐标经逐步去噪形成复合物结构。右侧自绘形状不对应真实分子；这不是实际折叠动力学。</desc>
+<metadata>Original illustration: Paperstream contributors. MIT License: https://opensource.org/license/mit</metadata>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8.6" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10Z" fill="#648b71"/></marker></defs>
+<rect width="900" height="500" rx="26" fill="#f5f7ee"/>
+<g font-family="Arial, Microsoft YaHei, sans-serif">
+<text x="38" y="55" font-size="34" font-weight="600" fill="#2b4437" text-anchor="start">扩散式结构生成</text>
+<text x="38" y="94" font-size="22" font-weight="400" fill="#648b71" text-anchor="start">AlphaFold 3 · diffusion-based structure prediction</text>
+<rect x="261" y="118" width="380" height="62" rx="19" fill="#ffffff" stroke="#b7cbb5" stroke-width="2.5"/><text x="451" y="161.6" font-size="36" font-weight="500" fill="#2b4437" text-anchor="middle">序列 / 分子信息</text><path d="M450 194V222" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <g fill="#648b71" opacity=".88"><circle cx="91" cy="247" r="6"/><circle cx="142" cy="234" r="7"/><circle cx="199" cy="271" r="8"/><circle cx="104" cy="291" r="6"/><circle cx="159" cy="303" r="7"/><circle cx="216" cy="321" r="8"/><circle cx="130" cy="342" r="6"/><circle cx="190" cy="354" r="7"/><circle cx="79" cy="327" r="8"/><circle cx="224" cy="243" r="6"/><circle cx="170" cy="264" r="7"/><circle cx="84" cy="365" r="8"/></g>
+      <path d="M247 293H311" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/><rect x="330" y="240" width="240" height="108" rx="19" fill="#e2ecdd" stroke="#648b71" stroke-width="2.5"/><text x="450" y="307.3" font-size="38" font-weight="500" fill="#2b4437" text-anchor="middle">逐步去噪</text><path d="M587 293H649" fill="none" stroke="#648b71" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#arrow)"/>
+      <path d="M690 325C664 274 713 242 749 258S822 249 825 290S777 329 752 302S704 293 716 327S772 362 814 337" fill="none" stroke="#648b71" stroke-width="12" stroke-linecap="round"/>
+      <path d="M751 267L775 278L774 305L749 319L725 305L726 280Z" fill="none" stroke="#bf8d55" stroke-width="5" stroke-linejoin="round"/>
+      <g fill="#bf8d55"><circle cx="751" cy="267" r="6"/><circle cx="775" cy="278" r="6"/><circle cx="774" cy="305" r="6"/><circle cx="749" cy="319" r="6"/><circle cx="725" cy="305" r="6"/><circle cx="726" cy="280" r="6"/></g>
+      <text x="153" y="403" font-size="34" font-weight="500" fill="#2b4437" text-anchor="middle">噪声原子坐标</text><text x="753" y="403" font-size="34" font-weight="500" fill="#2b4437" text-anchor="middle">复合物结构</text>
+      <text x="450" y="462" font-size="30" font-weight="400" fill="#648b71" text-anchor="middle">结构生成示意 · 非实际折叠动力学</text>
+</g></svg>
