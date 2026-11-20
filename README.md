@@ -4,7 +4,7 @@
 
 **人用可视画布梳理研究脉络，AI 用本地命令定点维护——共享同一份独立的 `.canvas` 文件。**
 
-基于 [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/) 的论文关系图工作台与零依赖 Python API：支持直接在浏览器打开，也可集成到 **Claude Code、Codex / ChatGPT、Claude Desktop（MCP Apps）、DeepSeek Harness（DSH）** 等各类 Agent Harness 中协同使用。
+基于 [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/) 的论文关系图工作台与零依赖 Python API：支持直接在**浏览器**中打开，也可集成到 **Claude Code、Codex / ChatGPT、Claude Desktop（MCP Apps）、DeepSeek Harness（DSH）** 等各类 Agent Harness 中协同使用。
 
 **[立即在线试用工作台 → https://hello-jl.github.io/paperstream/](https://hello-jl.github.io/paperstream/)**
 
