@@ -2,9 +2,9 @@
 
 本文件面向帮你在本机拉取并安装 Paperstream 的 AI Agent（以及希望通过单一脚本完成部署的维护者）。所有探查、构建、安装与冒烟验收统一由零依赖标准库脚本 [`scripts/setup.py`](scripts/setup.py) 完成，避免跨目录拼装容易出错的手工命令。
 
-## 给用户：直接复制给你的 Agent 的话
+## 给用户：可以这样请你的 Agent 帮忙
 
-> 克隆 `https://github.com/hello-jl/paperstream.git` 到本地，阅读其中的 `DEPLOY.md` 并运行 `python3 scripts/setup.py doctor --json`。根据我当前的环境与正在使用的宿主建议部署方案，经我确认后完成安装并验证可用。
+> 帮我看看 `https://github.com/hello-jl/paperstream` 里的 `DEPLOY.md`，结合我当前的本机环境和使用习惯，介绍一下有哪些合适的本地安装方式（比如直接用 Releases 里的预构建包，还是从源码安装）；等我确认后再帮我配置。
 
 ---
 
@@ -31,7 +31,7 @@ python3 scripts/setup.py doctor --json
 | Claude Desktop（无 Shell 对话内嵌画布） | `cli`, `skill`, `mcp` | 全局 CLI + 标准 stdio MCP Apps 工具与内嵌画布（需用户至少指定 1 份 `.canvas` 或 `--use-example`） |
 | ChatGPT / Codex 桌面端 | `cli`, `skill`, `codex` | 全局 CLI + 原生侧栏 `.canvas` 文件编辑器插件 |
 | DeepSeek Harness (DSH Web) | `cli`, `skill`, `dsh` | 全局 CLI + DSH 主面板插件 |
-| 无 Node.js 22.18+ 环境（仅有 Python 3.10+） | `cli`, `skill`（及可选预构建包） | 纯 Python CLI/API 与 Skill；若需 `serve` / `mcp` / `claude`，请从 GitHub Releases 下载预构建资产并配合 `--app-source` / `--mcp-package` 使用 |
+| 无 Node.js 22.18+ 环境（仅有 Python 3.10+） | `cli`, `skill`（及可选预构建包） | 纯 Python CLI/API 与 Skill；若需 `serve` / `mcp` / `claude`，可直接从 [GitHub Releases](https://github.com/hello-jl/paperstream/releases) 下载对应便携包并配合 `--app-source` / `--mcp-package` 使用 |
 
 在修改仓库外文件之前，**一次性**向用户确认以下三件事：
 1. 本次要安装的 targets；
@@ -47,7 +47,7 @@ python3 scripts/setup.py build --target serve --json
 # 按需替换或组合多个 target：web, serve, mcp, claude, codex, dsh, all
 ```
 
-- **无 Node.js ≥ 22.18**：不要尝试自行降级编译前端。改为从项目 GitHub Releases 下载对应版本的预构建压缩包（`paperstream-serve-*.zip`、`paperstream-mcp-*.zip`、`paperstream-claude-*.zip` 等），解压后进入第 4 步并传入 `--app-source` 或 `--mcp-package`。
+- **直接用预构建包（无需 Node.js ≥ 22.18，也最省事）**：可从 [GitHub Releases](https://github.com/hello-jl/paperstream/releases) 直接下载对应版本的预构建便携包（`paperstream-serve-*.zip`、`paperstream-mcp-*.zip`、`paperstream-claude-*.zip`、`paperstream-codex-*.zip`、`dsh-paperstream-*.tgz` 等），解压后进入第 4 步并传入 `--app-source` 或 `--mcp-package`（无 Node.js ≥ 22.18 时不要自行降级编译前端）。
 
 ### 第 4 步：先预览（dry-run），再应用（apply）
 
