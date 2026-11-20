@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
+import urllib.error
+import zipfile
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SETUP_PATH = REPO_ROOT / "scripts" / "setup.py"
@@ -424,6 +430,280 @@ class SetupTests(unittest.TestCase):
                     home=self.home,
                     platform_name="win32",
                 )
+
+    def _build_release_fixtures(self, archive_dir: Path, *, with_checksums: bool = True) -> dict[str, bytes]:
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        launcher_py = (
+            "from pathlib import Path\n"
+            "import json, sys\n"
+            "cmd, path = sys.argv[1], Path(sys.argv[2])\n"
+            "if cmd == 'init': path.write_text('{\"nodes\":[],\"edges\":[]}', encoding='utf-8')\n"
+            "elif cmd == 'add-node': pass\n"
+            "elif cmd == 'validate': print(json.dumps({'ok': True, 'valid': True}))\n"
+        )
+
+        def write_zip(name: str, prefix: str, files: dict[str, str | bytes]) -> Path:
+            dest = archive_dir / name
+            with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                for rel, body in files.items():
+                    data = body.encode("utf-8") if isinstance(body, str) else body
+                    zf.writestr(f"{prefix}/{rel}", data)
+            return dest
+
+        archives = [
+            write_zip("paperstream-serve-v0.1.0.zip", "paperstream-serve", {"app.html": "<!doctype html>serve"}),
+            write_zip(
+                "paperstream-mcp-v0.1.0.zip",
+                "paperstream-mcp",
+                {
+                    "dist/server.mjs": "console.log('mcp');\n",
+                    "dist/app.html": "<!doctype html>mcp",
+                    "LICENSE": "MIT",
+                    "THIRD_PARTY_NOTICES.md": "Notices",
+                },
+            ),
+            write_zip(
+                "paperstream-claude-0.1.0.zip",
+                "paperstream",
+                {
+                    ".claude-plugin/plugin.json": '{"name":"paperstream","version":"0.1.0"}',
+                    "app/app.html": "<!doctype html>claude",
+                    "scripts/paperstream.py": launcher_py,
+                    "skills/paperstream/SKILL.md": "# Skill\n",
+                    "skills/paperstream/references/api.md": "# API\n",
+                    "LICENSE": "MIT",
+                    "THIRD_PARTY_NOTICES.md": "Notices",
+                },
+            ),
+            write_zip(
+                "paperstream-codex-v0.1.0.zip",
+                "paperstream-codex",
+                {
+                    ".codex-plugin/plugin.json": '{"name":"paperstream","version":"0.1.0"}',
+                    "dist/server.mjs": "console.log('codex');\n",
+                    "dist/app.html": "<!doctype html>codex",
+                    "scripts/paperstream.py": launcher_py,
+                    "skills/paperstream/SKILL.md": "# Skill\n",
+                    "skills/paperstream/references/api.md": "# API\n",
+                    "LICENSE": "MIT",
+                    "THIRD_PARTY_NOTICES.md": "Notices",
+                },
+            ),
+            write_zip("paperstream-web-static-v0.1.0.zip", "paperstream-web", {"index.html": "<!doctype html>web"}),
+        ]
+
+        dsh_tgz = archive_dir / "dsh-paperstream-0.1.0.tgz"
+        dsh_files = {
+            "package/package.json": '{"name":"dsh-paperstream","version":"0.1.0"}',
+            "package/lib/index.js": "export const id = 'paperstream';\n",
+            "package/lib/client.js": "export default function register() {}\n",
+            "package/LICENSE": "MIT",
+            "package/THIRD_PARTY_NOTICES.md": "Notices",
+        }
+        with tarfile.open(dsh_tgz, "w:gz") as tf:
+            for member_name, body in dsh_files.items():
+                raw = body.encode("utf-8")
+                info = tarfile.TarInfo(member_name)
+                info.size = len(raw)
+                tf.addfile(info, io.BytesIO(raw))
+        archives.append(dsh_tgz)
+
+        payloads: dict[str, bytes] = {}
+        sums_lines: list[str] = []
+        for path in archives:
+            raw = path.read_bytes()
+            payloads[path.name] = raw
+            digest = hashlib.sha256(raw).hexdigest()
+            sums_lines.append(f"{digest}  {path.name}\n")
+        if with_checksums:
+            sums_bytes = "".join(sums_lines).encode("utf-8")
+            (archive_dir / "SHA256SUMS.txt").write_bytes(sums_bytes)
+            payloads["SHA256SUMS.txt"] = sums_bytes
+        return payloads
+
+    def test_fetch_from_dir_stages_all_targets_and_rejects_bad_archives(self):
+        fake_repo = self.root / "repo"
+        fake_repo.mkdir()
+        release_dir = self.root / "releases"
+        self._build_release_fixtures(release_dir)
+
+        fetched = setup_mod.run_fetch(["all"], from_dir=release_dir, repo_root=fake_repo)
+        self.assertTrue(fetched["ok"])
+        self.assertEqual(fetched["source"], "local-dir")
+        self.assertTrue(all(fetched["built_artifacts"].values()))
+        self.assertEqual((fake_repo / "dist" / "serve" / "app.html").read_text(encoding="utf-8"), "<!doctype html>serve")
+        self.assertTrue((fake_repo / "mcp" / "dist" / "package" / "dist" / "server.mjs").is_file())
+        self.assertTrue((fake_repo / "claude" / "dist" / "plugin" / ".claude-plugin" / "plugin.json").is_file())
+        self.assertTrue((fake_repo / "claude" / "dist" / "paperstream-claude-0.1.0.zip").is_file())
+        self.assertTrue((fake_repo / "codex" / "dist" / "plugin" / ".codex-plugin" / "plugin.json").is_file())
+        self.assertTrue((fake_repo / "web" / "dist" / "index.html").is_file())
+        self.assertTrue((fake_repo / "dsh" / "dist" / "dsh-paperstream-0.1.0.tgz").is_file())
+
+        # Checksum mismatch refuses extraction and leaves existing staged bundle intact.
+        bad_sha_dir = self.root / "bad_sha"
+        self._build_release_fixtures(bad_sha_dir)
+        (bad_sha_dir / "SHA256SUMS.txt").write_text(
+            f"{'0' * 64}  paperstream-serve-v0.1.0.zip\n", encoding="utf-8"
+        )
+        with self.assertRaises(setup_mod.SetupError) as ctx:
+            setup_mod.run_fetch(["serve"], from_dir=bad_sha_dir, repo_root=fake_repo)
+        self.assertIn("checksum mismatch", str(ctx.exception))
+        self.assertEqual((fake_repo / "dist" / "serve" / "app.html").read_text(encoding="utf-8"), "<!doctype html>serve")
+
+        # Reject path traversal and symlink entries inside archives.
+        for label, make_bad_zip in (
+            ("traversal", lambda zf: zf.writestr("paperstream-serve/../../evil.txt", b"bad")),
+            (
+                "symlink",
+                lambda zf: zf.writestr(
+                    zipfile.ZipInfo("paperstream-serve/link.html").__class__("paperstream-serve/link.html")
+                    if False
+                    else zipfile.ZipInfo("paperstream-serve/link.html"),
+                    b"/etc/passwd",
+                ),
+            ),
+        ):
+            evil_dir = self.root / f"evil_{label}"
+            evil_dir.mkdir()
+            zip_path = evil_dir / "paperstream-serve-v0.1.0.zip"
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                if label == "symlink":
+                    zi = zipfile.ZipInfo("paperstream-serve/link.html")
+                    zi.external_attr = (stat.S_IFLNK | 0o777) << 16
+                    zf.writestr(zi, b"/etc/passwd")
+                else:
+                    make_bad_zip(zf)
+            with self.assertRaises(setup_mod.SetupError):
+                setup_mod.run_fetch(["serve"], from_dir=evil_dir, repo_root=fake_repo)
+
+    def test_fetch_github_release_via_mocked_https_and_fallback_hints(self):
+        fake_repo = self.root / "repo_https"
+        fake_repo.mkdir()
+        payloads = self._build_release_fixtures(self.root / "http_fixtures")
+
+        doctor_report = setup_mod.run_doctor(repo_root=fake_repo, env={"PATH": ""}, home=self.home)
+        self.assertEqual(doctor_report["install_methods"]["recommended"], "release")
+        self.assertIn("serve", doctor_report["recommended_targets"])
+
+        class _FakeResponse:
+            def __init__(self, url: str, data: bytes):
+                self._url = url
+                self._buf = io.BytesIO(data)
+
+            def geturl(self) -> str:
+                return self._url
+
+            def read(self, n: int = -1) -> bytes:
+                return self._buf.read(n)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc):
+                return False
+
+        def fake_urlopen(req, timeout=60):
+            url = req.full_url
+            name = url.rsplit("/", 1)[-1]
+            if name not in payloads:
+                raise urllib.error.URLError(f"unexpected URL {url}")
+            return _FakeResponse(url, payloads[name])
+
+        with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+            res = setup_mod.run_fetch(["serve"], tag="v0.1.0", repo_root=fake_repo)
+        self.assertEqual(res["source"], "github-release")
+        self.assertEqual((fake_repo / "dist" / "serve" / "app.html").read_text(encoding="utf-8"), "<!doctype html>serve")
+        self.assertTrue(res["fetched"][0]["checksum_verified"])
+
+        # Network error surfaces build fallback hint; build error surfaces fetch fallback hint.
+        with patch("urllib.request.urlopen", side_effect=urllib.error.URLError("offline")):
+            with self.assertRaises(setup_mod.SetupError) as fetch_err:
+                setup_mod.run_fetch(["serve"], repo_root=fake_repo)
+        self.assertIn("scripts/setup.py build --target serve", str(fetch_err.exception))
+
+        with self.assertRaises(setup_mod.SetupError) as build_err:
+            setup_mod.run_build(["serve"], repo_root=fake_repo, env={"PATH": ""})
+        self.assertIn("scripts/setup.py fetch --target serve", str(build_err.exception))
+
+    def test_install_and_verify_dsh_claude_codex_from_prebuilt_packages(self):
+        fake_repo = self.root / "repo_hosts"
+        fake_repo.mkdir()
+        release_dir = self.root / "host_releases"
+        self._build_release_fixtures(release_dir)
+        setup_mod.run_fetch(["claude", "codex", "dsh"], from_dir=release_dir, repo_root=fake_repo)
+
+        fake_bin = self.root / "host_bin"
+        fake_bin.mkdir()
+        call_log = self.root / "cli_calls.jsonl"
+        for host_cmd in ("claude", "codex", "dsh"):
+            exe = fake_bin / host_cmd
+            exe.write_text(
+                "\n".join([
+                    f"#!{sys.executable}",
+                    "import json, sys",
+                    f"with open({repr(str(call_log))}, 'a', encoding='utf-8') as fh:",
+                    f"    fh.write(json.dumps({{'cli': {repr(host_cmd)}, 'args': sys.argv[1:]}}) + '\\n')",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+            exe.chmod(0o755)
+
+        # Explicitly omit node from PATH: fetched dsh .tgz must install and verify without Node.js.
+        no_node_env = {**self.base_env, "PATH": str(fake_bin)}
+        dsh_dry = setup_mod.run_install(["dsh"], apply=False, repo_root=fake_repo, env=no_node_env, home=self.home)
+        self.assertEqual(dsh_dry["actions"][0]["source_mode"], "tgz")
+        self.assertFalse(call_log.exists())
+
+        dsh_apply = setup_mod.run_install(["dsh"], apply=True, repo_root=fake_repo, env=no_node_env, home=self.home)
+        self.assertTrue(dsh_apply["actions"][0]["applied"])
+        dsh_verify = setup_mod.run_verify(["dsh"], repo_root=fake_repo, env=no_node_env)
+        self.assertEqual(dsh_verify["results"][0]["status"], "passed")
+        self.assertEqual(dsh_verify["results"][0]["mode"], "tgz")
+
+        # Install & verify Claude and Codex from fetched repo dirs AND explicit external unpacked dirs.
+        hosts_apply = setup_mod.run_install(
+            ["claude", "codex"], apply=True, repo_root=fake_repo, env=no_node_env, home=self.home
+        )
+        self.assertEqual(hosts_apply["actions"][0]["source_mode"], "repo-dist")
+        self.assertEqual(hosts_apply["actions"][1]["source_mode"], "repo-dist")
+        hosts_verify = setup_mod.run_verify(["claude", "codex"], repo_root=fake_repo, env=no_node_env)
+        self.assertEqual([r["status"] for r in hosts_verify["results"]], ["passed", "passed"])
+
+        ext_claude = self.root / "ext_claude"
+        with zipfile.ZipFile(release_dir / "paperstream-claude-0.1.0.zip") as zf:
+            zf.extractall(ext_claude)
+        ext_codex = self.root / "ext_codex"
+        with zipfile.ZipFile(release_dir / "paperstream-codex-v0.1.0.zip") as zf:
+            zf.extractall(ext_codex)
+
+        ext_apply = setup_mod.run_install(
+            ["claude", "codex"],
+            apply=True,
+            claude_package=ext_claude,
+            codex_package=ext_codex,
+            repo_root=fake_repo,
+            env=no_node_env,
+            home=self.home,
+        )
+        self.assertEqual(ext_apply["actions"][0]["source_mode"], "external-package")
+        self.assertEqual(ext_apply["actions"][1]["source_mode"], "external-package")
+        self.assertTrue((self.data_dir / "plugins" / "claude" / ".claude-plugin" / "marketplace.json").is_file())
+        self.assertTrue((self.data_dir / "plugins" / "codex" / ".agents" / "plugins" / "marketplace.json").is_file())
+
+        ext_verify = setup_mod.run_verify(
+            ["claude", "codex", "dsh"],
+            claude_package=ext_claude,
+            codex_package=ext_codex,
+            dsh_package=release_dir / "dsh-paperstream-0.1.0.tgz",
+            repo_root=fake_repo,
+            env=no_node_env,
+        )
+        self.assertEqual([r["status"] for r in ext_verify["results"]], ["passed", "passed", "passed"])
+        logged = [json.loads(line) for line in call_log.read_text(encoding="utf-8").splitlines()]
+        self.assertTrue(any(row["cli"] == "dsh" and row["args"][:3] == ["plugin", "--profile", "web"] for row in logged))
+        self.assertTrue(any(row["cli"] == "claude" and row["args"][:2] == ["plugin", "validate"] for row in logged))
+        self.assertTrue(any(row["cli"] == "codex" and row["args"][:2] == ["plugin", "marketplace"] for row in logged))
 
 
 if __name__ == "__main__":
