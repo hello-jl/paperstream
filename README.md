@@ -62,26 +62,15 @@ Paperstream 以本地 `.canvas` 文件为交接媒介，不绑定特定模型或
 
 > 帮我看看 `https://github.com/hello-jl/paperstream` 里的 `DEPLOY.md`，结合我当前的本机环境和使用习惯，介绍一下有哪些合适的本地安装方式（比如直接用 Releases 里的预构建包，还是从源码安装）；等我确认后再帮我配置。
 
-如果自己通过源码安装，也可以直接执行标准 Python 安装与 [`scripts/setup.py`](scripts/setup.py)：
+也可以直接安装纯 Python 命令行（零第三方依赖），配合 Releases 中解压出的 `app.html` 即可启用本地单文件网页：
 
 ```sh
 pip install --user -e .                   # 或 uv tool install -e .（全局注册 paperstream 命令）
-# 若使用 Releases 下载的 paperstream-serve-*.zip，解压出 app.html 后可跳过 build，改为加 --app-source /path/to/app.html
-python3 scripts/setup.py build --target serve
-python3 scripts/setup.py install --target cli,skill,serve --apply
+python3 scripts/setup.py install --target cli,skill,serve --app-source /path/to/app.html --apply
 paperstream serve examples/resnet.canvas --read-only
 ```
 
-### 3. 本地开发模式启动工作台（需要 Node.js 22.18+）
-
-```sh
-npm ci --prefix web
-npm --prefix web run dev
-```
-
-打开终端显示的本机地址，从文件菜单载入 `examples/` 下的样例即可体验（双击原位编辑、拖拽连线、`Ctrl/Cmd+V` 贴图）。
-
-### 4. 用本地命令或 Agent 维护同一份图（需要 Python 3.10+）
+### 3. 用本地命令或 Agent 维护同一份图（需要 Python 3.10+）
 
 人机交接遵循三步：**① 画布先保存 → ② 交给本地命令或 Agent 按真实 ID 修改 → ③ 回画布重载检视**。
 
