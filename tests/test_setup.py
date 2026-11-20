@@ -38,8 +38,18 @@ class SetupTests(unittest.TestCase):
         self.home.mkdir()
         self.data_dir = self.root / "data_dir"
         self.config_path = self.root / "claude" / "claude_desktop_config.json"
+        host_entries = [p for p in os.environ.get("PATH", "").split(os.pathsep) if p]
+        isolated_entries = [p for p in host_entries if not (Path(p) / "paperstream").exists()]
+        if not shutil.which("node", path=os.pathsep.join(isolated_entries)):
+            node_path = shutil.which("node")
+            if node_path:
+                tool_bin = self.root / "tool_bin"
+                tool_bin.mkdir(exist_ok=True)
+                (tool_bin / "node").symlink_to(node_path)
+                isolated_entries.insert(0, str(tool_bin))
         self.base_env = {
             **os.environ,
+            "PATH": os.pathsep.join(isolated_entries),
             "HOME": str(self.home),
             "PAPERSTREAM_DATA_DIR": str(self.data_dir),
             "PAPERSTREAM_CLAUDE_DESKTOP_CONFIG": str(self.config_path),
