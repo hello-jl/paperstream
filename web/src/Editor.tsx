@@ -35,7 +35,7 @@ import type { AppearancePreferences } from './appearance-preferences';
 import { readFigures } from './card-media';
 import { appendFiguresPatch, extractClipboardImages, readClipboardFigures } from './clipboard-images';
 import { downloadGraph } from './graph-export';
-import { zoomAt, wheelIntent } from './wheel-controls';
+import { panBy, wheelIntent, zoomAt, zoomByFactor } from './wheel-controls';
 import { editField } from './live-edit';
 import { preserveNodeMeasurements } from './flow-node-sync';
 import { sameCanvasSnapshot } from './canvas-snapshot';
@@ -824,18 +824,60 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   }
   useEffect(() => {
     const element = workspace.current; if (!element) return;
+    let lastGestureScale = 1;
+    const readGestureScale = (event: Event) => {
+      const candidate = (event as Event & { scale?: unknown }).scale;
+      return typeof candidate === 'number' && Number.isFinite(candidate) && candidate > 0 ? candidate : undefined;
+    };
+    const gesturePoint = (event: Event, rect: DOMRect) => {
+      const point = event as Event & { clientX?: unknown; clientY?: unknown };
+      return {
+        x: typeof point.clientX === 'number' && Number.isFinite(point.clientX) ? point.clientX - rect.left : rect.width / 2,
+        y: typeof point.clientY === 'number' && Number.isFinite(point.clientY) ? point.clientY - rect.top : rect.height / 2,
+      };
+    };
     const wheel = (event: WheelEvent) => {
       if (!(event.target instanceof Element)) return;
       const overControls = Boolean(event.target.closest('input, textarea, select, .ps-inspector, .ps-create-menu'));
-      if (wheelIntent(event, overControls) === 'scroll') return;
+      const action = wheelIntent(event, overControls);
+      if (action === 'scroll') return;
       event.preventDefault(); event.stopPropagation(); if (busy) return;
+      pendingInitialFit.current = false;
       const viewport = flow.getViewport();
       const rect = element.getBoundingClientRect();
+      if (action === 'pan') {
+        void flow.setViewport(panBy(viewport, event, { width: rect.width, height: rect.height }));
+        return;
+      }
       const x = event.clientX - rect.left, y = event.clientY - rect.top;
-      void flow.setViewport(zoomAt(viewport, event.deltaY, { x, y }));
+      void flow.setViewport(zoomAt(viewport, event.deltaY, { x, y }, { deltaMode: event.deltaMode, pageHeight: rect.height }));
     };
+    const gestureStart = (event: Event) => {
+      event.preventDefault();
+      lastGestureScale = readGestureScale(event) ?? 1;
+    };
+    const gestureChange = (event: Event) => {
+      event.preventDefault(); event.stopPropagation();
+      const nextScale = readGestureScale(event);
+      if (!nextScale) return;
+      const factor = lastGestureScale > 0 ? nextScale / lastGestureScale : 1;
+      lastGestureScale = nextScale;
+      if (busy) return;
+      pendingInitialFit.current = false;
+      const rect = element.getBoundingClientRect();
+      void flow.setViewport(zoomByFactor(flow.getViewport(), factor, gesturePoint(event, rect)));
+    };
+    const gestureEnd = () => { lastGestureScale = 1; };
     element.addEventListener('wheel', wheel, { passive: false, capture: true });
-    return () => element.removeEventListener('wheel', wheel, true);
+    element.addEventListener('gesturestart', gestureStart, { passive: false, capture: true });
+    element.addEventListener('gesturechange', gestureChange, { passive: false, capture: true });
+    element.addEventListener('gestureend', gestureEnd, true);
+    return () => {
+      element.removeEventListener('wheel', wheel, true);
+      element.removeEventListener('gesturestart', gestureStart, true);
+      element.removeEventListener('gesturechange', gestureChange, true);
+      element.removeEventListener('gestureend', gestureEnd, true);
+    };
   }, [flow, busy]);
   const hasManualRelations = manualRelations(canvas);
   const selectedNode = selection?.kind === 'node' ? canvas.nodes.find(node => node.id === selection.id) : undefined;
@@ -915,7 +957,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
           }}
           onNodesChange={onNodesChange} connectionMode={ConnectionMode.Loose}
           nodeDragThreshold={0} nodesDraggable={!busy && !readOnly && !connectSource} nodesConnectable={!busy && !readOnly} deleteKeyCode={null} multiSelectionKeyCode={null}
-          selectionKeyCode={null} panOnScroll={false} zoomOnScroll={false} zoomOnPinch={false} preventScrolling={false}
+          selectionKeyCode={null} panOnScroll={false} zoomOnScroll={false} zoomOnPinch preventScrolling={false}
           elevateNodesOnSelect={false} minZoom={0.1} maxZoom={2}
           onMoveStart={event => { if (event) pendingInitialFit.current = false; }}
           onNodeClick={(_event, node) => { setCreateMenu(null); if (connectSource) { quickConnect(connectSource, node.id); } else select({ kind: 'node', id: node.id }); }}
@@ -1071,7 +1113,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
       </div>
       <span className="ps-status-notice" role={error ? 'alert' : 'status'} title={error || notice}>{busy ? '处理中…' : error || (formDirty ? '请检查输入格式' : dirty ? '未保存' : host ? readOnly ? '只读文件' : '已保存' : file.current ? '已保存' : '未关联文件')}</span>
       <span className="ps-count">{canvas.nodes.filter(node => visible.has(node.id) && !isRelationNode(node)).length}/{canvas.nodes.length - relationCount} 卡片 · {canvas.edges.length} 边{relationCount > 0 ? ` · ${relationCount} 共享标签` : ''}</span>
-      <span className="ps-wheel-hint">滚轮缩放 · 拖空白平移 · 详情中调整粗细</span>
+      <span className="ps-wheel-hint">双指滑动 / 拖空白平移 · 双指捏合 / Ctrl+滚轮缩放</span>
     </footer>
     <input ref={input} hidden type="file" accept=".canvas,application/json" onChange={async event => {
       const selected = event.target.files?.[0]; event.target.value = '';
