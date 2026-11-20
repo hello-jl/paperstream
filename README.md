@@ -4,7 +4,7 @@
 
 **人用可视画布梳理研究脉络，AI 用本地命令定点维护——共享同一份独立的 `.canvas` 文件。**
 
-本地论文关系图编辑器（React Flow + ELK）与零依赖 Python 语义操作 API，基于开放格式 [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/)。
+基于 [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/) 的论文关系图工作台与零依赖 Python API：支持直接在浏览器打开，也可集成到 **Claude Code、Codex / ChatGPT、Claude Desktop（MCP Apps）、DeepSeek Harness（DSH）** 等各类 Agent Harness 中协同使用。
 
 **[立即在线试用工作台 → https://hello-jl.github.io/paperstream/](https://hello-jl.github.io/paperstream/)**
 
@@ -41,7 +41,7 @@ Paperstream 把**紧凑的论文卡片**、**有向关系与依据**以及**受�
 - **受保护的本地命令接口**：零依赖 Python API / CLI 与标准 MCP 工具按稳定 ID 增删改查，自动保留人工布局、Note 与未知扩展；通过磁盘快照校验、协作锁与原子写盘防止并发覆盖。
 - **单文件、无锁定**：基于标准 [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/)，粘贴图片内嵌于 `.canvas` 中，可直接复制、备份、Git 管理或跨宿主迁移（旧 `.mmd` 支持单向导出）。
 
-Paperstream 以本地 `.canvas` 文件为交接媒介，不绑定特定模型或云端账号：在画布里保存后，就可以让任意本地脚本或 AI Agent 接着维护。更多操作与格式细节见 [使用指南](docs/guide.md)。
+你可以直接在浏览器里打开画布独立使用，也可以把它集成到常用的 Agent Harness（包括 Claude Code、Codex、Claude Desktop / 标准 MCP Apps、DeepSeek Harness，以及任意支持 Skill 与本地命令的终端 Agent）；所有入口共用同一份本地 `.canvas` 文件。更多操作与格式细节见 [使用指南](docs/guide.md)。
 
 ## 快速开始
 
@@ -55,7 +55,7 @@ Paperstream 以本地 `.canvas` 文件为交接媒介，不绑定特定模型或
 
 ### 2. 让你的 AI Agent 协助本地配置
 
-如果你想把客户端集成或本地工具一起装好，可以把环境检查与安装工作直接交给常用的 Agent，发送下面这段话（具体安装与回退规则见 [`DEPLOY.md`](DEPLOY.md)）：
+如果想把 Paperstream 集成到你常用的 Agent Harness（如 Claude Code、Codex、Claude Desktop / MCP Apps、DeepSeek Harness 等）或配置本地工具，可以把环境检查与安装直接交给 Agent，发送下面这段话（具体安装与回退规则见 [`DEPLOY.md`](DEPLOY.md)）：
 
 > 帮我看看 `https://github.com/hello-jl/paperstream` 里的 `DEPLOY.md`，结合我当前的本机环境和使用习惯，介绍一下有哪些合适的本地安装方式（比如直接用 Releases 里的预构建包，还是从源码安装）；等我确认后再帮我配置。
 
@@ -104,9 +104,9 @@ with CanvasGraph.load("/path/to/papers.canvas") as graph:
 
 完整子命令、冲突处理与规范见 [API 参考](skills/paperstream/references/api.md)、[Agent Skill](skills/paperstream/SKILL.md) 与 [仓库 Agent 约定](AGENTS.md)。
 
-## 按场景选择入口
+## 浏览器使用与 Agent Harness 集成
 
-所有入口复用同一编辑器与同一份 `.canvas` 格式，按你的日常工具选用：
+Paperstream 既支持在浏览器中直接打开，也支持集成到不同 Agent Harness（包括 Claude Code、Codex、Claude Desktop / MCP Apps、DeepSeek Harness 及通用终端 Agent）；所有入口复用同一套编辑器与同一份 `.canvas` 格式：
 
 | 使用场景 | 推荐入口 | 详细文档 |
 | --- | --- | --- |
