@@ -1,6 +1,6 @@
 # Paperstream classroom illustration — an attentive lesson
 
-Final image: [paperstream-classroom-promo-v3.png](paperstream-classroom-promo-v3.png), 1672 × 941 pixels. Edited on 2026-11-13 with the built-in `image_gen` tool using the `imagegen` skill. The edit target was [v2](paperstream-classroom-promo-v2.png); v2 remains unchanged. Two sequential built-in edits first repaired the expressions and eye-lines, then added two relation labels while preserving the improved interaction. No Python image manipulation or CLI fallback was used.
+Draft image: `paperstream-classroom-promo-v3.png`, 1672 × 941 pixels (superseded draft removed from working tree, retained in Git history; current active asset is [paperstream-classroom-promo-v4.png](paperstream-classroom-promo-v4.png)). Edited on 2026-11-13 with the built-in `image_gen` tool using the `imagegen` skill. The edit target was `paperstream-classroom-promo-v2.png` ([v2 record](paperstream-classroom-promo-v2-prompt.md)); both draft PNGs are retained in Git history. Two sequential built-in edits first repaired the expressions and eye-lines, then added two relation labels while preserving the improved interaction. No Python image manipulation or CLI fallback was used.
 
 ## What changed and why
 

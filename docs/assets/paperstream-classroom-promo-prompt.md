@@ -1,6 +1,6 @@
 # Paperstream classroom promotional illustration
 
-Generated on 2026-11-13 with the built-in `image_gen` tool, using the `imagegen` skill. Final asset: [paperstream-classroom-promo.png](paperstream-classroom-promo.png), 1672 × 941 pixels.
+Generated on 2026-11-13 with the built-in `image_gen` tool, using the `imagegen` skill. Draft asset: `paperstream-classroom-promo.png`, 1672 × 941 pixels (superseded draft removed from working tree, retained in Git history; current active asset is [paperstream-classroom-promo-v4.png](paperstream-classroom-promo-v4.png)).
 
 This is an AI-generated promotional illustration. The DeepSeek-inspired whale girl, GPT-inspired dragon girl, and Claude-inspired girl are original, unofficial fictional adult personifications; the image does not imply endorsement by their respective companies. The small board diagram is decorative, with historical dates, rather than a claim that its arrows establish direct technical inheritance.
 

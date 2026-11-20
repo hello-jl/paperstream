@@ -1,6 +1,6 @@
 # Paperstream classroom illustration — clearer model diagrams
 
-Image: [paperstream-classroom-promo-v4.png](paperstream-classroom-promo-v4.png), 1672 × 941 pixels. Edited on 2026-11-14 with the built-in `image_gen` tool using the `imagegen` skill. The initial edit target was [v3](paperstream-classroom-promo-v3.png); earlier versions remain unchanged. Three sequential edits corrected the relation words and diagrams, clarified the encoder dataflow, then moved the external residual-relation label out of the card. No Python image manipulation or CLI fallback was used.
+Image: [paperstream-classroom-promo-v4.png](paperstream-classroom-promo-v4.png), 1672 × 941 pixels. Edited on 2026-11-14 with the built-in `image_gen` tool using the `imagegen` skill. The initial edit target was `paperstream-classroom-promo-v3.png` ([v3 record](paperstream-classroom-promo-v3-prompt.md)); superseded draft PNGs were removed from the working tree and remain in Git history. Three sequential edits corrected the relation words and diagrams, clarified the encoder dataflow, then moved the external residual-relation label out of the card. No Python image manipulation or CLI fallback was used.
 
 ## Requested changes
 
