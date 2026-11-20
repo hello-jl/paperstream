@@ -6,6 +6,10 @@
 
 本地论文关系图编辑器（React Flow + ELK）与零依赖 Python 语义操作 API，基于开放格式 [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/)。
 
+**[立即在线试用工作台 → https://hello-jl.github.io/paperstream/](https://hello-jl.github.io/paperstream/)**
+
+<sub>免安装 · 纯浏览器本地运行 · 文件不上传云端，支持直接读写本地 .canvas</sub>
+
 [快速开始](#快速开始) · [自动部署](DEPLOY.md) · [接入方式](#按场景选择入口) · [画布样例](#精选画布样例) · [使用指南](docs/guide.md) · [API 参考](skills/paperstream/references/api.md)
 
 </div>
@@ -44,7 +48,15 @@ Paperstream 把**紧凑的论文卡片**、**有向关系与依据**以及**受�
 
 ## 快速开始
 
-### 1. 交给你的 AI Agent 一键部署（推荐）
+### 1. 零安装直接在线体验（推荐先试）
+
+直接打开 **[https://hello-jl.github.io/paperstream/](https://hello-jl.github.io/paperstream/)**：
+
+- 纯前端静态部署，**零安装、不依赖账号，文件完全在本地浏览器中处理，不上传任何服务器**。
+- 支持新建或打开本地 `.canvas` 文件（例如先下载本仓库 [examples/](examples/) 下的样例）、多页签切换、双击原位编辑、ELK 智能竖排、`Ctrl/Cmd+V` 粘贴图片、IndexedDB 本地草稿恢复，以及 SVG / PNG 全图导出。
+- 在支持 File System Access API 的浏览器（如 Chrome / Edge）中可直接读写本机 `.canvas` 文件，其他浏览器可导出或下载副本；后续如需搭配本机 Python 命令或 AI Agent，仍通过磁盘上的同一份 `.canvas` 文件协作。
+
+### 2. 交给你的 AI Agent 一键部署（本地完整环境）
 
 仓库内建零依赖部署编排脚本 [`scripts/setup.py`](scripts/setup.py) 与标准协议 [`DEPLOY.md`](DEPLOY.md)。把下面这段话直接发给你的本地 Agent（Claude Code、Codex 等），它会自动完成体检、构建、配置与冒烟验收：
 
@@ -60,9 +72,9 @@ paperstream serve examples/resnet.canvas --read-only
 ```
 
 > [!TIP]
-> 本机没有安装 Node.js 22.18+ 时，可直接从 GitHub Releases 下载预构建的便携包（`serve` / `mcp` / `claude` / `codex` / `dsh`），或直接使用在线部署的静态网页版工作台（由仓库 GitHub Pages 构建，数据仅在本地浏览器读写）。
+> 本机没有安装 Node.js 22.18+ 时，可直接从 GitHub Releases 下载预构建的便携包（`serve` / `mcp` / `claude` / `codex` / `dsh`），或直接使用上方[在线静态网页版工作台](https://hello-jl.github.io/paperstream/)（由仓库 GitHub Pages 构建，数据仅在本地浏览器读写）。
 
-### 2. 手动启动独立工作台（需要 Node.js 22.18+）
+### 3. 本地开发模式启动工作台（需要 Node.js 22.18+）
 
 ```sh
 npm ci --prefix web
@@ -71,7 +83,7 @@ npm --prefix web run dev
 
 打开终端显示的本机地址，从文件菜单载入 `examples/` 下的样例即可体验（双击原位编辑、拖拽连线、`Ctrl/Cmd+V` 贴图；写回磁盘需点击保存）。
 
-### 3. 用本地命令或 Agent 维护同一份图（需要 Python 3.10+）
+### 4. 用本地命令或 Agent 维护同一份图（需要 Python 3.10+）
 
 人机交接遵循三步：**① 画布先保存 → ② 交给本地命令或 Agent 按真实 ID 修改 → ③ 回画布重载检视**。
 
@@ -120,7 +132,7 @@ with CanvasGraph.load("/path/to/papers.canvas") as graph:
 
 | 使用场景 | 推荐入口 | 详细文档 |
 | --- | --- | --- |
-| 直接在浏览器里画图、管理多份画布 | **独立浏览器工作台**（`web/`） | [使用指南](docs/guide.md#开始使用) |
+| 零安装直接画图，或在浏览器里管理多份本地画布 | **独立浏览器工作台**（[在线打开](https://hello-jl.github.io/paperstream/) / 本地 `web/`） | [使用指南](docs/guide.md#开始使用) |
 | 把单份磁盘 `.canvas` 直接绑定到本地网页（带令牌与冲突锁） | **单文件本地桥**（`python3 -m paperstream serve`） | [本地桥说明](docs/guide.md#直接绑定一份本地文件) |
 | 在没有 Shell 的桌面对话里调用工具并内嵌画布（如 Claude Desktop） | **标准 MCP Apps**（`mcp/`，本地 stdio） | [MCP 接入指南](mcp/README.md) |
 | 在终端或桌面 Code 会话里配合 Skill 改图并预览 | **Claude Code 插件**（`claude/`） | [Claude Code 说明](claude/README.md) |
