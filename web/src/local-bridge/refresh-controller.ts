@@ -1,4 +1,4 @@
-import type { ResourceSession } from '../../codex/src/resource-session.ts';
+import type { ResourceSession } from '../resource-session.ts';
 
 export interface RefreshCallbacks {
   onStart?: (discard: boolean) => void;

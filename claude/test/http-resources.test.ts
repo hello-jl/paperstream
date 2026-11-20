@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createHttpResources, LOCAL_RESOURCE_URI, localToken } from '../src/http-resources.ts';
-import { ResourceSession } from '../../codex/src/resource-session.ts';
+import { createHttpResources, LOCAL_RESOURCE_URI, localToken } from '../../web/src/local-bridge/http-resources.ts';
+import { ResourceSession } from '../../web/src/resource-session.ts';
 import { createCanvas, serializeCanvas } from '../../web/src/canvas.ts';
 
 const text = serializeCanvas(createCanvas());

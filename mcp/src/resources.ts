@@ -1,4 +1,4 @@
-import type { HostResources } from '../../codex/src/resource-session.ts';
+import type { HostResources } from '../../web/src/resource-session.ts';
 import { parseCanvas, serializeCanvas } from '../../web/src/canvas.ts';
 
 export type CallServerTool = (params: { name: string; arguments: Record<string, unknown> }) => Promise<unknown>;

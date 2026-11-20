@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { canvasUri, createMcpResources, fileFromToolInput, fileFromToolResult, listCanvases } from '../src/resources.ts';
 import type { CallServerTool } from '../src/resources.ts';
-import { ResourceSession } from '../../codex/src/resource-session.ts';
-import type { ResourceSnapshot } from '../../codex/src/resource-session.ts';
+import { ResourceSession } from '../../web/src/resource-session.ts';
+import type { ResourceSnapshot } from '../../web/src/resource-session.ts';
 import { createCanvas, serializeCanvas } from '../../web/src/canvas.ts';
 
 const fileId = 'opaque-id:with / spaces';

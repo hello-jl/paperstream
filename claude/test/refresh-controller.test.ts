@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ResourceSession } from '../../codex/src/resource-session.ts';
-import type { HostResources, ResourceSnapshot } from '../../codex/src/resource-session.ts';
+import { ResourceSession } from '../../web/src/resource-session.ts';
+import type { HostResources, ResourceSnapshot } from '../../web/src/resource-session.ts';
 import { createCanvas, serializeCanvas } from '../../web/src/canvas.ts';
-import { createRefreshController } from '../src/refresh-controller.ts';
-import type { RefreshCallbacks } from '../src/refresh-controller.ts';
+import { createRefreshController } from '../../web/src/local-bridge/refresh-controller.ts';
+import type { RefreshCallbacks } from '../../web/src/local-bridge/refresh-controller.ts';
 
 const uri = 'resource://local/controller-test';
 type ReadResult = Awaited<ReturnType<HostResources['read']>>;

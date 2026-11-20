@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ResourceSession } from '../src/resource-session.ts';
-import type { HostResources, ResourceSnapshot } from '../src/resource-session.ts';
-import { createCanvas, serializeCanvas } from '../../web/src/canvas.ts';
-import type { JSONCanvasDocument } from '../../web/src/canvas.ts';
+import { ResourceSession } from './resource-session.ts';
+import type { HostResources, ResourceSnapshot } from './resource-session.ts';
+import { createCanvas, serializeCanvas } from './canvas.ts';
+import type { JSONCanvasDocument } from './canvas.ts';
 
 const uri = 'resource://opaque/canvas?token=not-a-path';
 function fixture(options: { writable?: boolean; etag?: string; omitMetadata?: boolean } = {}) {
@@ -295,7 +295,7 @@ test('canonical document notifications never replace fresh save serialization', 
 });
 
 test('empty initial and semantically unchanged input notifications do not cancel a confirmed reload', async () => {
-  for (const form of [{}, { alias: 'Paper', year: '2024' }]) {
+  for (const form of [{}, { alias: 'Paper', year: '2024' }] as Array<Record<string, string>>) {
     const f = fixture();
     await f.session.refresh();
     f.session.noteLocalInput(form);

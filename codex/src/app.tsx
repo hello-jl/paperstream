@@ -3,9 +3,9 @@ import { createRoot } from 'react-dom/client';
 import { App, applyDocumentTheme, applyHostStyleVariables } from '@modelcontextprotocol/ext-apps';
 import { OpenAIExtensions, OpenAIFileEntrypointInputSchema } from '@openai/mcp-extensions/app';
 import { PaperstreamEmbeddedEditor } from '../../web/src/EmbeddedEditor';
-import { ResourceSession } from './resource-session';
+import { ResourceSession } from '../../web/src/resource-session';
 import { ResourceSubscriptions } from './resource-subscriptions';
-import type { ResourceSnapshot } from './resource-session';
+import type { ResourceSnapshot } from '../../web/src/resource-session';
 import type { JSONCanvasDocument } from '../../web/src/canvas';
 import './host.css';
 

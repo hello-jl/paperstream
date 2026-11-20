@@ -1,5 +1,5 @@
-import type { HostResources } from '../../codex/src/resource-session.ts';
-import { parseCanvas, serializeCanvas } from '../../web/src/canvas.ts';
+import type { HostResources } from '../resource-session.ts';
+import { parseCanvas, serializeCanvas } from '../canvas.ts';
 
 export const LOCAL_RESOURCE_URI = 'resource://paperstream-local/canvas';
 type Envelope = { name: string; text: string; etag: string; writable: boolean };

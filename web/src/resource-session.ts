@@ -1,5 +1,5 @@
-import { parseCanvas, serializeCanvas } from '../../web/src/canvas.ts';
-import type { JSONCanvasDocument } from '../../web/src/canvas.ts';
+import { parseCanvas, serializeCanvas } from './canvas.ts';
+import type { JSONCanvasDocument } from './canvas.ts';
 
 export interface HostResources {
   read(params: { uri: string; representation: 'text' }): Promise<{ contents: Array<{
