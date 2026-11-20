@@ -127,7 +127,7 @@ Paperstream 既支持在浏览器中直接打开，也支持集成到不同 Agen
 
 | 样例 | 内容概览 | 来源说明 |
 | --- | --- | --- |
-| [deep-learning-history.canvas](examples/deep-learning-history.canvas) | 17 张卡片 · 8 条关系：1986–2022 深度学习发展线（肖像＋原理图） | [来源表](docs/research/deep-learning-history-sources.md) |
+| [deep-learning-history.canvas](examples/deep-learning-history.canvas) | 15 张卡片 · 15 条关系：1986–2022 视觉、语言与生成三脉演进（肖像＋原理图） | [来源表](docs/research/deep-learning-history-sources.md) |
 | [computing-ai-history.canvas](examples/computing-ai-history.canvas) | 18 张卡片 · 12 条连线：1946–2026 从电子计算到现代 AI 导览 | [来源表](docs/research/computing-ai-history-sources.md) |
 | [computing-ai-history-connected.canvas](examples/computing-ai-history-connected.canvas) | 18 张卡片 · 15 条连线：行间折线连续串起 16 个里程碑 | [来源表](docs/research/computing-ai-history-sources.md) |
 

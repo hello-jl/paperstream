@@ -41,8 +41,9 @@ def apply_portrait_layout(document: dict, family: str, milestone_ids: list[str])
         if node["id"] not in indices:
             continue
         index = indices[node["id"]]
-        node["y"] = 170 + index // 4 * 400 if family == "computing" else 160 + index // 4 * 440
-        node["height"] = 340 if family == "computing" else 320
+        if family == "computing":
+            node["y"] = 170 + index // 4 * 400
+            node["height"] = 340
         card = node.get("paperstreamCard", {})
         for figure in card.get("figures", []):
             if not isinstance(figure, dict) or not figure.get("id", "").startswith("portrait_"):
@@ -63,28 +64,6 @@ def apply_portrait_layout(document: dict, family: str, milestone_ids: list[str])
         title["height"] = 140
         credits = next(node for node in document["nodes"] if node["id"] == "history_scope_and_credits")
         credits["y"] = 1800
-    else:
-        title = next(node for node in document["nodes"] if node["id"] == "dl_history_title")
-        title["height"] = 120
-        for node in document["nodes"]:
-            if node["id"] in ("dl_history_scope", "dl_history_credits"):
-                node.update(y=1480, height=320)
-        routing = {
-            "dl_bp_to_lenet": ([], (435, 320)),
-            "dl_lenet_to_alexnet": ([(675, 540), (195, 540)], (435, 540)),
-            "dl_lstm_to_seq2seq": ([], (1155, 540)),
-            "dl_alexnet_to_resnet": ([(195, 1010), (1635, 1010)], (480, 1010)),
-            "dl_seq2seq_to_transformer": ([(1155, 980), (675, 980)], (870, 980)),
-            "dl_transformer_to_gpt3": ([], (915, 1200)),
-            "dl_gpt3_to_instructgpt": ([(1155, 1420), (675, 1420)], (915, 1420)),
-            "dl_resnet_to_transformer": ([(1395, 760), (1395, 950), (675, 950)], (1280, 950)),
-        }
-        for edge in document["edges"]:
-            if edge["id"] in routing:
-                points, label = routing[edge["id"]]
-                style = edge.setdefault("paperstreamStyle", {})
-                style["waypoints"] = [{"x": x, "y": y} for x, y in points]
-                style["labelPosition"] = {"x": label[0], "y": label[1]}
     document.setdefault("paperstreamHistory", {})["portraitLayout"] = {
         "version": 1, "aspectRatio": PORTRAIT_ASPECT, "width": PORTRAIT_WIDTH,
         "alignment": "center", "checked": "2026-11-14",

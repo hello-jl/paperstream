@@ -4,6 +4,12 @@
 > 本文档归档 Paperstream 早期调研、已退居历史档案的 Mermaid 规范以及各阶段逐轮开发验收记录。
 > 当前有效的模块架构、JSON Canvas 格式约定、Agent 自部署流程与宿主适配边界请查看 [当前架构与设计文档](paperstream-design.md)。
 
+## 深度学习脉络图重构：三脉汇流与曲线韵律（2026-11-21）
+
+为消除原先 `examples/deep-learning-history.canvas` 4×4 等距方格与折返折线的生硬观感，经 `paperstream.CanvasGraph` 将该示例重构为 100% 连通、零交叉的三脉汇流长卷（15 张卡片 · 15 条曲线边）：保留 `Backprop (1986)`、`LeNet (1989)`、`AlexNet (2012)`、`ResNet (2015)`、`LSTM (1997)`、`Seq2Seq (2014)`、`Transformer (2017)`、`GPT-3 (2020)`、`DDPM (2020)`、`InstructGPT (2022)` 10 篇核心文献与 6 份 CC 肖像／3 张 MIT 自绘原理图，用 `VAE (2013)`、`ViT (2020)`、`LDM (2022)` 三篇桥梁工作替代原本孤立无连线的 4 个支线节点，形成“反向传播起点 → 视觉表征（苔绿）／序列与大模型（青蓝）／深度概率生成（灰蓝） → 汇流并分光于 Transformer”的单向曲线韵律图。
+
+调整 `scripts/history_portraits.py`（在 `deep-learning` 家族仅保留 3:4 肖像取景、不回写旧网格坐标与折点，`computing` 家族保持原样不变）、`scripts/create-deep-learning-history.py`（全量更新节点、边证据 `paperstreamRelation.evidence` 与筛选 `portraitRights`），以及 `scripts/export-canvas-images.mjs`（支持 `PAPERSTREAM_EXPORT_STYLE=curved`）。通过 `CanvasGraph.load` 写回 `examples/deep-learning-history.canvas`，与 `create-deep-learning-history.py` 全新生成及 `create-computing-ai-history.py` 复现比对完全一致；调用 Paperstream `exportGraphSvg(..., { connectionStyle: 'curved', padding: 36 })` 导出 `3120×1317` SVG 并以 Inkscape 栅格化为 `3000 px` 宽 [deep-learning-history.png](../assets/deep-learning-history.png)，视觉复核通过后同步 `README.md`、`README.en.md` 与 [深度学习来源表](../research/deep-learning-history-sources.md)。
+
 ## 标准 MCP Apps：对话内画布与语义工具（2026-11-17）
 
 新增独立 `mcp/` 适配器，保留 Codex 文件面板与 Claude Code Skill／本地网页两条原有接入。标准服务器通过 stdio 运行，使用 MCP SDK 与 ext-apps 注册 `ui://paperstream/standard-canvas-v1`；界面复用嵌入编辑器和 ResourceSession，通过 `app.callServerTool` 读写，不要求 Shell、HTTP 编辑器或 `openai/resource`。前端也不依赖账户受限的 `app.registerTool`。Claude 官方已提供 Desktop 本地 stdio MCP Apps 示例，不能由旧插件缺少 MCP Server 推断普通 Desktop 对话完全不支持画布；安装方式与账户边界见 [MCP 接入指南](../../mcp/README.md)。

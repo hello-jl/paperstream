@@ -127,7 +127,7 @@ For runtime requirements and integration boundaries, see [Host Support & Verific
 
 | Example | Overview | Attribution |
 | --- | --- | --- |
-| [deep-learning-history.canvas](examples/deep-learning-history.canvas) | 17 cards · 8 edges: 1986–2022 milestones in deep learning (portraits + schematic diagrams) | [Sources](docs/research/deep-learning-history-sources.md) |
+| [deep-learning-history.canvas](examples/deep-learning-history.canvas) | 15 cards · 15 edges: 1986–2022 Vision, Language & Generative threads (portraits + schematic diagrams) | [Sources](docs/research/deep-learning-history-sources.md) |
 | [computing-ai-history.canvas](examples/computing-ai-history.canvas) | 18 cards · 12 edges: 1946–2026 guided tour from electronic computing to modern AI | [Sources](docs/research/computing-ai-history-sources.md) |
 | [computing-ai-history-connected.canvas](examples/computing-ai-history-connected.canvas) | 18 cards · 15 edges: continuous cross-row connectors linking 16 milestones | [Sources](docs/research/computing-ai-history-sources.md) |
 

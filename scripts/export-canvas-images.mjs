@@ -41,8 +41,13 @@ const [input, output, rendererPackage] = process.argv.slice(2);
 if (!input || !output || !input.endsWith('.canvas') || /\.(canvas|mmd)$/i.test(output)) {
   throw new Error('Usage: node --experimental-strip-types scripts/export-canvas-images.mjs INPUT.canvas OUTPUT_BASE [RENDERER_PACKAGE_JSON]');
 }
+const styleEnv = process.env.PAPERSTREAM_EXPORT_STYLE;
+const connectionStyle = styleEnv === 'orthogonal' || styleEnv === 'rounded' || styleEnv === 'curved' ? styleEnv : 'rounded';
+const paddingEnv = Number(process.env.PAPERSTREAM_EXPORT_PADDING);
+const padding = process.env.PAPERSTREAM_EXPORT_PADDING !== undefined && Number.isFinite(paddingEnv)
+  ? paddingEnv : (connectionStyle === 'curved' ? 36 : 40);
 const document = parseCanvas(await readFile(input, 'utf8'));
-const svg = exportGraphSvg(document, { connectionStyle: 'rounded', padding: 40 });
+const svg = exportGraphSvg(document, { connectionStyle, padding });
 await mkdir(dirname(resolve(output)), { recursive: true });
 await writeFile(`${output}.svg`, svg);
 console.log(`${output}.svg`);
