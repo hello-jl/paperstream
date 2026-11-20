@@ -38,16 +38,19 @@ python3 scripts/setup.py doctor --json
 2. 将写入的全局路径（例如 `~/.local/bin/paperstream`、Skill 目录或 `claude_desktop_config.json`）；
 3. 若安装 `mcp`，由用户明确指定要授权的 `.canvas` 文件路径（或明确同意使用 `--use-example` 示例图）。
 
-### 第 3 步：构建或准备预构建产物
+### 第 3 步：准备预构建产物（或从源码构建）
 
-- **有 Node.js ≥ 22.18 与 npm**：按需执行统一构建（会自动补装缺失的锁文件依赖并按顺序构建）：
+- **直接用预构建包（推荐，无需 Node.js ≥ 22.18 与 npm）**：可从 [GitHub Releases](https://github.com/hello-jl/paperstream/releases) 直接下载对应版本的预构建便携包（`paperstream-serve-*.zip`、`paperstream-mcp-*.zip`、`paperstream-claude-*.zip`、`paperstream-codex-*.zip`、`dsh-paperstream-*.tgz` 等），解压后进入第 4 步并传入 `--app-source` 或 `--mcp-package`（无 Node.js ≥ 22.18 时不要尝试自行编译前端）。
+
+- **从源码构建或本地开发前端（需要 Node.js ≥ 22.18 与 npm）**：按需执行统一构建（会自动按锁文件安装依赖并依次构建），或直接启动独立 Vite 开发服务调试前端代码：
 
 ```sh
 python3 scripts/setup.py build --target serve --json
 # 按需替换或组合多个 target：web, serve, mcp, claude, codex, dsh, all
-```
 
-- **直接用预构建包（无需 Node.js ≥ 22.18，也最省事）**：可从 [GitHub Releases](https://github.com/hello-jl/paperstream/releases) 直接下载对应版本的预构建便携包（`paperstream-serve-*.zip`、`paperstream-mcp-*.zip`、`paperstream-claude-*.zip`、`paperstream-codex-*.zip`、`dsh-paperstream-*.tgz` 等），解压后进入第 4 步并传入 `--app-source` 或 `--mcp-package`（无 Node.js ≥ 22.18 时不要自行降级编译前端）。
+# 仅需修改或调试 web/ 前端源码时，可启动本地开发服务器：
+npm ci --prefix web && npm --prefix web run dev
+```
 
 ### 第 4 步：先预览（dry-run），再应用（apply）
 
