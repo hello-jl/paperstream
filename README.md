@@ -121,24 +121,13 @@ with CanvasGraph.load("/path/to/papers.canvas") as graph:
 
 ## 精选画布样例
 
-`examples/` 目录内置 7 份 `.canvas` 示例，可以直接在工作台里打开体验或基于它们继续修改：
+`examples/` 中提供以下三份较完整的历史脉络示例，可以直接在工作台里打开体验或基于它们继续修改：
 
 | 样例 | 内容概览 | 来源说明 |
 | --- | --- | --- |
-| [resnet.canvas](examples/resnet.canvas) | 3 篇论文 · 2 条关系：ResNet / DenseNet / ResNeXt，适合首次试用与试跑 CLI | — |
-| [cnn-evolution.canvas](examples/cnn-evolution.canvas) | 4 篇论文 · 3 条关系：LeNet-5 → AlexNet ↔ VGG → ResNet（含双向对照） | — |
-| [deeph-reading.canvas](examples/deeph-reading.canvas) | 4 篇论文 · 3 条关系：从 DFT 理论基础到 DeepH / DeepH-E3 的专题路线 | — |
-| [quantum-foundations.canvas](examples/quantum-foundations.canvas) | 6 篇论文 · 5 条关系：1925–1964 量子力学奠基原始文献脉络 | — |
 | [deep-learning-history.canvas](examples/deep-learning-history.canvas) | 17 张卡片 · 8 条关系：1986–2022 深度学习发展线（肖像＋原理图） | [来源表](docs/research/deep-learning-history-sources.md) |
 | [computing-ai-history.canvas](examples/computing-ai-history.canvas) | 18 张卡片 · 12 条连线：1946–2026 从电子计算到现代 AI 导览 | [来源表](docs/research/computing-ai-history-sources.md) |
 | [computing-ai-history-connected.canvas](examples/computing-ai-history-connected.canvas) | 18 张卡片 · 15 条连线：行间折线连续串起 16 个里程碑 | [来源表](docs/research/computing-ai-history-sources.md) |
-
-<details>
-<summary>展开查看导出整图：从电子计算到 AI（1946–2026）</summary>
-
-![Paperstream 导出整图：从电子计算到 AI](docs/assets/computing-ai-history.png)
-
-</details>
 
 ## 开发与许可
 
