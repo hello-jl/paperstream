@@ -1,7 +1,9 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
 .venv/
+build/
 
 # Dependencies and local DSH runtime / test files
 node_modules/
@@ -9,12 +11,15 @@ node_modules/
 .pnpm-store/
 
 # Build output
+/dist/
 web/dist/
 dsh/dist/
 claude/dist/
 *.tsbuildinfo
 
-# Local OS files and package-manager diagnostics
+# Local OS files, secrets, and package-manager diagnostics
 .DS_Store
+.env
+.env.*
 npm-debug.log*
 pnpm-debug.log*

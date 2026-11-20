@@ -188,6 +188,34 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
     return result
 
 
+def user_data_dir() -> Path:
+    """Return the user-local Paperstream data directory."""
+    explicit = os.environ.get("PAPERSTREAM_DATA_DIR", "").strip()
+    if explicit:
+        return Path(explicit)
+    xdg_data = os.environ.get("XDG_DATA_HOME", "").strip()
+    if xdg_data:
+        return Path(xdg_data) / "paperstream"
+    return Path.home() / ".local" / "share" / "paperstream"
+
+
+def resolve_preview_app(repo_root: Path | None = None) -> Path:
+    """Resolve the built single-file browser editor for ``paperstream serve``."""
+    explicit = os.environ.get("PAPERSTREAM_APP_PATH", "").strip()
+    if explicit:
+        return Path(explicit)
+    root = repo_root or Path(__file__).resolve().parent.parent
+    candidates = (
+        root / "dist" / "serve" / "app.html",
+        root / "claude" / "dist" / "app.html",
+        user_data_dir() / "app.html",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
 def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -207,9 +235,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "serve":
             from paperstream.preview import create_preview_server
-            app = Path(os.environ.get("PAPERSTREAM_APP_PATH", Path(__file__).resolve().parent.parent / "claude/dist/app.html"))
+            app = resolve_preview_app()
             if not app.is_file():
-                raise ValidationError("Browser editor not built. Run npm --prefix claude run build first.")
+                raise ValidationError(
+                    "Browser editor not built. Run python3 scripts/setup.py build --target serve "
+                    "(or npm --prefix claude run build) first."
+                )
             with create_preview_server(args.file, app, port=args.port, read_only=args.read_only) as server:
                 _write_json({"ok": True, "operation": "serve", "file": server.file_name, "url": server.url,
                              "message": "Local file editor; keep this process running. Ctrl-C stops it."})

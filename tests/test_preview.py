@@ -314,6 +314,51 @@ class PreviewTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             create_preview_server(self.root / "missing.canvas", self.app)
 
+    def test_resolve_preview_app_priority_and_explicit_override(self):
+        import io
+        import os
+        from contextlib import redirect_stderr
+        from paperstream.__main__ import main as cli_main, resolve_preview_app
+
+        repo = self.root / "repo"
+        serve_app = repo / "dist" / "serve" / "app.html"
+        claude_app = repo / "claude" / "dist" / "app.html"
+        data_dir = self.root / "data_dir"
+        data_app = data_dir / "app.html"
+        xdg_dir = self.root / "xdg_data"
+        xdg_app = xdg_dir / "paperstream" / "app.html"
+
+        for path in (serve_app, claude_app, data_app, xdg_app):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("<html></html>", encoding="utf-8")
+
+        clean_env = {k: v for k, v in os.environ.items()
+                     if k not in ("PAPERSTREAM_APP_PATH", "PAPERSTREAM_DATA_DIR", "XDG_DATA_HOME")}
+
+        with patch.dict(os.environ, {**clean_env, "PAPERSTREAM_APP_PATH": str(self.root / "missing.html")}, clear=True):
+            self.assertEqual(resolve_preview_app(repo), self.root / "missing.html")
+
+        with patch.dict(os.environ, {**clean_env, "PAPERSTREAM_DATA_DIR": str(data_dir)}, clear=True):
+            self.assertEqual(resolve_preview_app(repo), serve_app)
+            serve_app.unlink()
+            self.assertEqual(resolve_preview_app(repo), claude_app)
+            claude_app.unlink()
+            self.assertEqual(resolve_preview_app(repo), data_app)
+            data_app.unlink()
+            self.assertEqual(resolve_preview_app(repo), serve_app)
+
+        with patch.dict(os.environ, {**clean_env, "XDG_DATA_HOME": str(xdg_dir)}, clear=True):
+            self.assertEqual(resolve_preview_app(repo), xdg_app)
+
+        err = io.StringIO()
+        with patch.dict(os.environ, {**clean_env, "PAPERSTREAM_APP_PATH": str(self.root / "absent.html")}, clear=True):
+            with redirect_stderr(err):
+                code = cli_main(["serve", str(self.path)])
+        self.assertEqual(code, 1)
+        payload = json.loads(err.getvalue())
+        self.assertEqual(payload["error"], "ValidationError")
+        self.assertIn("Browser editor not built", payload["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

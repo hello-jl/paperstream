@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "paperstream"
+version = "0.1.0"
+description = "Dependency-free Python API, CLI, and local Canvas bridge for Paperstream paper relationship graphs."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Paperstream contributors" }]
+dependencies = []
+
+[project.scripts]
+paperstream = "paperstream.__main__:main"
+
+[project.urls]
+Repository = "https://github.com/hello-jl/paperstream"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["paperstream*"]
