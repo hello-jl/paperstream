@@ -8,6 +8,20 @@
 
 ---
 
+## 依赖全景与逐级回退策略
+
+部署优先选用高集成形态；如果某层环境不满足、下载失败或宿主校验不通过，不要强行覆盖配置或降级强编，按下面从下到上的**优雅回退阶梯**降一级安装：
+
+| 部署层级 | 适用组合 / Target | 实际依赖 | 若失败如何回退 |
+| --- | --- | --- | --- |
+| **Level 4：源码构建与前端开发** | `setup.py build` / Vite 开发 | Python ≥ 3.10 + **Node.js ≥ 22.18 + npm** | 任何构建或 `npm ci` 失败 → 回退到 **Level 3 / Level 2**，改用 [GitHub Releases](https://github.com/hello-jl/paperstream/releases) 预构建包 |
+| **Level 3：对话内嵌 / 原生面板** | `mcp` / `codex` / `dsh` | `mcp` / `codex`：免 `npm ci`，仍需 **Node.js ≥ 22** 运行 `server.mjs` + Python ≥ 3.10<br>`dsh`：需宿主 **DSH Web `0.2.2-rc.1`** | Node 版本不够、Releases 不可达或宿主兼容校验失败 → 回退到 **Level 2**（本地桥/Claude）或 **Level 1** |
+| **Level 2：离线本地桥 / Claude 插件** | `cli` + `skill` + `serve`（或 `claude`） | **仅 Python ≥ 3.10**（使用 Releases `paperstream-serve-*.zip` / `paperstream-claude-*.zip`，无需 Node.js / npm） | 若 Releases 下载失败且无 Node.js 自编译 → 回退到 **Level 1** |
+| **Level 1：最小本地人机协作** | `cli` + `skill` + 在线工作台 | **仅 Python ≥ 3.10**（零第三方 Python 包） | CLI 依次尝试 `uv` → `pipx` → `~/.local/bin/paperstream` shim；若均不可写或不想动全局目录，Agent 可直接在仓库内用 `python3 -m paperstream` |
+| **Level 0：零本机环境兜底** | 在线工作台 | **仅现代浏览器** | 直接打开 `https://hello-jl.github.io/paperstream/` 本地读写电脑上的 `.canvas` 文件 |
+
+---
+
 ## Agent 执行流程（5 步状态机）
 
 ### 第 1 步：只读体检（不改任何系统文件）
