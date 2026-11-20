@@ -53,8 +53,6 @@ npm --prefix web run dev
 
 打开终端显示的本机地址，从文件菜单载入 `examples/` 下的样例即可体验（双击原位编辑、拖拽连线、`Ctrl/Cmd+V` 贴图；写回磁盘需点击保存）。
 
-![Paperstream 实际编辑界面：论文卡片、圆角关系标签、顶部页签与底部工具栏](docs/assets/paperstream.jpg)
-
 ### 2. 用本地命令或 Agent 维护同一份图（需要 Python 3.10+）
 
 人机交接遵循三步：**① 画布先保存 → ② 交给本地命令或 Agent 按真实 ID 修改 → ③ 回画布重载检视**。
