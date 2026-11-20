@@ -31,12 +31,14 @@ npm --prefix web run dev
 
 ### 直接绑定一份本地文件
 
-本地单文件桥适合希望页面直接读写一个确定文件的情况。除上述 web 依赖外，需要 Python **3.10+**。在仓库根目录构建页面，再启动只读预览：
+本地单文件桥适合希望页面直接读写一个确定文件的情况。除上述 web 依赖外，需要 Python **3.10+**。在仓库根目录构建独立编辑器资源（或使用 [DEPLOY.md](../DEPLOY.md) 安装到用户目录后随处运行），再启动只读预览：
 
 ```sh
-npm --prefix claude run build
+python3 scripts/setup.py build --target serve
 python3 -m paperstream serve examples/resnet.canvas --read-only --port 3817
 ```
+
+原有的 `npm --prefix claude run build` 仍兼容作为回退构建路径；若已通过 `pyproject.toml` 或 `scripts/setup.py install --target cli,serve --apply` 全局安装，可在任意目录直接运行 `paperstream serve`。
 
 打开命令输出的**完整本机链接**，其中的随机令牌用于访问这份文件。只输入裸端口地址不能取得文件权限。该浏览器入口不需要 Claude 账号。
 

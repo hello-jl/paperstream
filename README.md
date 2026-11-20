@@ -6,7 +6,7 @@
 
 本地论文关系图编辑器（React Flow + ELK）与零依赖 Python 语义操作 API，基于开放格式 [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/)。
 
-[快速开始](#快速开始) · [接入方式](#按场景选择入口) · [画布样例](#精选画布样例) · [使用指南](docs/guide.md) · [API 参考](skills/paperstream/references/api.md)
+[快速开始](#快速开始) · [自动部署](DEPLOY.md) · [接入方式](#按场景选择入口) · [画布样例](#精选画布样例) · [使用指南](docs/guide.md) · [API 参考](skills/paperstream/references/api.md)
 
 </div>
 
@@ -44,7 +44,25 @@ Paperstream 把**紧凑的论文卡片**、**有向关系与依据**以及**受�
 
 ## 快速开始
 
-### 1. 打开画布（需要 Node.js 22.18+）
+### 1. 交给你的 AI Agent 一键部署（推荐）
+
+仓库内建零依赖部署编排脚本 [`scripts/setup.py`](scripts/setup.py) 与标准协议 [`DEPLOY.md`](DEPLOY.md)。把下面这段话直接发给你的本地 Agent（Claude Code、Codex 等），它会自动完成体检、构建、配置与冒烟验收：
+
+> 克隆 `https://github.com/hello-jl/paperstream.git`，阅读其中的 `DEPLOY.md` 并运行 `python3 scripts/setup.py doctor --json`。根据我当前环境建议部署方案，经我确认后完成安装并验证可用。
+
+也可自己直接执行标准 Python 安装（`pyproject.toml` 零第三方依赖）或使用统一脚本：
+
+```sh
+pip install --user -e .                   # 或 uv tool install -e .（全局注册 paperstream 命令）
+python3 scripts/setup.py build --target serve
+python3 scripts/setup.py install --target cli,skill,serve --apply
+paperstream serve examples/resnet.canvas --read-only
+```
+
+> [!TIP]
+> 本机没有安装 Node.js 22.18+ 时，可直接从 GitHub Releases 下载预构建的便携包（`serve` / `mcp` / `claude` / `codex` / `dsh`），或直接使用在线部署的静态网页版工作台（由仓库 GitHub Pages 构建，数据仅在本地浏览器读写）。
+
+### 2. 手动启动独立工作台（需要 Node.js 22.18+）
 
 ```sh
 npm ci --prefix web
@@ -53,12 +71,12 @@ npm --prefix web run dev
 
 打开终端显示的本机地址，从文件菜单载入 `examples/` 下的样例即可体验（双击原位编辑、拖拽连线、`Ctrl/Cmd+V` 贴图；写回磁盘需点击保存）。
 
-### 2. 用本地命令或 Agent 维护同一份图（需要 Python 3.10+）
+### 3. 用本地命令或 Agent 维护同一份图（需要 Python 3.10+）
 
 人机交接遵循三步：**① 画布先保存 → ② 交给本地命令或 Agent 按真实 ID 修改 → ③ 回画布重载检视**。
 
 ```sh
-# 读取完整文档并取得真实节点 / 边 ID
+# 读取完整文档并取得真实节点 / 边 ID（已全局安装时可直接用 paperstream 替代 python3 -m paperstream）
 python3 -m paperstream show examples/resnet.canvas --raw
 
 # 按真实 ID 定点修改自己的画布（将占位 ID 替换为实际返回值）

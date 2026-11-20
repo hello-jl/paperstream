@@ -1,6 +1,17 @@
 # paperstream 论文关系图设计
 
-更新日期：2026-11-17。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器、DSH 面板及标准 MCP Apps 适配器已实现；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实宿主验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
+更新日期：2026-11-20。主格式为 JSON Canvas，界面使用 React Flow。文件 API、独立编辑器、DSH 面板及标准 MCP Apps 适配器已实现，并新增面向 Agent 自部署的打包、环境编排与 GitHub 发布工作流；即时编辑、手工关系路径、持久工作区和 PNG/SVG 图片导出继续保留，PPT 与演示功能按用户要求移除。真实宿主验证范围及仍未验证的边界见下文。此前 Mermaid 记录保留为选型与兼容机制档案，不代表当前主方案。
+
+## Agent 自部署与免编译分发（2026-11-20）
+
+为让个人用户把仓库交给本地 Agent 即可一次部署可用，同时不引入 npm 公共发布依赖，新增四层包装：
+
+1. **标准 Python 包元数据（`pyproject.toml`）**：零第三方依赖声明 `paperstream` 命令行入口，支持 `uv tool install`、`pip install -e .` 或用户本地 shim，使命令行可在任意论文目录调用。
+2. **解耦 `serve` 单文件编辑器资源（`scripts/build-serve.mjs` 与 `resolve_preview_app`）**：通用本地桥不再强制绑定 `claude/dist/app.html`。在保留 `PAPERSTREAM_APP_PATH` 最高优先级与精确错误语义的前提下，按 `dist/serve/app.html` → `claude/dist/app.html` → 用户数据目录（`PAPERSTREAM_DATA_DIR` / `XDG_DATA_HOME/paperstream` / `~/.local/share/paperstream`）依次解析。
+3. **零依赖部署编排与协议（`scripts/setup.py` + `DEPLOY.md`）**：提供只读 `doctor`、按依赖顺序安装锁文件依赖并构建的 `build`、默认 dry-run / `--apply` 原子变更并自动备份原配置的 `install`（支持 `cli` / `serve` / `skill` / `mcp` / `claude` / `codex` / `dsh`），以及全在临时目录运行的 `verify` 冒烟检查。`DEPLOY.md` 规定了先体检、向用户一次性确认目标与全局路径、再应用并验收的 5 步工作流。
+4. **GitHub Actions 自动化与相对路径静态页（`.github/workflows/` 与 `web/vite.config.ts`）**：`web/vite.config.ts` 设置 `base: './'` 支持子路径静态托管；`ci.yml` 运行全量 Python/JS 测试与构建验证；`pages.yml` 自动部署纯前端工作台；`release.yml` 在 `v*` tag 时打包各端自包含便携归档（`serve` / `claude` / `mcp` / `codex` / `dsh` / `web-static` / `skill`）与 `SHA256SUMS.txt` 发布到 GitHub Releases，供无 Node.js 22.18+ 环境直接使用。
+
+本轮验证范围：Python 113 项单元与隔离集成测试（覆盖 `resolve_preview_app` 优先级、`doctor --json`、CLI shim 冲突防护与跨目录执行、`serve` 预构建安装与真实 HTTP 冒烟、完整 Skill 复制与兄弟保留、MCP 配置备份与安全合并及模拟 stdio JSON-RPC 握手）通过；`python3 scripts/setup.py doctor --json` 与 `verify --target cli,skill --json` 实跑通过；DSH 注册测试 5 项通过。尚未在本机联网环境下执行 `npm ci` 全量前端构建与 GitHub Actions 线上真实运行（Pages 需仓库维护者在 GitHub Settings 中首次启用 GitHub Actions 来源）。
 
 ## 标准 MCP Apps：对话内画布与语义工具（2026-11-17）
 

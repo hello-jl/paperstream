@@ -2,7 +2,7 @@
 
 Paperstream 让人和 agent 维护同一份独立 JSON Canvas 文档：人用 React Flow 画布编辑，agent 用 Python 标准库 API、CLI 或其标准 MCP 工具做可核对的修改。新工作使用 `.canvas`，旧 Mermaid API 与档案继续保留。自动化改图必须经过 API。
 
-本文件适用于本仓库的工作。可单独分发给其他 agent 的改图指南是 [skills/paperstream/SKILL.md](skills/paperstream/SKILL.md)；完整的命令样例、运行时定位与错误处理见其 [API 参考](skills/paperstream/references/api.md)。
+本文件适用于本仓库的工作。若用户要求将 Paperstream 部署或安装到当前机器及本地宿主环境，请先阅读 [DEPLOY.md](DEPLOY.md) 并统一通过 `python3 scripts/setup.py` 执行体检、构建、预览安装与验收。可单独分发给其他 agent 的改图指南是 [skills/paperstream/SKILL.md](skills/paperstream/SKILL.md)；完整的命令样例、运行时定位与错误处理见其 [API 参考](skills/paperstream/references/api.md)。
 
 ## 使用画布：读取、定点修改、核验
 
