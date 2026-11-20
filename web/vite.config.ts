@@ -6,6 +6,7 @@ import { copyDistributionNotices } from './scripts/distribution-notices.mjs';
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export default defineConfig({
+  base: './',
   plugins: [{
     name: 'paperstream-distribution-notices',
     apply: 'build',

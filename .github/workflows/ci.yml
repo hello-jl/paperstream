@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run Python unit tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Install locked JS dependencies and build all targets
+        run: python3 scripts/setup.py build --target all --json
+
+      - name: Run web tests, typecheck, and Python/TS interop
+        run: |
+          npm --prefix web test
+          npm --prefix web run test:interop
+
+      - name: Run adapter tests and typechecks
+        run: |
+          npm --prefix dsh test
+          node dsh/verify-build.mjs
+          npm --prefix claude run typecheck
+          npm --prefix claude test
+          npm --prefix codex run typecheck
+          npm --prefix codex test
+          npm --prefix mcp run typecheck
+          npm --prefix mcp test
+
+      - name: Run setup smoke verification across all targets
+        run: python3 scripts/setup.py verify --target all --json

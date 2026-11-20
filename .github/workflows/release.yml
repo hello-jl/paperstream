@@ -1,0 +1,123 @@
+name: Release Portable Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Preview release tag label (for dry-run artifact inspection)
+        required: false
+        default: v0.1.0-preview
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || inputs.tag }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run Python unit tests
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Build all targets
+        run: python3 scripts/setup.py build --target all --json
+
+      - name: Run JS and adapter verification suites
+        run: |
+          npm --prefix web test
+          npm --prefix web run test:interop
+          npm --prefix dsh test
+          node dsh/verify-build.mjs
+          npm --prefix claude run typecheck
+          npm --prefix claude test
+          npm --prefix codex run typecheck
+          npm --prefix codex test
+          npm --prefix mcp run typecheck
+          npm --prefix mcp test
+          python3 scripts/setup.py verify --target all --json
+
+      - name: Package portable archives and checksums
+        run: |
+          python3 - << 'EOF'
+          import hashlib
+          import os
+          from pathlib import Path
+          import shutil
+          import subprocess
+          import zipfile
+
+          tag = os.environ["RELEASE_TAG"]
+          out = Path("release-assets")
+          if out.exists():
+              shutil.rmtree(out)
+          out.mkdir(parents=True)
+
+          def zip_dir(src_dir: Path, archive_path: Path, prefix: str) -> None:
+              with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                  for item in sorted(src_dir.rglob("*")):
+                      if item.is_file():
+                          zf.write(item, Path(prefix) / item.relative_to(src_dir))
+
+          zip_dir(Path("dist/serve"), out / f"paperstream-serve-{tag}.zip", "paperstream-serve")
+          zip_dir(Path("mcp/dist/package"), out / f"paperstream-mcp-{tag}.zip", "paperstream-mcp")
+          zip_dir(Path("codex/dist/plugin"), out / f"paperstream-codex-{tag}.zip", "paperstream-codex")
+          zip_dir(Path("web/dist"), out / f"paperstream-web-static-{tag}.zip", "paperstream-web")
+
+          claude_zips = sorted(Path("claude/dist").glob("paperstream-claude-*.zip"))
+          if len(claude_zips) != 1:
+              raise RuntimeError(f"Expected 1 Claude ZIP, found: {claude_zips}")
+          shutil.copy2(claude_zips[0], out / claude_zips[0].name)
+
+          skill_archive = out / f"paperstream-skill-{tag}.zip"
+          with zipfile.ZipFile(skill_archive, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+              for item in sorted(Path("skills/paperstream").rglob("*")):
+                  if item.is_file():
+                      zf.write(item, Path("paperstream") / item.relative_to("skills/paperstream"))
+              zf.write(Path("LICENSE"), Path("paperstream/LICENSE"))
+
+          subprocess.run(["npm", "--prefix", "dsh", "pack"], check=True)
+          dsh_tgzs = sorted(Path("dsh").glob("dsh-paperstream-*.tgz"))
+          if len(dsh_tgzs) != 1:
+              raise RuntimeError(f"Expected 1 DSH tarball, found: {dsh_tgzs}")
+          shutil.move(str(dsh_tgzs[0]), str(out / dsh_tgzs[0].name))
+
+          lines = []
+          for artifact in sorted(out.iterdir()):
+              if artifact.is_file():
+                  digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+                  lines.append(f"{digest}  {artifact.name}\n")
+          (out / "SHA256SUMS.txt").write_text("".join(lines), encoding="utf-8")
+          print("Packaged release assets:")
+          for line in lines:
+              print(" ", line.strip())
+          EOF
+
+      - name: Upload workflow artifact on dry-run dispatch
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: paperstream-release-assets
+          path: release-assets/
+
+      - name: Publish GitHub Release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${RELEASE_TAG}" release-assets/* --title "Paperstream ${RELEASE_TAG}" --generate-notes
