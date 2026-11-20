@@ -9,7 +9,7 @@ import type { ResourceSnapshot } from '../../web/src/resource-session';
 import type { JSONCanvasDocument } from '../../web/src/canvas';
 import './host.css';
 
-const app = new App({ name: 'paperstream', version: '0.1.0' });
+const app = new App({ name: 'paperstream', version: '0.1.1' });
 const extensions = new OpenAIExtensions(app);
 type OpenFile = { name: string; resourceUri: string };
 type View = { file: OpenFile; session: ResourceSession; snapshot: ResourceSnapshot };

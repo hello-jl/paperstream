@@ -9,7 +9,7 @@ import { canvasUri, createMcpResources, fileFromToolInput, fileFromToolResult, l
 import type { CanvasFile, ListedCanvas } from './resources';
 import './host.css';
 
-const app = new App({ name: 'paperstream', version: '0.1.0' });
+const app = new App({ name: 'paperstream', version: '0.1.1' });
 const call = (params: { name: string; arguments: Record<string, unknown> }) => app.callServerTool(params);
 type View = { file: CanvasFile; session: ResourceSession; snapshot: ResourceSnapshot };
 const message = (error: unknown) => error instanceof Error ? error.message : String(error);

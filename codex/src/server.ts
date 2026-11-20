@@ -7,7 +7,7 @@ import { OpenAIExtensions, OpenAIFileEntrypointInputSchema } from '@openai/mcp-e
 export const UI_URI = 'ui://paperstream/canvas-v1';
 
 export function createServer(html: string) {
-  const server = new McpServer({ name: 'paperstream', title: 'Paperstream', version: '0.1.0' });
+  const server = new McpServer({ name: 'paperstream', title: 'Paperstream', version: '0.1.1' });
   new OpenAIExtensions(server);
   server.registerResource('paperstream-canvas', UI_URI, { mimeType: 'text/html;profile=mcp-app' }, async () => ({
     contents: [{
