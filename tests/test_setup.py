@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SETUP_PATH = REPO_ROOT / "scripts" / "setup.py"
@@ -338,6 +339,81 @@ class SetupTests(unittest.TestCase):
         self.assertEqual(by_target["skill"], "passed")
         for opt in ("serve", "mcp", "claude", "codex", "dsh"):
             self.assertIn(by_target[opt], ("passed", "skipped"))
+
+    def test_install_mcp_new_config_has_no_backup_path(self):
+        mcp_pkg = self.root / "mcp-package-new"
+        (mcp_pkg / "dist").mkdir(parents=True)
+        (mcp_pkg / "dist" / "server.mjs").write_text("console.log('stub');\n", encoding="utf-8")
+        (mcp_pkg / "dist" / "app.html").write_text("<html></html>", encoding="utf-8")
+        canvas = self.root / "fresh.canvas"
+        canvas.write_text('{"nodes":[],"edges":[]}\n', encoding="utf-8")
+        fresh_config = self.root / "new_claude" / "claude_desktop_config.json"
+
+        applied = self._run_cli(
+            "install",
+            "--target",
+            "mcp",
+            "--mcp-package",
+            str(mcp_pkg),
+            "--canvas",
+            str(canvas),
+            "--claude-config",
+            str(fresh_config),
+            "--apply",
+            "--json",
+        )
+        self.assertEqual(applied.returncode, 0, applied.stderr)
+        action = json.loads(applied.stdout)["actions"][0]
+        self.assertIsNone(action["backup_path"])
+        self.assertFalse(fresh_config.with_name(f"{fresh_config.name}.paperstream-bak").exists())
+        self.assertTrue(fresh_config.is_file())
+        self.assertIn("paperstream", json.loads(fresh_config.read_text(encoding="utf-8"))["mcpServers"])
+
+    def test_install_cli_uv_pipx_force_flags_and_windows_shim_guard(self):
+        fake_bin = self.root / "fake_tools"
+        fake_bin.mkdir()
+        for tool in ("uv", "pipx"):
+            exe = fake_bin / tool
+            exe.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            exe.chmod(0o755)
+
+        fake_env = {**self.base_env, "PATH": f"{fake_bin}{os.pathsep}{self.base_env.get('PATH', '')}"}
+        for installer in ("uv", "pipx"):
+            res = setup_mod.run_install(
+                ["cli"],
+                apply=False,
+                installer=installer,
+                repo_root=REPO_ROOT,
+                env=fake_env,
+                home=self.home,
+            )
+            cmd = res["actions"][0]["command"]
+            self.assertEqual(cmd[0], installer)
+            self.assertIn("--force", cmd)
+            self.assertIn("--editable", cmd)
+
+        with self.assertRaises(setup_mod.SetupError):
+            setup_mod.run_install(
+                ["cli"],
+                apply=False,
+                installer="shim",
+                repo_root=REPO_ROOT,
+                env=fake_env,
+                home=self.home,
+                platform_name="win32",
+            )
+
+        with patch("importlib.util.find_spec", return_value=None):
+            with self.assertRaises(setup_mod.SetupError):
+                setup_mod.run_install(
+                    ["cli"],
+                    apply=False,
+                    installer="auto",
+                    repo_root=REPO_ROOT,
+                    env={"PATH": ""},
+                    home=self.home,
+                    platform_name="win32",
+                )
 
 
 if __name__ == "__main__":

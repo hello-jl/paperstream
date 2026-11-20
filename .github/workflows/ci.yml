@@ -26,6 +26,13 @@ jobs:
       - name: Run Python unit tests
         run: python3 -m unittest discover -s tests -v
 
+      - name: Verify pyproject.toml installation and console entrypoint
+        run: |
+          python3 -m venv /tmp/paperstream-ci-venv
+          /tmp/paperstream-ci-venv/bin/pip install .
+          python3 scripts/setup.py verify --target cli --cli-bin /tmp/paperstream-ci-venv/bin/paperstream --json
+          rm -rf /tmp/paperstream-ci-venv
+
       - name: Install locked JS dependencies and build all targets
         run: python3 scripts/setup.py build --target all --json
 

@@ -432,17 +432,33 @@ def _install_cli(
     bin_dir: Path | None,
     force: bool,
     apply: bool,
+    platform_name: str | None = None,
 ) -> dict[str, Any]:
+    is_windows = (platform_name or sys.platform).startswith("win")
     chosen = installer
     if chosen == "auto":
         if shutil.which("uv", path=env_vars.get("PATH")):
             chosen = "uv"
         elif shutil.which("pipx", path=env_vars.get("PATH")):
             chosen = "pipx"
+        elif is_windows:
+            if importlib.util.find_spec("pip") is not None:
+                chosen = "pip"
+            else:
+                raise SetupError(
+                    "On Windows, install the CLI via uv, pipx, or pip "
+                    "(e.g., 'python -m pip install --user -e .'); "
+                    "the POSIX shim installer is not supported on Windows."
+                )
         else:
             chosen = "shim"
 
     if chosen == "shim":
+        if is_windows:
+            raise SetupError(
+                "The POSIX shim installer is only supported on Linux and macOS. "
+                "Use --installer uv, pipx, or pip on Windows."
+            )
         target_dir = (bin_dir or (home_dir / ".local" / "bin")).expanduser()
         target_bin = target_dir / "paperstream"
         shim_body = "\n".join([
@@ -488,8 +504,8 @@ def _install_cli(
         }
 
     cmd_map = {
-        "uv": ["uv", "tool", "install", "--editable", str(root)],
-        "pipx": ["pipx", "install", "--editable", str(root)],
+        "uv": ["uv", "tool", "install", "--force", "--editable", str(root)],
+        "pipx": ["pipx", "install", "--force", "--editable", str(root)],
         "pip": [sys.executable, "-m", "pip", "install", "--user", "--editable", str(root)],
     }
     if chosen not in cmd_map:
@@ -674,9 +690,10 @@ def _install_mcp(
     merged_servers["paperstream"] = entry
     merged["mcpServers"] = merged_servers
 
+    existed_before = config_path.exists()
     backup_path = config_path.with_name(f"{config_path.name}.paperstream-bak")
     if apply:
-        if config_path.exists():
+        if existed_before:
             _atomic_copy_file(config_path, backup_path)
         _atomic_write_text(config_path, json.dumps(merged, ensure_ascii=False, indent=2) + "\n")
 
@@ -684,7 +701,7 @@ def _install_mcp(
         "target": "mcp",
         "applied": apply,
         "config_path": str(config_path),
-        "backup_path": str(backup_path) if config_path.exists() else None,
+        "backup_path": str(backup_path) if existed_before else None,
         "mcp_entry": entry,
         "canvases": [str(p) for p in selected_canvases],
         "merged_config_preview": merged,
@@ -761,6 +778,7 @@ def run_install(
     repo_root: Path | None = None,
     env: Mapping[str, str] | None = None,
     home: Path | None = None,
+    platform_name: str | None = None,
 ) -> dict[str, Any]:
     """Preview (--dry-run) or apply installation steps for Paperstream targets."""
     root = (repo_root or REPO_ROOT).resolve()
@@ -780,6 +798,7 @@ def run_install(
                     bin_dir=bin_dir,
                     force=force,
                     apply=apply,
+                    platform_name=platform_name,
                 )
             )
         elif target == "serve":

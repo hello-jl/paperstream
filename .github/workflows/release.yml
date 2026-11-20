@@ -92,15 +92,18 @@ jobs:
                       zf.write(item, Path("paperstream") / item.relative_to("skills/paperstream"))
               zf.write(Path("LICENSE"), Path("paperstream/LICENSE"))
 
-          subprocess.run(["npm", "--prefix", "dsh", "pack"], check=True)
-          dsh_tgzs = sorted(Path("dsh").glob("dsh-paperstream-*.tgz"))
+          subprocess.run(
+              ["npm", "pack", "--pack-destination", str(out.resolve())],
+              cwd="dsh",
+              check=True,
+          )
+          dsh_tgzs = sorted(out.glob("dsh-paperstream-*.tgz"))
           if len(dsh_tgzs) != 1:
               raise RuntimeError(f"Expected 1 DSH tarball, found: {dsh_tgzs}")
-          shutil.move(str(dsh_tgzs[0]), str(out / dsh_tgzs[0].name))
 
           lines = []
           for artifact in sorted(out.iterdir()):
-              if artifact.is_file():
+              if artifact.is_file() and artifact.name != "SHA256SUMS.txt":
                   digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
                   lines.append(f"{digest}  {artifact.name}\n")
           (out / "SHA256SUMS.txt").write_text("".join(lines), encoding="utf-8")
