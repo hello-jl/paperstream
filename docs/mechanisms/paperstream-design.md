@@ -58,7 +58,7 @@
 
 1. **标准 Python 包元数据（`pyproject.toml`）**：零第三方依赖声明 `paperstream` CLI 入口，支持 `uv tool install`、`pip install -e .` 或便携本地 shim。
 2. **解耦 `serve` 单文件编辑器资源（`scripts/build-serve.mjs` 与 `resolve_preview_app`）**：`scripts/build-serve.mjs` 直接从 `web/src/local-bridge/app.tsx` 构建通用 `dist/serve/app.html`；Python 启动器按 `PAPERSTREAM_APP_PATH` → `dist/serve/app.html` → `claude/dist/app.html` → 用户数据目录（`PAPERSTREAM_DATA_DIR` / `XDG_DATA_HOME/paperstream` / `~/.local/share/paperstream`）依次解析，保留精确错误信息。
-3. **零依赖部署编排与协议（`scripts/setup.py` + `DEPLOY.md`）**：提供只读 `doctor`、按顺序安装锁文件依赖并构建的 `build`、默认 dry-run / `--apply` 备份原配置原子安装的 `install`（支持 `cli` / `serve` / `skill` / `mcp` / `claude` / `codex` / `dsh`），以及全在临时目录隔离执行的 `verify` 冒烟检查。
+3. **零依赖部署编排与协议（`scripts/setup.py` + `DEPLOY.md`）**：提供只读 `doctor`、优先拉取并校验 `SHA256SUMS.txt` 写入标准路径的 `fetch`（支持 `web` / `serve` / `mcp` / `claude` / `codex` / `dsh` 预构建包及 `--from-dir` 离线校验）、按锁文件依赖顺序自编译的 `build`（两条路线失败时相互提示回退）、默认 dry-run / `--apply` 备份原配置原子安装的 `install`（五端均支持来自 `fetch`、`build` 或外置 `--*-package` 参数），以及全在临时目录隔离执行的 `verify` 冒烟检查。
 4. **GitHub Actions 自动化与相对路径静态页（`.github/workflows/` 与 `web/vite.config.ts`）**：`web/vite.config.ts` 使用 `base: './'` 支持子路径静态托管；`ci.yml` 运行全量 Python/JS 检查与五端构建；`pages.yml` 部署纯前端工作台；`release.yml` 在 `v*` tag 时产出全端免编译归档与 `SHA256SUMS.txt` 供无 Node.js 22.18+ 环境直接使用。
 
 ## 开源前验收（2026-11-13）

@@ -14,9 +14,9 @@
 
 | 部署层级 | 适用组合 / Target | 实际依赖 | 若失败如何回退 |
 | --- | --- | --- | --- |
-| **Level 4：源码构建与前端开发** | `setup.py build` / Vite 开发 | Python ≥ 3.10 + **Node.js ≥ 22.18 + npm** | 任何构建或 `npm ci` 失败 → 回退到 **Level 3 / Level 2**，改用 [GitHub Releases](https://github.com/hello-jl/paperstream/releases) 预构建包 |
-| **Level 3：对话内嵌 / 原生面板** | `mcp` / `codex` / `dsh` | `mcp` / `codex`：免 `npm ci`，仍需 **Node.js ≥ 22** 运行 `server.mjs` + Python ≥ 3.10<br>`dsh`：需宿主 **DSH Web `0.2.2-rc.1`** | Node 版本不够、Releases 不可达或宿主兼容校验失败 → 回退到 **Level 2**（本地桥/Claude）或 **Level 1** |
-| **Level 2：离线本地桥 / Claude 插件** | `cli` + `skill` + `serve`（或 `claude`） | **仅 Python ≥ 3.10**（使用 Releases `paperstream-serve-*.zip` / `paperstream-claude-*.zip`，无需 Node.js / npm） | 若 Releases 下载失败且无 Node.js 自编译 → 回退到 **Level 1** |
+| **Level 4：源码构建与前端开发**（路线 B） | `setup.py build` / Vite 开发 | Python ≥ 3.10 + **Node.js ≥ 22.18 + npm** | 构建或 `npm ci` 失败 → 改走 **路线 A（`setup.py fetch`）** 使用预构建包；或降级到 Level 1 |
+| **Level 3：对话内嵌 / 原生面板** | `mcp` / `codex` / `dsh` | `mcp` / `codex`：通过 `fetch` 免 `npm ci`，运行时需 **Node.js ≥ 22** + Python ≥ 3.10<br>`dsh`：通过 `fetch` 拉取 `.tgz` 只需 Python ≥ 3.10 + **DSH Web `0.2.2-rc.1`** | 下载/校验失败时若有 Node ≥ 22.18 可改走路线 B 自编译；仍失败或宿主不兼容则回退到 **Level 2 / Level 1** |
+| **Level 2：离线本地桥 / Claude 插件** | `cli` + `skill` + `serve`（或 `claude`） | **仅 Python ≥ 3.10**（通过 `setup.py fetch` 使用 Releases，无需 Node.js / npm） | 若 Releases 下载失败且无 Node.js 自编译 → 回退到 **Level 1** |
 | **Level 1：最小本地人机协作** | `cli` + `skill` + 在线工作台 | **仅 Python ≥ 3.10**（零第三方 Python 包） | CLI 依次尝试 `uv` → `pipx` → `~/.local/bin/paperstream` shim；若均不可写或不想动全局目录，Agent 可直接在仓库内用 `python3 -m paperstream` |
 | **Level 0：零本机环境兜底** | 在线工作台 | **仅现代浏览器** | 直接打开 `https://hello-jl.github.io/paperstream/` 本地读写电脑上的 `.canvas` 文件 |
 
@@ -32,9 +32,9 @@
 python3 scripts/setup.py doctor --json
 ```
 
-读取返回的 `python`、`node`、`python_installers`、`hosts`、`built_artifacts`、`existing_install` 和 `recommended_targets`。脚本支持在所有子命令中加 `--json`，业务/环境错误通过 stderr 输出结构化 JSON（退出码 `1`，用法错误 `2`）。
+读取返回的 `python`、`node`、`npm`、`python_installers`、`hosts`、`built_artifacts`、`existing_install`、`recommended_targets` 以及 `install_methods`（默认推荐 `release` 路线，同时报告 `source` 路线是否可用）。脚本支持在所有子命令中加 `--json`，业务/环境错误通过 stderr 输出结构化 JSON（退出码 `1`，用法错误 `2`）。
 
-### 第 2 步：对照宿主选择目标，并向用户一次性确认
+### 第 2 步：选择路线与目标，并向用户一次性确认
 
 结合 `doctor` 结果与你当前所处的客户端环境，按下面映射表给出建议：
 
@@ -45,18 +45,31 @@ python3 scripts/setup.py doctor --json
 | Claude Desktop（无 Shell 对话内嵌画布） | `cli`, `skill`, `mcp` | 全局 CLI + 标准 stdio MCP Apps 工具与内嵌画布（需用户至少指定 1 份 `.canvas` 或 `--use-example`） |
 | ChatGPT / Codex 桌面端 | `cli`, `skill`, `codex` | 全局 CLI + 原生侧栏 `.canvas` 文件编辑器插件 |
 | DeepSeek Harness (DSH Web) | `cli`, `skill`, `dsh` | 全局 CLI + DSH 主面板插件 |
-| 无 Node.js 22.18+ 环境（仅有 Python 3.10+） | `cli`, `skill`（及可选预构建包） | 纯 Python CLI/API 与 Skill；若需 `serve` / `mcp` / `claude`，可直接从 [GitHub Releases](https://github.com/hello-jl/paperstream/releases) 下载对应便携包并配合 `--app-source` / `--mcp-package` 使用 |
+| 仅有 Python 3.10+（无 Node.js / npm） | `cli`, `skill`, `serve`（及 `claude` / `dsh`） | 统一走 **路线 A（`fetch`）** 无需编译即可使用；若仅用纯命令行与在线画布则只需 `cli`, `skill` |
 
-在修改仓库外文件之前，**一次性**向用户确认以下三件事：
-1. 本次要安装的 targets；
-2. 将写入的全局路径（例如 `~/.local/bin/paperstream`、Skill 目录或 `claude_desktop_config.json`）；
-3. 若安装 `mcp`，由用户明确指定要授权的 `.canvas` 文件路径（或明确同意使用 `--use-example` 示例图）。
+在修改仓库外文件或下载大产物之前，**一次性**向用户确认以下四件事：
+1. **安装路线**（优先推荐默认路线，并说明可互换）：
+   - **路线 A（默认推荐）：用 GitHub Releases 预构建包（`setup.py fetch`）**——无需安装 `npm` 依赖，无需本地编译前端；
+   - **路线 B：本地安装依赖从源码自编译（`setup.py build`）**——需 Node.js ≥ 22.18 + npm，适合想修改源码或拉不到 GitHub Releases 的情况。
+2. 本次要安装的 `targets`；
+3. 将写入的全局路径（例如 `~/.local/bin/paperstream`、Skill 目录或 `claude_desktop_config.json`）；
+4. 若安装 `mcp`，由用户明确指定要授权的 `.canvas` 文件路径（或明确同意使用 `--use-example` 示例图）。
 
-### 第 3 步：准备预构建产物（或从源码构建）
+### 第 3 步：获取预构建包（路线 A）或从源码构建（路线 B）
 
-- **直接用预构建包（推荐，无需 Node.js ≥ 22.18 与 npm）**：可从 [GitHub Releases](https://github.com/hello-jl/paperstream/releases) 直接下载对应版本的预构建便携包（`paperstream-serve-*.zip`、`paperstream-mcp-*.zip`、`paperstream-claude-*.zip`、`paperstream-codex-*.zip`、`dsh-paperstream-*.tgz` 等），解压后进入第 4 步并传入 `--app-source` 或 `--mcp-package`（无 Node.js ≥ 22.18 时不要尝试自行编译前端）。
+> [!IMPORTANT]
+> **失败互退原则**：任意一条路线报错时，不要静默跳过或强行覆盖环境，**主动提醒用户原因并建议切换另一条路线**（或降级到 Level 1 纯 Python `cli + skill` + 在线工作台）。
 
-- **从源码构建或本地开发前端（需要 Node.js ≥ 22.18 与 npm）**：按需执行统一构建（会自动按锁文件安装依赖并依次构建），或直接启动独立 Vite 开发服务调试前端代码：
+- **路线 A（默认推荐）：从 GitHub Releases 拉取并校验 `SHA256SUMS.txt`**：
+
+```sh
+python3 scripts/setup.py fetch --target serve --json
+# 支持 web, serve, claude, mcp, codex, dsh, all（可选 --tag v0.1.0 或 --from-dir /path/to/downloaded）
+```
+
+> 若网络无法访问 GitHub Releases、校验失败或缺少目标资产，提示用户：**如本机已有 Node.js ≥ 22.18 与 npm，可改试路线 B（`python3 scripts/setup.py build`）；否则可退回 Level 1（`cli,skill` + 在线工作台）。**
+
+- **路线 B：本地从源码构建（需要 Node.js ≥ 22.18 与 npm）**：
 
 ```sh
 python3 scripts/setup.py build --target serve --json
@@ -66,9 +79,11 @@ python3 scripts/setup.py build --target serve --json
 npm ci --prefix web && npm --prefix web run dev
 ```
 
-### 第 4 步：先预览（dry-run），再应用（apply）
+> 若提示缺少 Node.js ≥ 22.18、或 `npm ci` / 构建报错，提示用户：**可直接改走路线 A（`python3 scripts/setup.py fetch` 拉取预构建包，免安装 npm 依赖）；若仍不可达则退回 Level 1。**
 
-默认不带 `--apply` 时，`install` 只做校验与变更预览，不修改磁盘：
+### 第 4 步：统一安装（先 dry-run 预览，再 `--apply`）
+
+无论第 3 步走的是路线 A 还是路线 B，五端后续**完全走同一套 `install` 命令**；不带 `--apply` 时只做校验与变更预览，不修改磁盘：
 
 ```sh
 # 1. 预览变更
@@ -78,15 +93,16 @@ python3 scripts/setup.py install --target cli,skill,serve --json
 python3 scripts/setup.py install --target cli,skill,serve --apply --json
 ```
 
-常用专项参数：
+常用专项与外置包覆盖参数：
 - **安装全局 CLI**：`--installer auto|uv|pipx|pip|shim`（`auto` 优先 `uv` → `pipx` → `~/.local/bin/paperstream` 自管 shim；若 `~/.local/bin` 不在 `PATH` 中，结果里的 `path_hint` 会提示）。也可直接用标准打包入口 `uv tool install -e .` 或 `pip install --user -e .`。
-- **安装独立 `serve` 前端**：默认读取 `dist/serve/app.html`（或 `claude/dist/app.html`），无本地构建时加 `--app-source /path/to/app.html`，安装到 `$PAPERSTREAM_DATA_DIR` / `$XDG_DATA_HOME/paperstream` / `~/.local/share/paperstream`。
+- **安装独立 `serve` 前端**：默认使用 `fetch` 或 `build` 准备好的 `dist/serve/app.html`（或 `claude/dist/app.html`）；也可用 `--app-source /path/to/app.html` 指定手工解压的文件/目录，安装到 `$PAPERSTREAM_DATA_DIR` / `$XDG_DATA_HOME/paperstream` / `~/.local/share/paperstream`。
 - **安装 Skill**：通过 `--host agents|claude|codex`（可多次传入）或 `--skill-dir /path/to/skills` 安装**完整** [`skills/paperstream/`](skills/paperstream/SKILL.md) 目录（含 `references/api.md`）。
 - **配置标准 MCP（Claude Desktop）**：必须传 `--canvas /abs/path/to/papers.canvas`（可重复）或 `--use-example`，可选 `--read-only`、`--mcp-package <dir>`、`--claude-config <path>`。应用前会自动将原配置备份到 `*.paperstream-bak`，仅合并 `mcpServers.paperstream`。
+- **安装宿主插件（`claude` / `codex` / `dsh`）**：`fetch` 与 `build` 后均会自动找到对应产物；如手工解压或指定外部包，分别可传 `--claude-package <dir>`、`--codex-package <dir>` 或 `--dsh-package <path-to-tgz-or-dir>`（其中 `.tgz` 安装和校验无需本机 Node.js）。
 
 ### 第 5 步：隔离冒烟验收并汇报结果
 
-安装完成后立即运行：
+安装完成后立即运行（同样统一覆盖 `fetch` 与 `build` 产物）：
 
 ```sh
 python3 scripts/setup.py verify --target cli,skill,serve --json
