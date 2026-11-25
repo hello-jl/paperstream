@@ -165,3 +165,7 @@ npm --prefix web run build
 - **第三方依赖与素材**：前端依赖、历史人物肖像及社区角色素材的许可与署名见 [第三方声明](THIRD_PARTY_NOTICES.md)。
 
 欢迎提 Issue 或 PR 一起改进 Paperstream；如果遇到问题，方便的话附上复现步骤、使用环境和最小 `.canvas` 示例会更有帮助。
+
+## 社区与致谢
+
+本项目认可并支持 [LINUX DO](https://linux.do/) 社区“真诚、友善、团结、专业”的开源分享精神，欢迎在社区或 GitHub Issues / PR 中交流使用体验与改进建议。

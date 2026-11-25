@@ -165,3 +165,7 @@ For build details and per-host checks, see [Development & Verification](docs/gui
 - **Third-party dependencies & visual assets**: See [Third-Party Notices](THIRD_PARTY_NOTICES.md) for frontend packages, historical portraits, and community character credits.
 
 Issues and PRs are welcome! If you run into trouble, please include reproduction steps, your environment details, and a minimal `.canvas` sample where possible.
+
+## Community & Acknowledgements
+
+This project recognizes and supports the [LINUX DO](https://linux.do/) community and its open-source sharing spirit. Feedback, discussions, and contributions are welcome in the community or via GitHub Issues / PRs.
