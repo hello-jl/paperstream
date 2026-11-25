@@ -1,6 +1,6 @@
 {
   "name": "paperstream",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Open and edit JSON Canvas paper graphs in the ChatGPT desktop file panel.",
   "author": { "name": "Paperstream contributors" },
   "skills": "./skills/",
