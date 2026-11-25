@@ -30,8 +30,8 @@ import { CardBody, FigureControls } from './CardBody';
 import { layoutVertical } from './graph-layout';
 import { layoutWithElk } from './elk-layout';
 import { createRelationNode, promoteEdgeRelation, isRelationNode, followRelationPositions, resetAttachedRelationPosition, relationEdgeSides, relationTextSize } from './graph-relations';
-import { useAppearancePreferences } from './appearance-preferences';
-import type { AppearancePreferences } from './appearance-preferences';
+import { customThemeCssVariables, exportPaletteForTheme, resolveThemeTokens, useAppearancePreferences } from './appearance-preferences';
+import type { AppearancePreferences, PaperstreamTheme } from './appearance-preferences';
 import { readFigures } from './card-media';
 import { appendFiguresPatch, extractClipboardImages, readClipboardFigures } from './clipboard-images';
 import { downloadGraph } from './graph-export';
@@ -177,7 +177,7 @@ function initialState(key: string) {
   }
 }
 
-export interface PaperstreamEditorProps { draftKey?: string; loadTheme?: () => Promise<'sage' | 'paper' | 'night'>; saveTheme?: (theme: 'sage' | 'paper' | 'night') => Promise<void>; loadPreferences?: () => Promise<AppearancePreferences>; savePreferences?: (value: AppearancePreferences) => Promise<void>; openExternal?: (url: string) => Promise<void> }
+export interface PaperstreamEditorProps { draftKey?: string; loadTheme?: () => Promise<PaperstreamTheme>; saveTheme?: (theme: PaperstreamTheme) => Promise<void>; loadPreferences?: () => Promise<AppearancePreferences>; savePreferences?: (value: AppearancePreferences) => Promise<void>; openExternal?: (url: string) => Promise<void> }
 
 /** Both standalone and DSH mount the same editor; persistence stays in .canvas. */
 export function PaperstreamEditor({ draftKey = 'paperstream-browser-draft-v1', loadTheme, saveTheme, loadPreferences, savePreferences, openExternal }: PaperstreamEditorProps) {
@@ -185,7 +185,10 @@ export function PaperstreamEditor({ draftKey = 'paperstream-browser-draft-v1', l
 }
 
 export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: { draftKey: string; onMeta: (meta: TabMetadata) => void; openExternal?: (url: string) => Promise<void>; host?: EditorHost }) {
-  const { connectionStyle } = useAppearancePreferences();
+  const preferences = useAppearancePreferences();
+  const { connectionStyle } = preferences;
+  const themeTokens = useMemo(() => resolveThemeTokens(preferences.theme, preferences.customTheme), [preferences.theme, preferences.customTheme]);
+  const themeVariables = useMemo(() => customThemeCssVariables(preferences.theme, preferences.customTheme), [preferences.theme, preferences.customTheme]);
   const [initial] = useState(() => host ? initialHostDraft(host) : initialState(draftKey));
   const readOnly = Boolean(host?.readOnly);
   const readOnlyRef = useRef(readOnly); readOnlyRef.current = readOnly;
@@ -548,22 +551,25 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     });
     return () => { cancelAnimationFrame(firstFrame); cancelAnimationFrame(secondFrame); };
   }, [canvas, nodes, visible, contentHeights, labelPositions, fitContent]);
-  const edges = useMemo<RelationEdgeModel[]>(() => previewDocument.edges.map(edge => ({
-    id: edge.id, source: edge.fromNode, target: edge.toNode,
-    sourceHandle: relationEdgeSides(previewDocument, edge).fromSide, targetHandle: relationEdgeSides(previewDocument, edge).toSide,
-    label: edge.label, type: 'relation', animated: false,
-    data: { raw: edge, onPatch: (id, patch) => { try { commit({ ...patchEdge(current.current, id, patch), paperstreamLayout: 'manual' }); } catch (err) { setError(message(err)); } }, position: labelPositions.get(edge.id), busy: busy || readOnly, onMeasure: measureLabel, onSelect: selectEdgeLabel,
-      editing: selection?.kind === 'edge' && selection.id === edge.id && inlineField === 'relation',
-      arrowShape: edgeSettings(edge).arrowShape, lineStyle: edgeSettings(edge).lineStyle,
-      draft: form.relation ?? '', onEdit: () => actions.edit({ kind: 'edge', id: edge.id }, 'relation'),
-      onDetails: anchor => actions.details({ kind: 'edge', id: edge.id }, anchor),
-      onChange: value => actions.field('relation', value), onFinish: actions.finish },
-    markerStart: edge.fromEnd === 'arrow' ? { type: MarkerType.ArrowClosed } : undefined,
-    markerEnd: edge.toEnd !== 'none' ? { type: MarkerType.ArrowClosed } : undefined,
-    style: { stroke: color(edge.color) ?? '#70877e', strokeWidth: readEdgeStyle(edge).strokeWidth, strokeDasharray: edgeSettings(edge).lineStyle === 'dashed' ? '8 5' : edgeSettings(edge).lineStyle === 'dotted' ? '2 5' : undefined },
-    selected: selection?.kind === 'edge' && selection.id === edge.id,
-    hidden: !visible.has(edge.fromNode) || !visible.has(edge.toNode),
-  })), [previewDocument, visible, selection, labelPositions, busy, readOnly, measureLabel, selectEdgeLabel, actions, inlineField, form.relation, commit]);
+  const edges = useMemo<RelationEdgeModel[]>(() => previewDocument.edges.map(edge => {
+    const edgeStroke = color(edge.color) ?? themeTokens.edge;
+    return {
+      id: edge.id, source: edge.fromNode, target: edge.toNode,
+      sourceHandle: relationEdgeSides(previewDocument, edge).fromSide, targetHandle: relationEdgeSides(previewDocument, edge).toSide,
+      label: edge.label, type: 'relation', animated: false,
+      data: { raw: edge, onPatch: (id, patch) => { try { commit({ ...patchEdge(current.current, id, patch), paperstreamLayout: 'manual' }); } catch (err) { setError(message(err)); } }, position: labelPositions.get(edge.id), busy: busy || readOnly, onMeasure: measureLabel, onSelect: selectEdgeLabel,
+        editing: selection?.kind === 'edge' && selection.id === edge.id && inlineField === 'relation',
+        arrowShape: edgeSettings(edge).arrowShape, lineStyle: edgeSettings(edge).lineStyle,
+        draft: form.relation ?? '', onEdit: () => actions.edit({ kind: 'edge', id: edge.id }, 'relation'),
+        onDetails: anchor => actions.details({ kind: 'edge', id: edge.id }, anchor),
+        onChange: value => actions.field('relation', value), onFinish: actions.finish },
+      markerStart: edge.fromEnd === 'arrow' ? { type: MarkerType.ArrowClosed, color: edgeStroke } : undefined,
+      markerEnd: edge.toEnd !== 'none' ? { type: MarkerType.ArrowClosed, color: edgeStroke } : undefined,
+      style: { stroke: edgeStroke, strokeWidth: readEdgeStyle(edge).strokeWidth, strokeDasharray: edgeSettings(edge).lineStyle === 'dashed' ? '8 5' : edgeSettings(edge).lineStyle === 'dotted' ? '2 5' : undefined },
+      selected: selection?.kind === 'edge' && selection.id === edge.id,
+      hidden: !visible.has(edge.fromNode) || !visible.has(edge.toNode),
+    };
+  }), [previewDocument, visible, selection, labelPositions, busy, readOnly, measureLabel, selectEdgeLabel, actions, inlineField, form.relation, commit, themeTokens.edge]);
   const onNodesChange: OnNodesChange<CardNode> = useCallback(changes => {
     // Deletion is explicit in the inspector; filtering never mutates stored nodes.
     setNodes(items => applyNodeChanges(changes.filter(change => change.type !== 'remove' && change.type !== 'select'), items));
@@ -778,7 +784,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
   async function exportDocument(format: 'png' | 'svg') {
     if (busy || formDirty) return;
     setBusy(true); setError('');
-    try { await downloadGraph(current.current, format, fileName, { connectionStyle }); setNotice(`已导出 ${format.toUpperCase()}。`); }
+    try { await downloadGraph(current.current, format, fileName, { connectionStyle, ...exportPaletteForTheme(preferences.theme, preferences.customTheme) }); setNotice(`已导出 ${format.toUpperCase()}。`); }
     catch (err) { setError(message(err)); } finally { setBusy(false); }
   }
   async function arrangeGraph() {
@@ -921,7 +927,7 @@ export function EmbeddedEditorSession({ draftKey, onMeta, openExternal, host }: 
     });
   }
 
-  return <div className="paperstream-editor" style={CARD_CSS_VARIABLES as CSSProperties} aria-busy={busy} onPasteCapture={pasteImages} onKeyDown={event => {
+  return <div className="paperstream-editor" style={{ ...CARD_CSS_VARIABLES, ...themeVariables } as CSSProperties} aria-busy={busy} onPasteCapture={pasteImages} onKeyDown={event => {
     if (event.key === 'Escape' && detailsAnchor && !event.defaultPrevented && !isComposingKey(event)) { event.preventDefault(); closeDetails(); }
   }}>
     {recoveryError && <div role="alert" className="ps-workspace-warning">{recoveryError}</div>}

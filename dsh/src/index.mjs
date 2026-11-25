@@ -12,7 +12,8 @@ import { promisify } from 'node:util'
 export const name = 'paperstream'
 export const inject = ['webServer', 'connection']
 export const PREFERENCES_PATH = '/paperstream/preferences'
-export const THEMES = ['sage', 'paper', 'night']
+export const THEMES = ['sage', 'paper', 'night', 'custom']
+export const CUSTOM_THEME_KEYS = ['canvas', 'surface', 'ink', 'accent']
 export const CONNECTION_STYLES = ['orthogonal', 'rounded', 'curved']
 export const OPEN_URL_PATH = '/paperstream/open-url'
 const execFileAsync = promisify(execFile)
@@ -29,6 +30,22 @@ function themeValue(value) {
   return value
 }
 
+export function customThemeValue(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Invalid Paperstream custom theme')
+  const keys = Object.keys(value)
+  if (keys.length !== CUSTOM_THEME_KEYS.length || !CUSTOM_THEME_KEYS.every(key => Object.hasOwn(value, key))) {
+    throw new TypeError('Invalid Paperstream custom theme')
+  }
+  const normalized = {}
+  for (const key of CUSTOM_THEME_KEYS) {
+    if (typeof value[key] !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(value[key])) {
+      throw new TypeError('Invalid Paperstream custom theme')
+    }
+    normalized[key] = value[key].toLowerCase()
+  }
+  return normalized
+}
+
 function connectionStyleValue(value) {
   if (!CONNECTION_STYLES.includes(value)) throw new TypeError('Unknown Paperstream connection style')
   return value
@@ -38,15 +55,21 @@ function preferencePatch(value) {
   // Keep the old store.save(theme) API and { theme } HTTP requests working.
   const patch = typeof value === 'string' ? { theme: value } : value
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)
-    || !Object.keys(patch).length || Object.keys(patch).some(key => !['theme', 'connectionStyle'].includes(key))) {
+    || !Object.keys(patch).length || Object.keys(patch).some(key => !['theme', 'connectionStyle', 'customTheme'].includes(key))) {
     throw new TypeError('Expected supported appearance preferences')
   }
-  if (Object.hasOwn(patch, 'theme')) themeValue(patch.theme)
-  if (Object.hasOwn(patch, 'connectionStyle')) connectionStyleValue(patch.connectionStyle)
-  return { ...patch }
+  const normalized = { ...patch }
+  if (Object.hasOwn(normalized, 'theme')) themeValue(normalized.theme)
+  if (Object.hasOwn(normalized, 'connectionStyle')) connectionStyleValue(normalized.connectionStyle)
+  if (Object.hasOwn(normalized, 'customTheme')) normalized.customTheme = customThemeValue(normalized.customTheme)
+  return normalized
 }
 function publicPreferences(record) {
-  return { theme: record.theme ?? 'sage', connectionStyle: record.connectionStyle ?? 'rounded' }
+  return {
+    theme: record.theme ?? 'sage',
+    connectionStyle: record.connectionStyle ?? 'rounded',
+    ...(Object.hasOwn(record, 'customTheme') ? { customTheme: customThemeValue(record.customTheme) } : {}),
+  }
 }
 
 export function createPreferencesStore(filePath = preferencesFilePath()) {
@@ -59,6 +82,7 @@ export function createPreferencesStore(filePath = preferencesFilePath()) {
     if (!record || typeof record !== 'object' || Array.isArray(record)) throw new TypeError('Invalid appearance preferences')
     if (Object.hasOwn(record, 'theme')) themeValue(record.theme)
     if (Object.hasOwn(record, 'connectionStyle')) connectionStyleValue(record.connectionStyle)
+    if (Object.hasOwn(record, 'customTheme')) customThemeValue(record.customTheme)
     return record
   }
   return {

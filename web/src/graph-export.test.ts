@@ -320,3 +320,25 @@ test('SVG exports styled label-through paths and retains exact curve bounds', ()
   assert.equal(paths.size, 3);
   assert.equal(JSON.stringify(graph), before);
 });
+
+test('SVG applies custom theme export palette without mutating source nodes or edges', () => {
+  const graph = sample();
+  graph.nodes[0].paperstreamCard = { figures: [{ id: 'fig', src: PNG, caption: '', widthPercent: 40, naturalWidth: 2, naturalHeight: 1, frame: { aspectRatio: 1, fit: 'contain' } }] };
+  const before = JSON.stringify(graph);
+  const svg = exportGraphSvg(graph, {
+    background: '#141820',
+    cardBackground: '#1c222d',
+    foreground: '#e7ecf4',
+    muted: '#9aa5b5',
+    cardBorder: '#3c4657',
+    edgeColor: '#7b889c',
+    surfaceAlt: '#262e3c',
+  });
+  assert.match(svg, /fill="#141820"/);
+  assert.match(svg, /fill="#1c222d"/);
+  assert.match(svg, /fill="#e7ecf4"/);
+  assert.match(svg, /stroke="#3c4657"/);
+  assert.match(svg, /stroke="#7b889c"/);
+  assert.match(svg, /fill="#262e3c"/);
+  assert.equal(JSON.stringify(graph), before);
+});

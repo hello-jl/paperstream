@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { AppearancePreferencesContext, DEFAULT_APPEARANCE_PREFERENCES, isAppearancePreferences } from './appearance-preferences';
+import type { CSSProperties, ReactNode } from 'react';
+import {
+  AppearancePreferencesContext,
+  DEFAULT_APPEARANCE_PREFERENCES,
+  DEFAULT_CUSTOM_THEME,
+  customThemeCssVariables,
+  isAppearancePreferences,
+} from './appearance-preferences';
 import type { AppearancePreferences } from './appearance-preferences';
+import { AppearanceSettingsPanel } from './AppearanceSettingsPanel';
 import './appearance-settings.css';
 import { hydrateWorkspace, persistWorkspace, deleteDraft, subscribeWorkspaceStatus, getWorkspaceStatus, tabDraftKey } from './workspace-store';
 
@@ -13,6 +20,7 @@ function localPreferences(): AppearancePreferences {
     const value = JSON.parse(localStorage.getItem(preferencesKey) ?? 'null');
     if (isAppearancePreferences(value)) return value;
     const theme = localStorage.getItem('dsh-paperstream-theme-v1');
+    if (theme === 'custom') return { ...DEFAULT_APPEARANCE_PREFERENCES, theme, customTheme: { ...DEFAULT_CUSTOM_THEME } };
     if (theme === 'sage' || theme === 'paper' || theme === 'night') return { ...DEFAULT_APPEARANCE_PREFERENCES, theme };
   } catch { /* A damaged or unavailable local preference uses the defaults. */ }
   return { ...DEFAULT_APPEARANCE_PREFERENCES };
@@ -101,7 +109,8 @@ export function WorkspaceTabs({ draftKey, children, loadTheme, saveTheme, loadPr
     try { sessionStorage.removeItem(id === 'initial' ? draftKey : `${draftKey}:${id}`); } catch { /* Ignore unavailable recovery storage. */ }
     void deleteDraft(tabDraftKey(draftKey, id)).catch(() => { /* Preserve the existing durable record if recovery failed. */ });
   }
-  return <AppearancePreferencesContext.Provider value={preferences}><div className="paperstream-shell" data-theme={preferences.theme}>
+  const themeStyle = customThemeCssVariables(preferences.theme, preferences.customTheme) as CSSProperties | undefined;
+  return <AppearancePreferencesContext.Provider value={preferences}><div className="paperstream-shell" data-theme={preferences.theme} style={themeStyle}>
     <div className="ps-tabs-header"><strong>Paperstream</strong><div className="ps-tabs" role="tablist" aria-label="画布文件">
       {state.ids.map(id => <div className={`ps-tab ${id === state.active ? 'is-active' : ''}`} key={id}>
         <button role="tab" disabled={!ready} aria-selected={id === state.active} onClick={() => setState(old => ({ ...old, active: id }))}>{metadata[id]?.fileName ?? 'papers.canvas'}{metadata[id]?.dirty ? ' ·' : ''}</button>
@@ -114,20 +123,14 @@ export function WorkspaceTabs({ draftKey, children, loadTheme, saveTheme, loadPr
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 3-1 3-3 1-2 3 2 2v3l3 2 1 3h4l1-3 3-2v-3l2-2-2-3-3-1-1-3Z"/><circle cx="12" cy="11.5" r="3"/></svg>
       </button>
       {settingsOpen && <div className="ps-settings-panel" role="dialog" aria-label="全局设置">
-        <strong>全局设置</strong><p className="ps-settings-help">所有画布共用，自动保存</p>
-        <fieldset><legend>连线路径</legend><div className="ps-settings-options">
-          {([['orthogonal', '直角', 'M4 24H25V7H46'], ['rounded', '圆角', 'M4 24H20Q25 24 25 19V12Q25 7 30 7H46'], ['curved', '曲线', 'M4 24C25 24 25 7 46 7']] as const).map(([value, label, path]) =>
-            <button key={value} type="button" aria-pressed={preferences.connectionStyle === value} onClick={() => changePreferences({ ...preferences, connectionStyle: value })}>
-              <svg viewBox="0 0 50 32" aria-hidden="true"><path d={path}/></svg><span>{label}</span>
-            </button>)}
-        </div></fieldset>
-        <fieldset><legend>主题</legend><div className="ps-settings-options">
-          {([['sage', '苔绿'], ['paper', '纸白'], ['night', '夜间']] as const).map(([value, label]) =>
-            <button key={value} type="button" aria-pressed={preferences.theme === value} onClick={() => changePreferences({ ...preferences, theme: value })}>
-              <span className={`ps-theme-swatch is-${value}`} aria-hidden="true"/><span>{label}</span>
-            </button>)}
-        </div></fieldset>
-        {preferencesError && <div className="ps-settings-error" role="status"><p>{preferencesError}</p><button type="button" onClick={() => changePreferences(preferences)}>重试保存</button></div>}
+        <AppearanceSettingsPanel
+          preferences={preferences}
+          onChange={changePreferences}
+          title="全局设置"
+          help="所有画布共用，自动保存"
+          error={preferencesError}
+          onRetry={() => changePreferences(preferences)}
+        />
       </div>}
     </div>{preferencesError && <span className="ps-theme-warning" role="status" title={preferencesError}>设置未同步</span>}</div>
     {workspaceStatus.state === 'error' && <div role="status" className="ps-workspace-warning" style={{ padding: '4px 12px', fontSize: 11, color: '#a56e31' }}>{workspaceStatus.message}</div>}

@@ -100,3 +100,40 @@ test('authenticated appearance requests save both settings and permit partial le
   await call(harness, 'PUT', '{"connectionStyle":"orthogonal"}')
   assert.deepEqual(await store.load(), { theme: 'night', connectionStyle: 'orthogonal' })
 })
+
+test('custom theme colors persist, normalize case, preserve unknown fields, and reject invalid payloads', async t => {
+  const { path, store } = await fixture(t), harness = routeHarness(store)
+  const customTheme = { canvas: '#141820', surface: '#1C222D', ink: '#E7ECF4', accent: '#5E81AC' }
+  const expectedCustom = { canvas: '#141820', surface: '#1c222d', ink: '#e7ecf4', accent: '#5e81ac' }
+  await writeFile(path, JSON.stringify({ future: { retained: true } }))
+
+  const saved = await call(harness, 'PUT', JSON.stringify({ theme: 'custom', customTheme }))
+  assert.equal(saved.statusCode, 200)
+  assert.deepEqual(JSON.parse(saved.body), { theme: 'custom', connectionStyle: 'rounded', customTheme: expectedCustom })
+
+  const switched = await call(harness, 'PUT', '{"theme":"sage","connectionStyle":"curved"}')
+  assert.equal(switched.statusCode, 200)
+  assert.deepEqual(JSON.parse(switched.body), { theme: 'sage', connectionStyle: 'curved', customTheme: expectedCustom })
+  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), {
+    future: { retained: true },
+    theme: 'sage',
+    connectionStyle: 'curved',
+    customTheme: expectedCustom,
+  })
+
+  for (const bad of [
+    { theme: 'custom', customTheme: null },
+    { theme: 'custom', customTheme: { canvas: '#111111', surface: '#222222', ink: '#333333' } },
+    { theme: 'custom', customTheme: { ...expectedCustom, extra: '#444444' } },
+    { theme: 'custom', customTheme: { ...expectedCustom, accent: '#abc' } },
+  ]) {
+    assert.equal((await call(harness, 'PUT', JSON.stringify(bad))).statusCode, 400)
+    assert.throws(() => store.save(bad), TypeError)
+  }
+
+  const malformed = '{"theme":"custom","customTheme":{"canvas":"#fff","surface":"#000","ink":"#111","accent":"#222"}}'
+  await writeFile(path, malformed)
+  await assert.rejects(store.load())
+  await assert.rejects(store.save({ theme: 'paper' }))
+  assert.equal(await readFile(path, 'utf8'), malformed)
+})

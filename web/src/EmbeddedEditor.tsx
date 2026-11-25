@@ -1,9 +1,16 @@
 import { useCallback, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { EmbeddedEditorSession } from './Editor';
 import type { EditorHost } from './editor-host';
-import { AppearancePreferencesContext, DEFAULT_APPEARANCE_PREFERENCES, isAppearancePreferences } from './appearance-preferences';
+import {
+  AppearancePreferencesContext,
+  DEFAULT_APPEARANCE_PREFERENCES,
+  customThemeCssVariables,
+  isAppearancePreferences,
+} from './appearance-preferences';
 import type { AppearancePreferences } from './appearance-preferences';
+import { AppearanceSettingsPanel } from './AppearanceSettingsPanel';
 import './appearance-settings.css';
 
 export interface PaperstreamEmbeddedEditorProps extends EditorHost {
@@ -30,8 +37,9 @@ export function PaperstreamEmbeddedEditor(props: PaperstreamEmbeddedEditorProps)
     setPreferences(value);
     try { localStorage.setItem('paperstream-embedded-appearance-v1', JSON.stringify(value)); } catch { /* Session settings remain usable. */ }
   };
+  const themeStyle = customThemeCssVariables(preferences.theme, preferences.customTheme) as CSSProperties | undefined;
   return <AppearancePreferencesContext.Provider value={preferences}>
-    <div className="paperstream-shell" data-theme={preferences.theme}>
+    <div className="paperstream-shell" data-theme={preferences.theme} style={themeStyle}>
       <div className="ps-tabs-header"><strong>Paperstream</strong>
         <div className="ps-tabs"><span className="ps-tab is-active" style={{ padding: '8px 12px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={props.fileName}>{props.fileName}{dirty ? ' ·' : ''}</span></div>
         {props.readOnly && <span className="ps-muted">只读</span>}
@@ -41,15 +49,7 @@ export function PaperstreamEmbeddedEditor(props: PaperstreamEmbeddedEditorProps)
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m10 3-1 3-3 1-2 3 2 2v3l3 2 1 3h4l1-3 3-2v-3l2-2-2-3-3-1-1-3Z"/><circle cx="12" cy="11.5" r="3"/></svg>
           </summary>
           <div className="ps-settings-panel" aria-label="外观设置">
-            <strong>外观设置</strong>
-            <fieldset><legend>连线路径</legend><div className="ps-settings-options">
-              {([['orthogonal', '直角'], ['rounded', '圆角'], ['curved', '曲线']] as const).map(([value, label]) =>
-                <button key={value} type="button" aria-pressed={preferences.connectionStyle === value} onClick={() => changePreferences({ ...preferences, connectionStyle: value })}>{label}</button>)}
-            </div></fieldset>
-            <fieldset><legend>主题</legend><div className="ps-settings-options">
-              {([['sage', '苔绿'], ['paper', '纸白'], ['night', '夜间']] as const).map(([value, label]) =>
-                <button key={value} type="button" aria-pressed={preferences.theme === value} onClick={() => changePreferences({ ...preferences, theme: value })}>{label}</button>)}
-            </div></fieldset>
+            <AppearanceSettingsPanel preferences={preferences} onChange={changePreferences} title="外观设置" />
           </div>
         </details>
       </div>

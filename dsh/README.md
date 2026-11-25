@@ -71,9 +71,9 @@ Desktop 与 npm CLI 的安装空间不同；不要假定装进 npm 的 `web` pro
 
 ## DSH 全局设置与原文浏览器
 
-顶部右侧齿轮打开全局设置，卡片右上角的文档图标打开该对象的内容详情。全局设置提供苔绿、纸白、夜间主题和直角、圆角、曲线连线路径，默认值为 `theme: sage`、`connectionStyle: rounded`。各画布共用偏好，不写入 `.canvas`。
+顶部右侧齿轮打开全局设置，卡片右上角的文档图标打开该对象的内容详情。全局设置提供苔绿、纸白、夜间与自定义主题（支持调整画布底色、卡片底色、主文字与强调色，并支持配色 JSON 导入导出）以及直角、圆角、曲线连线路径，默认值为 `theme: sage`、`connectionStyle: rounded`。各画布共用偏好，不写入 `.canvas`。
 
-偏好由宿主保存到 `DSH_HOME/paperstream/preferences.json`；未设置 `DSH_HOME` 时使用 `~/.dsh/paperstream/preferences.json`。`GET/PUT /paperstream/preferences` 使用 DSH 官方 `webServer.register` 契约，每次请求先调用 `connection.requestRejection`，沿用宿主的 Host/Origin 与登录 cookie 校验。写请求只接受 `theme`、`connectionStyle` 的合法值、JSON 内容类型和 ≤ 4 KiB 的请求体，可更新其中一项或同时更新两项；旧 `{theme}` 请求继续有效。写入排队并通过临时文件原子替换，保留已有未知属性，损坏偏好文件拒绝覆盖。
+偏好由宿主保存到 `DSH_HOME/paperstream/preferences.json`；未设置 `DSH_HOME` 时使用 `~/.dsh/paperstream/preferences.json`。`GET/PUT /paperstream/preferences` 使用 DSH 官方 `webServer.register` 契约，每次请求先调用 `connection.requestRejection`，沿用宿主的 Host/Origin 与登录 cookie 校验。写请求只接受 `theme`（`sage`、`paper`、`night`、`custom`）、`connectionStyle`、`customTheme`（包含 `canvas`、`surface`、`ink`、`accent` 四个 `#rrggbb` 十六进制色值的对象）的合法值、JSON 内容类型和 ≤ 4 KiB 的请求体，可更新其中一项或同时更新多项；旧 `{theme}` 请求继续有效。写入排队并通过临时文件原子替换，保留已有未知属性，损坏偏好文件拒绝覆盖。
 
 客户端读写失败会显示“设置未同步”，面板内可重试保存；浏览器同源存储保留回退值，不会把失败描述为已保存到 DSH。真实 DSH 已验证设置面板、三种路径切换与偏好落盘，例如宿主文件写入 `{"theme":"sage","connectionStyle":"curved"}`，重载后恢复设置且没有回退提示；测试结束恢复圆角路径。
 

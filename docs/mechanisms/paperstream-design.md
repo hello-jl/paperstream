@@ -42,7 +42,7 @@
 - **卡片自动尺寸与局部视图**：带 `paperstreamCard` 扩展的新卡片默认 `heightMode: "auto"`，由 `ResizeObserver` 按自然内容高度更新（含 `year` 底部 42 px 预留区），手动调整后切为 `manual` 保持宽度与留白。“只看附近”仅作视图过滤，保存始终针对完整文档。
 - **智能竖排与共享标签**：按需加载 `elkjs`（ELK Layered）联合计算节点位置、正交折点与在线标签；手动拖放文字或控制柄后移除 `routeSource: "elk"`，保留人工路径。共享关系标签（`kind: "relation"`）跟随不同邻接节点绝对质心均值移动，避免连续位移累计误差。
 - **图片预算与导出边界**：新增或粘贴仅接受 PNG / JPEG / WebP，单图上限 **8 MB**、解码前格式头限制 **3200 万像素**且单边不超过 **16384 px**；图注默认为空且隐藏纯文件名历史图注；卡片内宽度支持 `15%–100%`。导出支持全图 **SVG** 与 **PNG**，包含视口外卡片、手工路径及内嵌图片并按实际边框延伸保护，PNG 分配超限时提示改用 SVG；PPTX 导出与演示分页功能已移除，旧文档中的 `paperstreamPresentation` 等扩展原样保留。
-- **恢复与宿主偏好**：多页签与草稿按单调时间戳持久化至 IndexedDB（含 localStorage 回退与损坏快照隔离），恢复时先核对文件关联代次与保存基线；全局主题（`sage` / `paper` / `night`）与线形（直角 / 圆角 / 曲线）不写入单张画布，DSH 通过受 `connection.requestRejection` 保护的 `GET/PUT /paperstream/preferences` 读写 `~/.dsh/paperstream/preferences.json`，本机原文链接通过严格限制回环地址与 HTTP(S) 的 `POST /paperstream/open-url` 打开。
+- **恢复与宿主偏好**：多页签与草稿按单调时间戳持久化至 IndexedDB（含 localStorage 回退与损坏快照隔离），恢复时先核对文件关联代次与保存基线；全局主题（`sage` / `paper` / `night` / 支持四核心色取色、基底套用、WCAG 对比度提示及 JSON 导入导出的 `custom`，并自动推导语义 CSS 变量与 SVG/PNG 导出调色板）与线形（直角 / 圆角 / 曲线）不写入单张画布，DSH 通过受 `connection.requestRejection` 保护的 `GET/PUT /paperstream/preferences` 读写 `~/.dsh/paperstream/preferences.json`，本机原文链接通过严格限制回环地址与 HTTP(S) 的 `POST /paperstream/open-url` 打开。
 
 ## Agent 交互协议与宿主边界
 

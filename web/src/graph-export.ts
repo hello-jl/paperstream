@@ -19,6 +19,9 @@ export interface GraphExportOptions {
   foreground?: string;
   muted?: string;
   cardBackground?: string;
+  cardBorder?: string;
+  edgeColor?: string;
+  surfaceAlt?: string;
   padding?: number;
   /** PNG rasterization density; bounded to avoid accidental huge allocations. */
   scale?: number;
@@ -27,7 +30,7 @@ interface TextBlock extends Rect { lines: string[]; fontSize: number; lineHeight
 interface Figure extends Rect { src: string; radius: number; framed: boolean; image: Rect; }
 interface ExportNode extends Rect { id: string; radius: number; border: string; strokeWidth: number; kind?: TextBlock; title?: TextBlock; body: TextBlock; year?: TextBlock; figures: Figure[]; captions: TextBlock[]; url?: string; group: boolean; }
 interface ExportEdge extends ConnectionPath { id: string; color: string; strokeWidth: number; dash: string; shape: string; start: boolean; end: boolean; label?: TextBlock; }
-export interface ExportScene { bounds: Rect; nodes: ExportNode[]; edges: ExportEdge[]; background: string; cardBackground: string; }
+export interface ExportScene { bounds: Rect; nodes: ExportNode[]; edges: ExportEdge[]; background: string; cardBackground: string; surfaceAlt: string; labelBorder: string; }
 const PALETTE: Record<string, string> = { '1': '#c44848', '2': '#bb722f', '3': '#a58c25', '4': '#3e886c', '5': '#388c9d', '6': '#8b6cb2' };
 // Canvas notes and extension fields can contain strings outside XML 1.0's
 // character set. Keep the source intact, replacing only unrepresentable export
@@ -87,6 +90,8 @@ function anchor(node: Rect, side: CanvasEdge['fromSide']): Point {
 export function buildExportScene(document: JSONCanvasDocument, options: GraphExportOptions = {}): ExportScene {
   serializeCanvas(document);
   const ink = safeColor(options.foreground, '#263d34'), muted = safeColor(options.muted, '#617369');
+  const cardBorder = safeColor(options.cardBorder, '#9ab3a3'), edgeColor = safeColor(options.edgeColor, '#70877e');
+  const surfaceAlt = safeColor(options.surfaceAlt, '#eef3ed'), labelBorder = options.cardBorder !== undefined ? cardBorder : '#cad8ce';
   const nodes: ExportNode[] = document.nodes.map((node: CanvasNode) => {
     const paper = readPaper(node), kind = getCardKind(node, Boolean(paper)), relation = isRelationNode(node);
     const heading = paper?.alias ?? node.label ?? node.file ?? node.url ?? (kind === 'page' ? '插页' : 'Note');
@@ -133,7 +138,7 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
       + (paper?.year ? CARD_LAYOUT.yearPadding : CARD_LAYOUT.paddingTop) + strokeWidth + 1));
     return { id: node.id, x: node.x, y: node.y, width: node.width, height,
       radius: relation ? CARD_LAYOUT.relationRadius : CARD_LAYOUT.radius,
-      border: safeColor(node.color, '#9ab3a3'), strokeWidth, kind: kindBlock, title: titleBlock, body: bodyBlock,
+      border: safeColor(node.color, cardBorder), strokeWidth, kind: kindBlock, title: titleBlock, body: bodyBlock,
       year: paper?.year ? { ...textBlock(String(paper.year), node.x + node.width - strokeWidth - CARD_LAYOUT.yearRight - 42,
         Math.max(node.y + height - strokeWidth - CARD_LAYOUT.yearBottom - CARD_LAYOUT.yearLine, cursorY + 10), 42, CARD_LAYOUT.yearSize, CARD_LAYOUT.yearLine, muted), align: 'right' } : undefined,
       figures, captions, url: typeof url === 'string' && /^https?:\/\//i.test(url) ? url : undefined, group: node.type === 'group' };
@@ -146,7 +151,7 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
       sourceSide: sides.fromSide, targetSide: sides.toSide, waypoints: routing.waypoints, style: options.connectionStyle });
     const style = record(edge.paperstreamStyle);
     const lines = edge.label ? wrapExportText(edge.label, 220, 12) : [];
-    return { id: edge.id, ...geometry, color: safeColor(edge.color, '#70877e'), strokeWidth: getEdgeStrokeWidth(edge),
+    return { id: edge.id, ...geometry, color: safeColor(edge.color, edgeColor), strokeWidth: getEdgeStrokeWidth(edge),
       dash: style.lineStyle === 'dashed' ? '7 5' : style.lineStyle === 'dotted' ? '2 4' : '',
       shape: typeof style.arrowShape === 'string' ? style.arrowShape : 'triangle', start: edge.fromEnd === 'arrow', end: edge.toEnd !== 'none',
       label: lines.length ? { x: 0, y: 0, width: Math.max(...lines.map(line => measureText(line, 12)), 8) + 20,
@@ -180,7 +185,8 @@ export function buildExportScene(document: JSONCanvasDocument, options: GraphExp
     })]) ?? { x: 0, y: 0, width: 800, height: 450 };
   const padding = Math.min(200, Math.max(0, options.padding ?? 32));
   return { bounds: { x: content.x - padding, y: content.y - padding, width: content.width + padding * 2, height: content.height + padding * 2 }, nodes, edges,
-    background: safeColor(options.background, '#f6f8f4'), cardBackground: safeColor(options.cardBackground, '#ffffff') };
+    background: safeColor(options.background, '#f6f8f4'), cardBackground: safeColor(options.cardBackground, '#ffffff'),
+    surfaceAlt, labelBorder };
 }
 function svgText(block: TextBlock, offsetY = 0): string {
   if (!block.lines.length) return '';
@@ -193,8 +199,8 @@ export function exportGraphSvg(document: JSONCanvasDocument, options: GraphExpor
   const edgeMarkup = scene.edges.map((edge, index) => `<path d="${edge.path}" fill="none" stroke="${edge.color}" stroke-width="${edge.strokeWidth}"${edge.dash ? ` stroke-dasharray="${edge.dash}"` : ''}${edge.start ? ` marker-start="url(#arrow-${index})"` : ''}${edge.end ? ` marker-end="url(#arrow-${index})"` : ''}/>`).join('');
   const figureClips = scene.nodes.flatMap((node, nodeIndex) => node.figures.map((fig, figureIndex) =>
     `<clipPath id="figure-${nodeIndex}-${figureIndex}" clipPathUnits="userSpaceOnUse"><rect x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" rx="${fig.radius}"/></clipPath>`)).join('');
-  const nodeMarkup = scene.nodes.map((node, nodeIndex) => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="${node.radius}" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${node.kind ? svgText(node.kind) : ''}${node.title ? svgText(node.title) : ''}${svgText(node.body)}${node.figures.map((fig, figureIndex) => `${fig.framed ? `<rect x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" rx="${fig.radius}" fill="#eef3ed"/>` : ''}<image x="${fig.image.x}" y="${fig.image.y}" width="${fig.image.width}" height="${fig.image.height}" preserveAspectRatio="none" clip-path="url(#figure-${nodeIndex}-${figureIndex})" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
-  const labels = scene.edges.flatMap(edge => edge.label ? [`<g data-edge-id="${xml(edge.id)}"><rect x="${edge.label.x}" y="${edge.label.y}" width="${edge.label.width}" height="${edge.label.lines.length * 18 + 12}" rx="${CARD_LAYOUT.labelRadius}" fill="${scene.cardBackground}" stroke="#cad8ce"/>${svgText({ ...edge.label, x: edge.label.x + 10, width: edge.label.width - 20 }, 5)}</g>`] : []).join('');
+  const nodeMarkup = scene.nodes.map((node, nodeIndex) => `${node.url ? `<a href="${xml(node.url)}" target="_blank" rel="noopener noreferrer">` : ''}<g data-node-id="${xml(node.id)}"><rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="${node.radius}" fill="${scene.cardBackground}"${node.group ? ' fill-opacity="0.45" stroke-dasharray="6 4"' : ''} stroke="${node.border}" stroke-width="${node.strokeWidth}"/>${node.kind ? svgText(node.kind) : ''}${node.title ? svgText(node.title) : ''}${svgText(node.body)}${node.figures.map((fig, figureIndex) => `${fig.framed ? `<rect x="${fig.x}" y="${fig.y}" width="${fig.width}" height="${fig.height}" rx="${fig.radius}" fill="${scene.surfaceAlt}"/>` : ''}<image x="${fig.image.x}" y="${fig.image.y}" width="${fig.image.width}" height="${fig.image.height}" preserveAspectRatio="none" clip-path="url(#figure-${nodeIndex}-${figureIndex})" href="${xml(fig.src)}"/>`).join('')}${node.captions.map(caption => svgText(caption)).join('')}${node.year ? svgText(node.year) : ''}</g>${node.url ? '</a>' : ''}`).join('');
+  const labels = scene.edges.flatMap(edge => edge.label ? [`<g data-edge-id="${xml(edge.id)}"><rect x="${edge.label.x}" y="${edge.label.y}" width="${edge.label.width}" height="${edge.label.lines.length * 18 + 12}" rx="${CARD_LAYOUT.labelRadius}" fill="${scene.cardBackground}" stroke="${scene.labelBorder}"/>${svgText({ ...edge.label, x: edge.label.x + 10, width: edge.label.width - 20 }, 5)}</g>`] : []).join('');
   return `<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(b.width)}" height="${Math.ceil(b.height)}" viewBox="${b.x} ${b.y} ${b.width} ${b.height}" role="img" aria-label="Paperstream research graph"><defs>${markers}${figureClips}</defs><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" fill="${scene.background}"/><g font-family="Arial, Microsoft YaHei, sans-serif">${edgeMarkup}${nodeMarkup}${labels}</g></svg>`;
 }
 

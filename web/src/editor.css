@@ -6,7 +6,7 @@
   --ps-accent: #3e7054; --ps-accent-ink: #fff; --ps-canvas: #f5f7f3; --ps-surface: #fff;
   --ps-surface-alt: #eef3ed; --ps-field: #fafcf9; --ps-card-line: #b9c9bd;
   --ps-selected: #eaf2e9; --ps-grid: #d8e1d7; --ps-error: #a34e44;
-  --ps-error-bg: #fff5f2; --ps-focus: #749981; --ps-shadow: #203c2a18;
+  --ps-error-bg: #fff5f2; --ps-focus: #749981; --ps-shadow: #203c2a18; --ps-edge: #70877e;
 }
 .paperstream-editor {
   height: 100%; min-height: 480px; width: 100%; min-width: 0;
@@ -181,14 +181,14 @@
 .paperstream-shell[data-theme=paper], .paperstream-shell[data-theme=paper] .paperstream-editor {
   --ps-ink: #303330; --ps-muted: #737773; --ps-body: #626962; --ps-line: #e0e3de; --ps-accent: #4c6254;
   --ps-canvas: #fafaf8; --ps-surface: #fff; --ps-surface-alt: #f1f3ef; --ps-field: #fafbf9;
-  --ps-card-line: #c9cec6; --ps-selected: #eef2ec; --ps-grid: #e0e3dc; --ps-focus: #829482;
+  --ps-card-line: #c9cec6; --ps-selected: #eef2ec; --ps-grid: #e0e3dc; --ps-focus: #829482; --ps-edge: #737773;
 }
 .paperstream-shell[data-theme=night], .paperstream-shell[data-theme=night] .paperstream-editor {
   color-scheme: dark;
   --ps-ink: #e0e7df; --ps-muted: #a3b0a4; --ps-body: #bac7bd; --ps-line: #37463b; --ps-accent: #91bb9c;
   --ps-accent-ink: #17271c; --ps-canvas: #19221c; --ps-surface: #222d25; --ps-surface-alt: #2b382e;
   --ps-field: #1e2922; --ps-card-line: #4c6050; --ps-selected: #304535; --ps-grid: #344238;
-  --ps-error: #eea396; --ps-error-bg: #382824; --ps-focus: #7fa98a; --ps-shadow: #00000030;
+  --ps-error: #eea396; --ps-error-bg: #382824; --ps-focus: #7fa98a; --ps-shadow: #00000030; --ps-edge: #7ea588;
 }
 .ps-tab button:hover, .ps-add-tab:hover, .ps-theme:hover { background: var(--ps-surface-alt); color: var(--ps-ink); }
 .ps-tab button:focus-visible, .ps-add-tab:focus-visible, .ps-theme:focus-visible,

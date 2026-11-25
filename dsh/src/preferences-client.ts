@@ -1,4 +1,5 @@
 import type { AppearancePreferences } from '../../web/src/appearance-preferences'
+import { CONNECTION_STYLES, SUPPORTED_THEMES, isCustomThemeColors, normalizeCustomThemeColors } from '../../web/src/theme'
 export type PaperstreamTheme = AppearancePreferences['theme']
 
 async function requestPreferences(method: 'GET' | 'PUT', preferences?: Partial<AppearancePreferences>): Promise<AppearancePreferences> {
@@ -8,11 +9,18 @@ async function requestPreferences(method: 'GET' | 'PUT', preferences?: Partial<A
   })
   if (!response.ok) throw new Error(`DSH appearance preferences unavailable (${response.status})`)
   const result = await response.json()
-  if (!['sage', 'paper', 'night'].includes(result?.theme)) throw new Error('DSH returned an unsupported theme')
+  if (!SUPPORTED_THEMES.includes(result?.theme)) throw new Error('DSH returned an unsupported theme')
   // A pre-settings host may still return only its theme.
   const connectionStyle = result.connectionStyle ?? 'rounded'
-  if (!['orthogonal', 'rounded', 'curved'].includes(connectionStyle)) throw new Error('DSH returned an unsupported connection style')
-  return { theme: result.theme, connectionStyle }
+  if (!CONNECTION_STYLES.includes(connectionStyle)) throw new Error('DSH returned an unsupported connection style')
+  if (result.customTheme !== undefined && !isCustomThemeColors(result.customTheme)) {
+    throw new Error('DSH returned an unsupported custom theme')
+  }
+  return {
+    theme: result.theme,
+    connectionStyle,
+    ...(result.customTheme !== undefined ? { customTheme: normalizeCustomThemeColors(result.customTheme) } : {}),
+  }
 }
 
 export function loadPreferences(): Promise<AppearancePreferences> { return requestPreferences('GET') }
